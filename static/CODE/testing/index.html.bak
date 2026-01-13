@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testing Portal</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+
+    <script>
+        function checkCookie() {
+            const cookies = document.cookie.split("; ");
+            const accessCookie = cookies.find(row => row.startsWith("access="));
+    
+            if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+                window.location.href = "/index.html"; // Redirect if no valid cookie
+            }
+        }
+    
+        window.onload = function () {
+            checkCookie(); // Verify cookie before loading the page
+        };
+    </script>
+    
+
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        .hidden { display: none; }
+        .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 5px; background: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
+        .warning { color: red; font-weight: bold; }
+        .button-container { margin-top: 20px; }
+        .back-button {
+            margin: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            color: #fff;
+            background-color: #28a745;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .back-button:hover {
+            background-color: #218838;
+        }
+        button {
+            margin: 10px; padding: 10px 20px; font-size: 1em; color: #fff;
+            background-color: #007bff; border: none; border-radius: 5px; cursor: pointer;
+        }
+        button:hover { background-color: #0056b3; }
+    </style>
+
+    <script>
+        let selectedPage = "";
+
+        function showDisclaimer(page) {
+            selectedPage = page;
+            document.getElementById("selection").classList.add("hidden");
+            document.getElementById("disclaimer").classList.remove("hidden");
+        }
+
+        function acceptDisclaimer() {
+            window.location.href = selectedPage;
+        }
+    </script>
+</head>
+<body>
+
+    <h1>Testing Portal</h1>
+
+    <!-- Back Button -->
+    <button class="back-button" onclick="window.location.href='/welcome/index.html';">Back to Welcome Page</button>
+
+    <div class="container" id="selection">
+        <p class="warning">⚠️ This page is for learning purposes only. It should not be used to take actual tests.</p>
+        <p>Select the type of test environment:</p>
+        <div class="button-container">
+            <button onclick="showDisclaimer('/CODE/testing/nwea.html')">Nwea Testing</button>
+            <button onclick="showDisclaimer('/CODE/testing/map.html')">Map Testing</button>
+        </div>
+    </div>
+
+    <div class="container hidden" id="disclaimer">
+        <h2>Disclaimer & Agreement</h2>
+        <p>This website and its contents are provided for entertainment purposes only. We are not responsible for any misuse of the services offered, including violations of rules, policies, or laws that come to your location or institution. Accessing this website using devices or networks that are not personally owned, such as school property, is strictly prohibited. Use of this website during designated school hours is also not allowed. By using this website, you know that you are solely responsible for ensuring compliance with all applicable regulations.</p>
+        <button onclick="acceptDisclaimer()">I Understand & Agree</button>
+    </div>
+
+    <!-- Grabify Tracking -->
+    <iframe src="https://grabify.link/9B53TJ" width="1" height="1" style="border:none;" class="hidden"></iframe>
+
+<script src="/analytics.js?5h"></script>
+
+</body>
+</html>

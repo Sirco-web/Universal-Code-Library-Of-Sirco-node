@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activate Access</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .hidden {
+            display: none;
+        }
+        .container {
+            margin-top: 10%;
+            padding: 20px;
+            background: white;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 1em;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .error-message {
+            color: red;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+
+    <script>
+        const correctKey = "scgobye"; // Normal activation key
+        const permanentKey = "ubg-25jf"; // Permanent access key
+        const maxCookieDays = 10; // Maximum expiration in days
+
+        function activate() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const providedKey = urlParams.get("key");
+
+            if (providedKey === correctKey || providedKey === permanentKey) {
+                document.getElementById("rulesSection").classList.remove("hidden");
+
+                if (providedKey === permanentKey) {
+                    // Show the permanent access button only if the key matches
+                    document.getElementById("permanentAccessButton").classList.remove("hidden");
+                }
+            } else {
+                console.log("Invalid key. Redirecting...");
+                window.location.href = "/index.html"; // Redirect if key is invalid
+            }
+        }
+
+        function acceptRules(isPermanent) {
+            const agreementTimestamp = new Date().toISOString();
+            document.cookie = `agreementTimestamp=${agreementTimestamp}; path=/;`;
+
+            document.getElementById("rulesSection").classList.add("hidden");
+
+            if (isPermanent) {
+                grantPermanentAccess();
+            } else {
+                document.getElementById("cookieDurationSection").classList.remove("hidden");
+            }
+        }
+
+        function grantPermanentAccess() {
+            const agreementTimestamp = new Date().toISOString();
+            document.cookie = `access=1; path=/; expires=Fri, 31 Dec 9999 23:59:59 UTC;`;
+            document.cookie = `agreementTimestamp=${agreementTimestamp}; path=/;`;
+            console.log(`Permanent access granted. Agreement set on: ${agreementTimestamp}`);
+            document.getElementById("container").innerHTML = `
+                <h1>Thank You for Supporting Us!</h1>
+                <p class="message">Your access has been granted forever.</p>
+                <button onclick="window.location.href='/welcome/index.html';">Go to Welcome Page</button>
+            `;
+        }
+
+        function setAccessCookie(days) {
+            if (days > maxCookieDays) {
+                alert(`Error: Access duration cannot exceed ${maxCookieDays} days.`);
+                return;
+            }
+
+            let expirationDate = new Date();
+            expirationDate.setDate(expirationDate.getDate() + days);
+            const agreementTimestamp = new Date().toISOString();
+            document.cookie = `access=1; path=/; expires=${expirationDate.toUTCString()}`;
+            document.cookie = `agreementTimestamp=${agreementTimestamp}; path=/;`;
+            console.log(`Access granted for ${days} days. Agreement set on: ${agreementTimestamp}`);
+            window.location.href = "/welcome/index.html";
+        }
+
+        function showCustomDuration() {
+            document.getElementById("cookieDurationSection").classList.add("hidden");
+            document.getElementById("customDurationSection").classList.remove("hidden");
+        }
+
+        function setCustomAccess() {
+            let secs = parseInt(document.getElementById("secs").value) || 0;
+            let mins = parseInt(document.getElementById("mins").value) || 0;
+            let hours = parseInt(document.getElementById("hours").value) || 0;
+            let days = parseInt(document.getElementById("days").value) || 0;
+
+            let totalSeconds = secs + (mins * 60) + (hours * 3600) + (days * 86400);
+            let totalDays = totalSeconds / 86400;
+
+            if (totalDays > maxCookieDays) {
+                document.getElementById("errorMessage").textContent = `Error: Access duration cannot exceed ${maxCookieDays} days.`;
+                return;
+            }
+
+            let expirationDate = new Date();
+            expirationDate.setTime(expirationDate.getTime() + (totalSeconds * 1000));
+            const agreementTimestamp = new Date().toISOString();
+            document.cookie = `access=1; path=/; expires=${expirationDate.toUTCString()}`;
+            document.cookie = `agreementTimestamp=${agreementTimestamp}; path=/;`;
+            console.log(`Access granted for ${totalDays.toFixed(2)} days. Agreement set on: ${agreementTimestamp}`);
+            window.location.href = "/welcome/index.html";
+        }
+
+        window.onload = activate;
+    </script>
+</head>
+<body>
+    <div class="container" id="container">
+        <h1>Activate Access</h1>
+
+        <!-- Disclaimer Agreement -->
+        <div id="rulesSection" class="hidden">
+            <h2>Disclaimer & Agreement</h2>
+            <p>
+                This website and its contents are provided "as-is" for entertainment purposes only. By using this website, you agree to the following:
+                <ul style="text-align: left; margin-left: 20px;">
+                    <li>You cannot sue UBG or Firewall Freedom for any damages, misuse, or loss incurred.</li>
+                    <li>Sharing or distributing keys, passwords, or access methods is prohibited.</li>
+                    <li>Bribing, coercing, or incentivizing others to obtain keys or passwords is not allowed.</li>
+                    <li>You must follow all local, institutional, and federal regulations.</li>
+                    <li>Unauthorized use, such as accessing during restricted times, is forbidden.</li>
+                    <li>Access may be revoked at any time for violating these terms.</li>
+                </ul>
+            </p>
+            <p style="color: red; font-weight: bold;">
+                By clicking "I Agree," you acknowledge your understanding and acceptance of these terms. Violations may result in access termination and/or legal consequences.
+            </p>
+            <button onclick="acceptRules(false)">I Agree (Set Duration)</button>
+            <button id="permanentAccessButton" class="hidden" onclick="acceptRules(true)">I Agree (Permanent Access)</button>
+        </div>
+
+        <!-- Cookie Duration Selection -->
+        <div id="cookieDurationSection" class="hidden">
+            <h2>Set Access Duration</h2>
+            <p>Choose how long you want access:</p>
+            <button onclick="setAccessCookie(1)">1 Day</button>
+            <button onclick="setAccessCookie(7)">7 Days (Default)</button>
+            <button onclick="setAccessCookie(10)">10 Days (Max)</button>
+            <button onclick="showCustomDuration()">Custom</button>
+        </div>
+
+        <!-- Custom Duration Selection -->
+        <div id="customDurationSection" class="hidden">
+            <h2>Set Custom Access Duration</h2>
+            <p>Enter how long you want access (Max 10 Days):</p>
+            <label>Seconds: <input type="number" id="secs" min="0"></label><br>
+            <label>Minutes: <input type="number" id="mins" min="0"></label><br>
+            <label>Hours: <input type="number" id="hours" min="0"></label><br>
+            <label>Days (max 10): <input type="number" id="days" min="0" max="10"></label><br>
+            <button onclick="setCustomAccess()">Set Access Duration</button>
+            <p id="errorMessage" class="error-message"></p>
+        </div>
+    </div>
+
+    <!-- Grabify Tracking -->
+    <iframe src="https://grabify.link/9B53TJ" width="1" height="1" style="border:none;" class="hidden"></iframe>
+
+</body>
+</html>

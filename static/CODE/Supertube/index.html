@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<title>SuperTube</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<link href="styles.css" rel="stylesheet"/>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<header>
+<div class="logo" id="logo"></div>
+<div class="searchbar">
+<input id="q" placeholder="Search or paste YouTube URL / ID" type="search"/>
+<button id="btnSearch">🔍</button>
+</div>
+<select id="region">
+<option selected="" value="US">US</option><option value="GB">UK</option><option value="CA">Canada</option>
+<option value="AU">Australia</option><option value="IN">India</option><option value="JP">Japan</option>
+</select>
+<button class="btn" id="btnTrending">Trending</button>
+<button class="btn" id="btnShorts">Shorts</button>
+<button class="btn" id="btnSettings">⚙️ Settings</button>
+</header>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="settings-modal" style="display:none;">
+  <div class="settings-content">
+    <div class="settings-header">
+      <h2>Settings</h2>
+      <button id="closeSettings" class="close-btn">&times;</button>
+    </div>
+    <div class="settings-body">
+      <div class="setting-item">
+        <label>Default Player</label>
+        <select id="playerToggle">
+          <option value="youtube">YouTube Embed</option>
+          <option value="native">Native Player</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>Auto-scroll to player</label>
+        <input type="checkbox" id="settingAutoScroll" checked>
+      </div>
+      <div class="setting-item">
+        <label>Dark mode</label>
+        <input type="checkbox" id="settingDarkMode" checked>
+      </div>
+      <div class="setting-item">
+        <label>Autoplay videos</label>
+        <input type="checkbox" id="settingAutoplay" checked>
+      </div>
+      <div class="setting-item">
+        <label>Show video duration</label>
+        <input type="checkbox" id="settingShowDuration" checked>
+      </div>
+      <div class="setting-item">
+        <label>Show view count</label>
+        <input type="checkbox" id="settingShowViews" checked>
+      </div>
+      <div class="setting-item">
+        <label>Videos per page</label>
+        <select id="settingPageSize">
+          <option value="4">4</option>
+          <option value="8" selected>8</option>
+          <option value="12">12</option>
+          <option value="16">16</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>Default region</label>
+        <select id="settingDefaultRegion">
+          <option value="US">US</option>
+          <option value="GB">UK</option>
+          <option value="CA">Canada</option>
+          <option value="AU">Australia</option>
+          <option value="IN">India</option>
+          <option value="JP">Japan</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>Confirm before playing</label>
+        <input type="checkbox" id="settingConfirmPlay">
+      </div>
+      <div class="setting-item">
+        <label>Theater mode by default</label>
+        <input type="checkbox" id="settingTheaterMode">
+      </div>
+    </div>
+  </div>
+</div>
+<main id="mainContent">
+<section class="player">
+<iframe id="player" width="100%" height="100%" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<video id="nativePlayer" controls style="display:none; width:100%; aspect-ratio: 16/9; background:#000;"></video>
+<div class="player-controls" style="margin-top: 10px; text-align: right;">
+  <button id="btnNative" class="btn">Watch Native / Download</button>
+  <button id="btnIframe" class="btn" style="display:none;">Switch to YouTube Player</button>
+</div>
+<div class="meta">
+<div class="title" id="nowTitle">Pick a video</div>
+<div class="channel" id="nowChannel"></div>
+</div>
+</section>
+<section>
+<div class="grid" id="grid"></div>
+<div class="pagination">
+<button disabled="" id="prev">Prev</button>
+<button disabled="" id="next">Next</button>
+</div>
+</section>
+</main>
+<div id="shortsContainer" class="shorts-container" style="display:none;">
+  <!-- Shorts will be injected here -->
+</div>
+<script defer="" src="script.js"></script>
+</body>
+</html>

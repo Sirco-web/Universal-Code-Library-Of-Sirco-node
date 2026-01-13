@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+
+<html>
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<title>Boxing Random</title>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" name="viewport"/>
+<meta content="Scirra Construct" name="generator"/>
+<link href="appmanifest.json" rel="manifest"/>
+<link href="style.css" rel="stylesheet"/>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<script>
+function checkCookie() {
+    const cookies = document.cookie.split("; ");
+    const accessCookie = cookies.find(row => row.startsWith("access="));
+    if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+        window.location.href = "/index.html"; // Redirect if no valid cookie
+    }
+}
+checkCookie();
+</script>
+<script>
+      if (location.protocol.substr(0, 4) === "file") {
+        alert("Web exports won't work until you upload them. (When running on the file: protocol, browsers block many features from working for security reasons.)");
+      }
+    </script>
+<script src="box2d.wasm.js"></script>
+<script src="/js/main.js"></script>
+<noscript>
+<div id="notSupportedWrap">
+<h2 id="notSupportedTitle">This content requires JavaScript</h2>
+<p class="notSupportedMessage">JavaScript appears to be disabled. Please enable it to view this content.</p>
+</div>
+</noscript>
+<script src="scripts/supportcheck.js"></script>
+<script src="scripts/offlineclient.js" type="module"></script>
+<script src="scripts/main.js" type="module"></script>
+<script src="scripts/register-sw.js" type="module"></script>
+<!-- Full file list: offline.json -->
+</body>
+</html>

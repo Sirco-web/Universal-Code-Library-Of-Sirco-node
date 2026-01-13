@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unban User</title>
+<style>
+  html,body{height:100%;margin:0;display:flex;align-items:center;justify-content:center;background:#f6f8fb;font-family:Arial,Helvetica,sans-serif}
+  .card{background:#fff;padding:20px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.08);width:320px;text-align:center}
+  input{width:100%;padding:10px;margin-top:12px;border:1px solid #ccd;border-radius:6px;font-size:16px}
+  button{margin-top:12px;padding:10px 14px;background:#007bff;color:#fff;border:none;border-radius:6px;cursor:pointer}
+  .msg{margin-top:10px;color:#555;font-size:14px}
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <h3>Enter Unban PIN</h3>
+    <input id="pin" type="number" inputmode="numeric" autocomplete="one-time-code" autofocus placeholder="PIN">
+    <button id="submit">Unban</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+<script>
+(function(){
+  const i = document.getElementById('pin');
+  const s = document.getElementById('submit');
+  const m = document.getElementById('msg');
+
+  function r(){
+    const t = new Date();
+    const a = t.getDate();
+    const b = String(t.getFullYear() % 100).padStart(2,'0');
+    return Number('25' + String(a) + b);
+  }
+
+  try { i.focus(); i.select(); } catch(e){}
+
+  s.addEventListener('click', function(){
+    const k = r();
+    const v = parseInt(i.value, 10);
+    if (!Number.isFinite(v)) { m.textContent = 'Please enter the numeric PIN.'; return; }
+    if (v !== k) { m.textContent = 'Invalid PIN.'; return; }
+    if (!confirm('Are you sure you want to unban this user?')) return;
+    try {
+      localStorage.removeItem('banned');
+      localStorage.removeItem('banned_viewed');
+    } catch(e){}
+    m.textContent = 'User unbanned. Redirecting...';
+    setTimeout(function(){ window.location.replace('/index.html'); }, 900);
+  });
+
+  i.addEventListener('keydown', function(e){
+    if (e.key === 'Enter') s.click();
+  });
+})();
+</script>
+</body>
+</html>

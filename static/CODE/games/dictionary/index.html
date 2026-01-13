@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Game Dictionary</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#0f1724;
+      --accent:#6ee7b7;
+      --muted:#9aa4b2;
+      --white:#f8fafc;
+    }
+    body{
+      margin:0;
+      font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background:linear-gradient(180deg,var(--bg),#071023);
+      color:var(--white);
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      border:1px solid rgba(255,255,255,0.04);
+      border-radius:12px;
+      padding:24px;
+      width:100%;
+      max-width:760px;
+      box-shadow:0 8px 30px rgba(2,6,23,0.6);
+    }
+    h1{ margin:0 0 8px 0; font-size:20px; }
+    p.lead{ color:var(--muted); margin:0 0 16px 0; }
+    .link-row{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin:12px 0 18px 0;
+      flex-wrap: wrap;
+    }
+    .primary-btn{
+      background:linear-gradient(90deg,var(--accent), #4fd1c5);
+      border:none;
+      color:#042018;
+      padding:10px 14px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:600;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .primary-btn:hover{
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(110,231,183,0.3);
+    }
+    .muted{ color:var(--muted); font-size:13px; margin-top:8px; }
+    footer { margin-top:18px; color:var(--muted); font-size:13px; }
+    .info-box{
+      background: rgba(110,231,183,0.1);
+      border: 1px solid rgba(110,231,183,0.2);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-top: 16px;
+    }
+    .info-box h3{
+      color: var(--accent);
+      font-size: 14px;
+      margin: 0 0 8px 0;
+    }
+    .info-box p{
+      color: var(--muted);
+      font-size: 13px;
+      margin: 0;
+    }
+    @media (max-width:520px){
+      .card{ padding:16px; }
+      h1{ font-size:18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card" role="main" aria-labelledby="title">
+    <h1 id="title">🎮 Game Dictionary</h1>
+    <p class="lead">Access the full game library directly from this server.</p>
+
+    <div class="link-row">
+      <a class="primary-btn" href="/CODE/games/ext/">
+        🎮 Open Game Library
+      </a>
+    </div>
+
+    <div class="info-box">
+      <h3>ℹ️ Local Game Library</h3>
+      <p>Games are now hosted locally on this server for faster loading and better reliability. No external links required!</p>
+    </div>
+
+    <footer>
+      <p class="muted">If the game library is empty, run the build script: <code>bash scripts/build-games.sh</code></p>
+    </footer>
+  </div>
+</body>
+</html>

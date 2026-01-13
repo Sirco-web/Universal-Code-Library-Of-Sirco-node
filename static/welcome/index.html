@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Welcome Page</title>
+<link href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png" rel="icon" type="image/png"/>
+<link href="style.css" rel="stylesheet"/>
+<script defer="" src="main.js"></script>
+<script async="" crossorigin="anonymous" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4660041917882468"></script>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<canvas id="canvas"></canvas>
+<!-- Dark mode toggle button -->
+<button aria-label="Toggle dark mode" id="dark-mode-toggle" style="
+    background: rgba(255,255,255,0.6); /* 60% opaque white */
+    border-radius: 50%;
+    border: 1px solid #eee;
+    box-shadow: 0 2px 8px #0002;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+" title="Toggle dark mode">
+<span id="dark-mode-icon">🌙</span>
+</button>
+<!-- Account icon in top right -->
+<a href="/CODE/user/" id="account-icon-link" style="
+    position: fixed;
+    top: 18px;
+    right: 22px;
+    z-index: 10001;
+    background: rgba(255,255,255,0.6); /* 60% opaque white */
+    border-radius: 50%;
+    box-shadow: 0 2px 8px #0002;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    border: 1px solid #eee;
+    transition: box-shadow 0.2s;
+" title="Game Data Saver">
+<svg fill="none" height="26" style="display:block;" viewbox="0 0 24 24" width="26" xmlns="http://www.w3.org/2000/svg">
+<circle cx="12" cy="8" fill="none" r="4" stroke="#007bff" stroke-width="2"></circle>
+<path d="M4 20c0-3.3137 3.134-6 7-6s7 2.6863 7 6" fill="none" stroke="#007bff" stroke-width="2"></path>
+</svg>
+</a>
+<!-- Download button next to account button -->
+<button id="download-offline-btn" style="
+    position: fixed;
+    top: 18px;
+    right: 74px;
+    z-index: 10001;
+    background: rgba(255,255,255,0.6); /* 60% opaque white */
+    border-radius: 50%;
+    box-shadow: 0 2px 8px #0002;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #eee;
+    transition: box-shadow 0.2s;
+    cursor: pointer;
+" title="Enable offline mode">
+<svg fill="none" height="22" style="display:block;" viewbox="0 0 24 24" width="22" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 4v12m0 0l-5-5m5 5l5-5" fill="none" stroke="#28a745" stroke-width="2"></path>
+<rect fill="#28a745" height="2" rx="1" width="16" x="4" y="18"></rect>
+</svg>
+</button>
+<!-- Modal for offline confirmation -->
+<div id="offline-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:20000;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
+<div style="background:var(--modal-bg);color:var(--modal-text);padding:2em 2.5em;border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,0.12);text-align:center;max-width:90vw;position:relative;border:1px solid var(--modal-border);">
+<button aria-label="Close" id="offline-modal-close" style="position:absolute;top:10px;right:12px;background:none;border:none;font-size:1.5em;line-height:1;color:#888;cursor:pointer;">×</button>
+<p style="font-size:1.1em;">Download the whole site for offline use?<br/><small>Pages you visit will be saved for offline access.</small></p>
+<button class="blue-btn" id="offline-confirm-btn" style="margin:0 1em 0 0;">Yes</button>
+<button class="blue-btn" id="offline-cancel-btn" style="background:#e0e7ef;color:#007bff;">No</button>
+<button class="blue-btn" id="view-offline-btn" style="margin-left:1em;">View Offline Content</button>
+</div>
+</div>
+<!-- Modal for viewing offline content -->
+<div id="offline-list-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:20001;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
+<div style="background:var(--modal-bg);color:var(--modal-text);padding:2em 2.5em;border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,0.12);text-align:left;max-width:95vw;max-height:90vh;overflow:auto;border:1px solid var(--modal-border);">
+<h3>Offline Content</h3>
+<div id="offline-list-content">
+<em>Loading...</em>
+</div>
+<button class="blue-btn" id="offline-list-close-btn" style="margin-top:1em;">Close</button>
+</div>
+</div>
+<!-- Mobile warning modal: shown only on phones / mobile devices -->
+<div aria-hidden="true" aria-modal="true" id="mobile-warning-modal" role="dialog" style="display:none;position:fixed;inset:0;z-index:21000;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);">
+<div class="mw-box" style="position:relative;background:#fff;color:#111;padding:1.1em 1.2em;border-radius:10px;max-width:92vw;width:min(520px,92%);box-shadow:0 8px 30px rgba(0,0,0,0.32);text-align:left;">
+<button aria-label="Close" id="mobile-warning-close" style="position:absolute;top:8px;right:12px;background:none;border:none;font-size:1.25em;line-height:1;color:#666;cursor:pointer;">×</button>
+<h3 style="margin:0 0 8px 0;font-size:1.05em;">Mobile warning</h3>
+<p style="margin:0 0 10px 0;font-size:0.98em;color:#333;">
+          This site is not made for phones or mobile devices. Many parts may not work well on mobile.
+          For the best experience, please use a desktop or tablet.
+        </p>
+<div style="text-align:right;">
+<button class="blue-btn" id="mobile-warning-close-2" style="background:#e0e7ef;color:#007bff;margin-right:0.5em;">Close</button>
+<button class="blue-btn" id="mobile-warning-dismiss">Don't show again</button>
+</div>
+</div>
+</div>
+<!-- Banner iframe, visibility controlled by showBanner -->
+<iframe allowtransparency="true" id="banner-frame" scrolling="no" style="height:60px;background:transparent;" title="Banner"></iframe>
+<script>
+        // Set the banner iframe src with cache-busting using JS (like fetchVersion)
+        document.getElementById('banner-frame').src = `/banner.html?nocache=${new Date().getTime()}`;
+
+        // Offline download button logic
+        // Button references
+        const offlineBtn = document.getElementById('download-offline-btn');
+        const offlineModal = document.getElementById('offline-modal');
+        const offlineModalClose = document.getElementById('offline-modal-close');
+        const offlineConfirm = document.getElementById('offline-confirm-btn');
+        const offlineCancel = document.getElementById('offline-cancel-btn');
+        const viewOfflineBtn = document.getElementById('view-offline-btn');
+        const offlineListModal = document.getElementById('offline-list-modal');
+        const offlineListContent = document.getElementById('offline-list-content');
+        const offlineListCloseBtn = document.getElementById('offline-list-close-btn');
+
+        offlineBtn.onclick = () => {
+            // Change "No" button to "Deactivate" if downloader is active
+            const offlineCancel = document.getElementById('offline-cancel-btn');
+            if (localStorage.downloader_enabled === "1") {
+                offlineCancel.textContent = "Deactivate";
+            } else {
+                offlineCancel.textContent = "No";
+            }
+            offlineModal.style.display = 'flex';
+        };
+        offlineCancel.onclick = () => {
+            offlineModal.style.display = 'none';
+            // If downloader is active, deactivate it
+            if (localStorage.downloader_enabled === "1") {
+                localStorage.downloader_enabled = "0";
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'SET_DOWNLOADER',
+                        enabled: false
+                    });
+                }
+                alert('Offline downloader deactivated.');
+            }
+        };
+        offlineModalClose.onclick = () => { offlineModal.style.display = 'none'; };
+        offlineConfirm.onclick = () => {
+            offlineModal.style.display = 'none';
+            // Enable downloader in localStorage and notify service worker
+            localStorage.downloader_enabled = "1";
+            if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'SET_DOWNLOADER',
+                    enabled: true
+                });
+            }
+            alert('Offline mode enabled! Pages you visit will be saved for offline use.');
+        };
+
+        // Register analytics-sw.js and set downloaderEnabled state
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/analytics-sw.js').then(reg => {
+                // Set initial downloader state
+                function updateDownloaderState() {
+                    if (reg.active) {
+                        reg.active.postMessage({
+                            type: 'SET_DOWNLOADER',
+                            enabled: localStorage.downloader_enabled === "1"
+                        });
+                    }
+                }
+                updateDownloaderState();
+                window.addEventListener('storage', updateDownloaderState);
+            });
+        }
+
+        // List of files to hide from offline content view
+        const HIDE_OFFLINE_PATHS = [
+            '/banner.html',
+            '/welcome/style.css',
+            '/welcome/main.js',
+            '/analytics.js',
+            '/newsletter.js',
+            '/backend.json'
+        ];
+
+        // Show offline content modal
+        viewOfflineBtn.onclick = async () => {
+            offlineListContent.innerHTML = "<em>Loading...</em>";
+            offlineListModal.style.display = 'flex';
+            if ('caches' in window) {
+                try {
+                    const cache = await caches.open('site-offline-cache-v1');
+                    const requests = await cache.keys();
+                    const pages = [];
+                    const files = [];
+                    for (const req of requests) {
+                        const url = new URL(req.url, location.origin);
+                        if (url.origin !== location.origin) continue;
+                        if (HIDE_OFFLINE_PATHS.includes(url.pathname)) continue;
+                        // Treat /something and /something/ as index.html if index.html is cached
+                        if (url.pathname.endsWith('/index.html')) {
+                            const dirPath = url.pathname.replace(/\/index\.html$/, '/') || '/';
+                            pages.push({ display: dirPath, href: dirPath, url: url.pathname });
+                            // Also add the non-slash version (e.g. /CODE/games)
+                            if (dirPath.endsWith('/')) {
+                                const noSlash = dirPath.slice(0, -1);
+                                if (noSlash) {
+                                    pages.push({ display: noSlash, href: noSlash, url: url.pathname });
+                                }
+                            }
+                        } else if (url.pathname.endsWith('.html')) {
+                            pages.push({ display: url.pathname, href: url.pathname, url: url.pathname });
+                        } else {
+                            files.push({ display: url.pathname, url: url.pathname });
+                        }
+                    }
+                    // Remove duplicates (by href)
+                    const seen = new Set();
+                    const uniquePages = pages.filter(p => {
+                        if (seen.has(p.href)) return false;
+                        seen.add(p.href);
+                        return true;
+                    });
+                    offlineListContent.innerHTML = `
+                        <b>Pages:</b>
+                        <ul>
+                            ${uniquePages.length ? uniquePages.map(p=>
+                                `<li>
+                                    <a href="${p.href}" target="_blank">${p.display}</a>
+                                    <button class="remove-offline-file blue-btn" data-url="${p.url}" style="background:#e0e7ef;color:#007bff;margin-left:0.5em;padding:0.2em 0.7em;font-size:0.95em;">Remove</button>
+                                </li>`
+                            ).join('') : '<li><em>None</em></li>'}
+                        </ul>
+                        <b>Other Files:</b>
+                        <ul>
+                            ${files.length ? files.map(f=>
+                                `<li>
+                                    <a href="${f.url}" target="_blank">${f.display}</a>
+                                    <button class="remove-offline-file blue-btn" data-url="${f.url}" style="background:#e0e7ef;color:#007bff;margin-left:0.5em;padding:0.2em 0.7em;font-size:0.95em;">Remove</button>
+                                </li>`
+                            ).join('') : '<li><em>None</em></li>'}
+                        </ul>
+                        <div style="margin-bottom:1em;">
+                            <button id="remove-all-offline" class="blue-btn" style="margin-left:0.5em;">Remove All Offline Files</button>
+                        </div>
+                    `;
+                    // Add event listeners for remove buttons
+                    offlineListContent.querySelectorAll('.remove-offline-file').forEach(btn => {
+                        btn.onclick = () => {
+                            const url = btn.getAttribute('data-url');
+                            if (navigator.serviceWorker.controller) {
+                                navigator.serviceWorker.controller.postMessage({
+                                    type: 'REMOVE_FILE',
+                                    url
+                                });
+                            }
+                            btn.parentElement.remove();
+                        };
+                    });
+                    // Remove all files
+                    document.getElementById('remove-all-offline').onclick = () => {
+                        if (navigator.serviceWorker.controller) {
+                            navigator.serviceWorker.controller.postMessage({ type: 'REMOVE_ALL' });
+                        }
+                        offlineListContent.querySelectorAll('ul').forEach(ul => ul.innerHTML = '<li><em>None</em></li>');
+                    };
+                } catch (e) {
+                    offlineListContent.innerHTML = "<em>Could not read offline cache.</em>";
+                }
+            } else {
+                offlineListContent.innerHTML = "<em>Offline cache not supported.</em>";
+            }
+        };
+
+        // Add opt-in/out logic for downloader
+        function setDownloaderEnabled(val) {
+            localStorage.downloader_enabled = val ? "1" : "0";
+            if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'SET_DOWNLOADER',
+                    enabled: !!val
+                });
+            }
+        }
+
+        // Add remove file/all logic for offline content modal
+        viewOfflineBtn.onclick = async () => {
+            offlineListContent.innerHTML = "<em>Loading...</em>";
+            offlineListModal.style.display = 'flex';
+            if ('caches' in window) {
+                try {
+                    const cache = await caches.open('site-offline-cache-v1');
+                    const requests = await cache.keys();
+                    const pages = [];
+                    const files = [];
+                    for (const req of requests) {
+                        const url = new URL(req.url, location.origin);
+                        if (url.origin !== location.origin) continue;
+                        if (HIDE_OFFLINE_PATHS.includes(url.pathname)) continue;
+                        if (url.pathname.endsWith('/index.html')) {
+                            if (url.pathname.endsWith('/index.html')) {
+                                const dirPath = url.pathname.replace(/\/index\.html$/, '/') || '/';
+                                pages.push({ display: dirPath, href: dirPath, url: url.pathname });
+                            } else {
+                                pages.push({ display: url.pathname, href: url.pathname, url: url.pathname });
+                            }
+                        } else {
+                            files.push({ display: url.pathname, url: url.pathname });
+                        }
+                    }
+                    offlineListContent.innerHTML = `
+                        <div style="margin-bottom:1em;">
+                            <button id="remove-all-offline" class="blue-btn" style="margin-left:0.5em;">Remove All Offline Files</button>
+                        </div>
+                        <b>Pages:</b>
+                        <ul>
+                            ${pages.length ? pages.map(p=>
+                                `<li>
+                                    <a href="${p.href}" target="_blank">${p.display}</a>
+                                    <button class="remove-offline-file blue-btn" data-url="${p.url}" style="background:#e0e7ef;color:#007bff;margin-left:0.5em;padding:0.2em 0.7em;font-size:0.95em;">Remove</button>
+                                </li>`
+                            ).join('') : '<li><em>None</em></li>'}
+                        </ul>
+                        <b>Other Files:</b>
+                        <ul>
+                            ${files.length ? files.map(f=>
+                                `<li>
+                                    <a href="${f.url}" target="_blank">${f.display}</a>
+                                    <button class="remove-offline-file blue-btn" data-url="${f.url}" style="background:#e0e7ef;color:#007bff;margin-left:0.5em;padding:0.2em 0.7em;font-size:0.95em;">Remove</button>
+                                </li>`
+                            ).join('') : '<li><em>None</em></li>'}
+                        </ul>
+                    `;
+                    // Add event listeners for remove buttons
+                    offlineListContent.querySelectorAll('.remove-offline-file').forEach(btn => {
+                        btn.onclick = () => {
+                            const url = btn.getAttribute('data-url');
+                            if (navigator.serviceWorker.controller) {
+                                navigator.serviceWorker.controller.postMessage({
+                                    type: 'REMOVE_FILE',
+                                    url
+                                });
+                            }
+                            btn.parentElement.remove();
+                        };
+                    });
+                    // Remove all files
+                    document.getElementById('remove-all-offline').onclick = () => {
+                        if (navigator.serviceWorker.controller) {
+                            navigator.serviceWorker.controller.postMessage({ type: 'REMOVE_ALL' });
+                        }
+                        offlineListContent.querySelectorAll('ul').forEach(ul => ul.innerHTML = '<li><em>None</em></li>');
+                    };
+                } catch (e) {
+                    offlineListContent.innerHTML = "<em>Could not read offline cache.</em>";
+                }
+            } else {
+                offlineListContent.innerHTML = "<em>Offline cache not supported.</em>";
+            }
+        };
+        offlineListCloseBtn.onclick = () => { offlineListModal.style.display = 'none'; };
+
+        // Hide navigation buttons if their pages are not cached and user is offline
+        async function hideUnavailableButtons() {
+            // If offline, always hide AI, Proxys and Tools buttons
+            if (!navigator.onLine) {
+                ['ai-btn', 'proxys-btn', 'tools-btn'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'none';
+                });
+            }
+
+            // For other buttons, check cache availability when offline
+            if (!navigator.onLine && 'caches' in window) {
+                const cache = await caches.open('site-offline-cache-v1');
+                // Mapping: button id -> page path (exclude ai/proxys/tools which are handled above)
+                const btns = [
+                    { id: 'games-btn', path: '/CODE/games/' },
+                    { id: 'storage-btn', path: '/CODE/sound/' },
+                    { id: 'updates-btn', path: '/updates.txt' }
+                ];
+                for (const {id, path} of btns) {
+                    const btn = document.getElementById(id);
+                    if (btn) {
+                        const match = await cache.match(path);
+                        if (!match) btn.style.display = 'none';
+                    }
+                }
+            }
+        }
+        window.addEventListener('DOMContentLoaded', hideUnavailableButtons);
+
+        // Banner and version fallback for offline
+        function setOfflineBannerAndVersion() {
+            if (!navigator.onLine) {
+                // Banner fallback
+                const bannerFrame = document.getElementById('banner-frame');
+                if (bannerFrame) {
+                    bannerFrame.style.display = 'none';
+                    // Insert offline banner message
+                    if (!document.getElementById('offline-banner-msg')) {
+                        const msg = document.createElement('div');
+                        msg.id = 'offline-banner-msg';
+                        msg.style = 'height:60px;display:flex;align-items:center;justify-content:center;background:#e0e7ef;color:#007bff;font-size:1.1em;border:2px solid #222;border-radius:10px;margin-bottom:10px;';
+                        msg.textContent = 'Sorry, you are offline. To get the latest banner please go online.';
+                        bannerFrame.parentNode.insertBefore(msg, bannerFrame);
+                    }
+                }
+                // Version fallback
+                const verSpan = document.getElementById('siteVersion');
+                if (verSpan) {
+                    verSpan.textContent = 'Offline';
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', setOfflineBannerAndVersion);
+    </script>
+<div class="container">
+<header class="main-header">
+<h1>Welcome to <span class="brand">Code-Universe</span></h1>
+<p class="subtitle">The brand new Firewall Freedom lineup.</p>
+<div class="mode-note" style="margin-top:1em;font-size:0.98em;color:#888;">
+</div>
+</header>
+<!-- Top Buttons -->
+<div class="button-group" id="top-buttons">
+<button onclick="removeAccessKey();">Remove Access</button>
+<button id="shortcut-settings-btn" onclick="location.href='/welcome/shortcut.html'" title="Configure shortcut">Shortcut Settings</button>
+<button id="updates-btn" onclick="window.location.href='/updates.txt';">View Updates</button>
+</div>
+<nav class="main-nav">
+<div class="button-group" id="main-buttons">
+<button id="games-btn" onclick="window.location.href='/CODE/games';">Games</button>
+<button id="gamed-btn" onclick="window.location.href='/CODE/games/dictionary';">Dictianary</button>
+<button id="storage-btn" onclick="window.location.href='/CODE/sound';">Sound board</button>
+<button id="links-btn" onclick="window.location.href='/links';">Other sites</button>
+<button id="ai-btn" onclick="window.location.href='/ai';">Ai</button>
+<button id="chat-btn" onclick="window.location.href='/CODE/chat';">Chat</button>
+<button id="tube-btn" onclick="window.location.href='/CODE/Supertube';">SuperTube (Youtube)</button>
+<button id="tools-btn" onclick="window.location.href='/CODE/tools';" style="display:none;">Tools</button>
+</div>
+</nav>
+</div>
+<!-- window.location.href='/CODE/proxys'; -->
+<footer class="version-footer">
+<p>Site Version: <span id="siteVersion">Loading...</span></p>
+<p class="disclaimer">
+        Disclaimer: This website and its contents are provided for entertainment purposes only. 
+        We are not responsible for any misuse of the services offered, including violations of 
+        rules, policies, or laws in your location or institution. Accessing this site using unauthorized 
+        devices or networks is prohibited. By using this site, you accept full responsibility for compliance.
+        </p>
+</footer>
+<script src="/analytics.js?5h"></script>
+<style>
+    /* ...existing code... */
+
+    /* Modal color variables and dark-mode aware styles */
+    :root {
+        --modal-bg: #fff;
+        --modal-text: #111;
+        --modal-border: rgba(0,0,0,0.08);
+        --modal-btn-bg: #007bff;
+        --modal-btn-color: #fff;
+        --modal-alt-btn-bg: #e0e7ef;
+        --modal-alt-btn-color: #007bff;
+    }
+    .dark-mode, .dark-mode body {
+        /* dark mode vars */
+        --modal-bg: #111;
+        --modal-text: #eaeaea;
+        --modal-border: rgba(255,255,255,0.06);
+        --modal-btn-bg: #0a84ff;
+        --modal-btn-color: #fff;
+        --modal-alt-btn-bg: #222;
+        --modal-alt-btn-color: #9fc7ff;
+    }
+
+    /* Apply to our offline modals */
+    #offline-modal > div,
+    #offline-list-modal > div {
+        background: var(--modal-bg);
+        color: var(--modal-text);
+        border: 1px solid var(--modal-border);
+        box-shadow: 0 6px 30px rgba(0,0,0,0.12);
+    }
+
+    /* Standard blue buttons inside modals */
+    #offline-modal .blue-btn,
+    #offline-list-modal .blue-btn {
+        background: var(--modal-btn-bg);
+        color: var(--modal-btn-color);
+        border-radius: 6px;
+    }
+
+    /* The "alt" cancel button (overrides inline styles) */
+    #offline-modal #offline-cancel-btn {
+        background: var(--modal-alt-btn-bg) !important;
+        color: var(--modal-alt-btn-color) !important;
+    }
+
+    /* Make sure small inline color uses are readable in dark mode */
+    #offline-modal button[aria-label="Close"],
+    #offline-list-modal button[aria-label="Close"] {
+        color: var(--modal-text);
+        opacity: 0.8;
+    }
+
+    .blue-btn {
+        background: #007bff;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5em 1.2em;
+        font-size: 1em;
+        cursor: pointer;
+        margin-bottom: 0.2em;
+        transition: background 0.15s;
+        box-shadow: 0 1px 4px #0001;
+        outline: none;
+        display: inline-block;
+    }
+    .blue-btn:hover, .blue-btn:focus {
+        background: #0056b3;
+    }
+
+    /* Mobile warning modal tweaks (dark-mode aware) */
+    #mobile-warning-modal .mw-box { transition: background 0.12s, color 0.12s; }
+    @media (prefers-color-scheme: dark) {
+      #mobile-warning-modal .mw-box { background:#111;color:#eee;box-shadow:0 8px 30px rgba(0,0,0,0.6); }
+      #mobile-warning-modal .mw-box .blue-btn { box-shadow:none; }
+    }
+    </style>
+<!-- Guided tour overlay (shown when localStorage.welcome_tour_shown is not set) -->
+<div aria-hidden="true" id="tour-overlay" style="display:none;position:fixed;inset:0;z-index:20005;pointer-events:auto;">
+<div id="tour-backdrop" style="position:absolute;inset:0;background:rgba(0,0,0,0.45);"></div>
+<div aria-live="polite" id="tour-tooltip" role="dialog" style="position:absolute;max-width:320px;background:#fff;color:#111;padding:14px;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,0.3);z-index:20007;">
+<div id="tour-title" style="font-weight:600;margin-bottom:6px;font-size:1.02em"></div>
+<div id="tour-desc" style="font-size:0.95em;margin-bottom:10px"></div>
+<div style="text-align:right">
+<button class="blue-btn" id="tour-skip" style="background:#e0e7ef;color:#007bff;margin-right:8px">Skip</button>
+<button class="blue-btn" id="tour-prev" style="display:none;margin-right:8px;">Prev</button>
+<button class="blue-btn" id="tour-next">Next</button>
+</div>
+</div>
+<div id="tour-arrow" style="position:absolute;width:18px;height:18px;transform:rotate(45deg);background:#fff;box-shadow:0 6px 18px rgba(0,0,0,0.18);z-index:20006;"></div>
+</div>
+<style>
+    /* Tour styles */
+    .tour-highlight {
+        position:relative;
+        z-index:20008 !important;
+        box-shadow: 0 0 0 6px rgba(0,123,255,0.12), 0 6px 18px rgba(0,0,0,0.08) !important;
+        border-radius:8px !important;
+        transition:box-shadow 0.18s ease;
+    }
+    </style>
+<script>
+    // Tour logic: runs only if localStorage.welcome_tour_shown !== '1'
+    (function(){
+      const SEEN_KEY = 'welcome_tour_shown';
+      if (localStorage.getItem(SEEN_KEY) === '1') return;
+
+      const steps = [
+        { selector: '#banner-frame', title: 'Site Banner', desc: 'This banner shows announcements and quick links. It updates when online.', placement: 'bottom' },
+        { selector: '#download-offline-btn', title: 'Offline Mode', desc: 'Enable offline mode to save pages you visit for offline access.', placement: 'left' },
+        { selector: '#games-btn', title: 'Games', desc: 'Open the Games section. Some pages require being online unless saved for offline.', placement: 'top' },
+        { selector: '#storage-btn', title: 'Sound Board', desc: 'Open the Sound Board to play and save sounds.', placement: 'top' },
+        { selector: '#ai-btn', title: 'AI Platform', desc: 'Our AI platform where you can experiment with models we built.', placement: 'top' },
+        { selector: '#shortcut-settings-btn', title: 'Shortcut Settings', desc: 'Record a keyboard shortcut to remove access or redirect you to another site.', placement: 'left' },
+        { selector: '#account-icon-link', title: 'Game Data Saver', desc: 'This saves your game progress and settings so you can keep playing across devices.', placement: 'left' }
+      ];
+
+      let index = 0;
+      const overlay = document.getElementById('tour-overlay');
+      const tooltip = document.getElementById('tour-tooltip');
+      const arrow = document.getElementById('tour-arrow');
+      const titleEl = document.getElementById('tour-title');
+      const descEl = document.getElementById('tour-desc');
+      const btnNext = document.getElementById('tour-next');
+      const btnPrev = document.getElementById('tour-prev');
+      const btnSkip = document.getElementById('tour-skip');
+      const btnSkipAll = document.getElementById('tour-skip-all');
+
+      function show() {
+        overlay.style.display = 'block';
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        // show floating skip-all button
+        if (btnSkipAll) btnSkipAll.style.display = 'block';
+        showStep(index);
+        window.addEventListener('resize', reposition);
+        window.addEventListener('scroll', reposition, true);
+        document.addEventListener('keydown', onKey);
+      }
+
+      function hideAndMarkSeen() {
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        clearHighlights();
+        localStorage.setItem(SEEN_KEY, '1');
+        // hide floating skip-all button
+        if (btnSkipAll) btnSkipAll.style.display = 'none';
+        window.removeEventListener('resize', reposition);
+        window.removeEventListener('scroll', reposition, true);
+        document.removeEventListener('keydown', onKey);
+      }
+
+      // Skip all button handler
+      if (btnSkipAll) btnSkipAll.addEventListener('click', hideAndMarkSeen);
+
+      function onKey(e){
+        if (e.key === 'ArrowRight') next();
+        if (e.key === 'ArrowLeft') prev();
+        if (e.key === 'Escape') { hideAndMarkSeen(); }
+      }
+
+      function next(){
+        if (index < steps.length - 1) { index++; showStep(index); }
+        else { hideAndMarkSeen(); }
+      }
+      function prev(){ if (index > 0) { index--; showStep(index); } }
+
+      btnNext.addEventListener('click', next);
+      btnPrev.addEventListener('click', prev);
+      btnSkip.addEventListener('click', hideAndMarkSeen);
+
+      function clearHighlights(){
+        document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'));
+      }
+
+      function showStep(i){
+        clearHighlights();
+        const step = steps[i];
+        const target = document.querySelector(step.selector);
+        titleEl.textContent = step.title || '';
+        descEl.textContent = step.desc || '';
+        btnPrev.style.display = i === 0 ? 'none' : 'inline-block';
+        btnNext.textContent = i === steps.length - 1 ? 'Finish' : 'Next';
+
+        if (!target) {
+          // If target missing, center tooltip and continue
+          tooltip.style.left = '50%';
+          tooltip.style.top = '20%';
+          tooltip.style.transform = 'translateX(-50%)';
+          arrow.style.display = 'none';
+        } else {
+          arrow.style.display = 'block';
+          // highlight
+          target.classList.add('tour-highlight');
+
+          // compute positions
+          const rect = target.getBoundingClientRect();
+          const padding = 12; // space between element and tooltip
+          let top, left;
+          tooltip.style.transform = '';
+
+          // Default placement
+          if (step.placement === 'bottom') {
+            top = rect.bottom + padding + window.scrollY;
+            left = rect.left + window.scrollX + (rect.width/2) - 160; // center tooltip (320/2)
+            arrow.style.left = (rect.left + window.scrollX + rect.width/2 - 9) + 'px';
+            arrow.style.top = (rect.bottom + window.scrollY + padding - 9) + 'px';
+          } else if (step.placement === 'top') {
+            top = rect.top + window.scrollY - padding - tooltip.offsetHeight;
+            left = rect.left + window.scrollX + (rect.width/2) - 160;
+            arrow.style.left = (rect.left + window.scrollX + rect.width/2 - 9) + 'px';
+            arrow.style.top = (rect.top + window.scrollY - padding - 9 - tooltip.offsetHeight) + 'px';
+          } else if (step.placement === 'left') {
+            top = rect.top + window.scrollY + (rect.height/2) - 36;
+            left = rect.left + window.scrollX - padding - tooltip.offsetWidth;
+            arrow.style.top = (rect.top + window.scrollY + rect.height/2 - 9) + 'px';
+            arrow.style.left = (rect.left + window.scrollX - padding - 9 - tooltip.offsetWidth) + 'px';
+          } else { // right
+            top = rect.top + window.scrollY + (rect.height/2) - 36;
+            left = rect.right + window.scrollX + padding;
+            arrow.style.top = (rect.top + window.scrollY + rect.height/2 - 9) + 'px';
+            arrow.style.left = (rect.right + window.scrollX + padding - 9) + 'px';
+          }
+
+          // clamp to viewport
+          const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+          const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+          left = Math.min(Math.max(8 + window.scrollX, left), vw - tooltip.offsetWidth - 8 + window.scrollX);
+          top = Math.min(Math.max(8 + window.scrollY, top), (window.scrollY + vh) - tooltip.offsetHeight - 8);
+
+          tooltip.style.left = left + 'px';
+          tooltip.style.top = top + 'px';
+
+          // position arrow near target (arrow is a rotated square)
+          arrow.style.width = '18px';
+          arrow.style.height = '18px';
+        }
+      }
+
+      function reposition(){ showStep(index); }
+
+      // Wait until layout settles so we can measure tooltip size
+      setTimeout(show, 400);
+    })();
+    </script>
+<script>
+    // Simple removeAccessKey implementation (used elsewhere)
+    function removeAccessKey(){
+      try {
+        localStorage.removeItem('access_key');
+      } catch(e){ }
+      alert('Access key removed.');
+    }
+
+    // Track currently pressed keys so we can detect multi-key combos like Alt+G+5
+    const __pressedKeys = new Set();
+    window.addEventListener('keydown', (ev) => { __pressedKeys.add((ev.key || '').toLowerCase()); }, { passive: true });
+    window.addEventListener('keyup', (ev) => { __pressedKeys.delete((ev.key || '').toLowerCase()); }, { passive: true });
+
+    // Helper to post to service worker
+    function postToSW(msg) {
+      try {
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage(msg);
+        } else if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then(reg => { if (reg && reg.active) reg.active.postMessage(msg); }).catch(()=>{});
+        }
+      } catch (e) {}
+    }
+
+    // Helper: reliably detect Alt+G+5 using tracked keys plus current event key.
+    function isAltG5Pressed(e) {
+      try {
+        const keyNow = (e.key || '').toLowerCase();
+        // '5' may be '%' when shifted, so accept both
+        const has5 = __pressedKeys.has('5') || __pressedKeys.has('%') || keyNow === '5' || keyNow === '%';
+        const hasG = __pressedKeys.has('g') || keyNow === 'g';
+        return !!(e.altKey && hasG && has5);
+      } catch (ex) { return false; }
+    }
+
+    // Global handler: listen for the saved shortcut combo and perform action
+    document.addEventListener('keydown', (e) => {
+      // avoid triggering when typing
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      // Special debug combo: Alt + G + 5 -> show menu only, do not perform saved action
+      try {
+        if (isAltG5Pressed(e)) {
+          // send a timestamped trigger to SW; force to bypass timing checks
+          postToSW({ type: 'SHORTCUT_TRIGGERED', timestamp: Date.now(), force: true });
+          // prevent the default page shortcut action and stop other handlers
+          try { e.preventDefault(); e.stopPropagation(); } catch (ignore) {}
+          return;
+        }
+      } catch (ignore) {}
+
+      const stored = localStorage.shortcut_combo;
+      if (!stored) return;
+      const parts = [];
+      if (e.ctrlKey) parts.push('Ctrl');
+      if (e.metaKey) parts.push('Meta');
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+      const keyChar = e.key && e.key.length === 1 ? e.key.toUpperCase() : (e.key || '').replace(/ /g, '');
+      if (keyChar && !['CONTROL','SHIFT','ALT','META'].includes(keyChar.toUpperCase())) parts.push(keyChar);
+      const combo = parts.join('+');
+      if (combo === stored) {
+        const act = localStorage.shortcut_action || 'remove_access';
+        if (act === 'remove_access') {
+          try { removeAccessKey(); } catch (ignore){}
+        } else if (act === 'redirect') {
+          const url = localStorage.shortcut_redirect || '';
+          if (url) window.location.href = url;
+        }
+      }
+    });
+    </script>
+<script>
+    // Dark mode toggle logic
+    (function() {
+        const toggle = document.getElementById('dark-mode-toggle');
+        const icon = document.getElementById('dark-mode-icon');
+        function setDarkMode(on) {
+            document.documentElement.classList.toggle('dark-mode', on);
+            icon.textContent = on ? '☀️' : '🌙';
+            localStorage.setItem('dark_mode', on ? '1' : '0');
+        }
+        toggle.addEventListener('click', () => {
+            setDarkMode(!document.documentElement.classList.contains('dark-mode'));
+        });
+        // On load, set dark mode if preferred or previously set
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const saved = localStorage.getItem('dark_mode');
+        setDarkMode(saved === '1' || (saved === null && prefersDark));
+    })();
+
+    // Classic mode toggle logic
+    (function() {
+        const toggle = document.getElementById('classic-mode-toggle');
+        const icon = document.getElementById('classic-mode-icon');
+        const note = document.getElementById('mode-note-text');
+        function setClassicMode(on) {
+            document.documentElement.classList.toggle('classic-mode', on);
+            icon.textContent = on ? '✨' : '🕹️';
+            localStorage.setItem('classic_mode', on ? '1' : '0');
+            if (note) note.textContent = on
+                ? "You are using the classic look. You can switch back to the new look here."
+                : "You are using the new look. You can switch to classic mode here.";
+        }
+        toggle.addEventListener('click', () => {
+            setClassicMode(!document.documentElement.classList.contains('classic-mode'));
+        });
+        // On load, set classic mode if previously set
+        const saved = localStorage.getItem('classic_mode');
+        setClassicMode(saved === '1');
+    })();
+
+    (function(){
+      const KEY = 'mobile_warning_dismissed_v1';
+      function isMobileDevice() {
+        // coarse pointer or known mobile UA or small width + touch
+        try {
+          if (window.matchMedia && window.matchMedia('(any-pointer:coarse)').matches) return true;
+          if (/Mobi|Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry/i.test(navigator.userAgent)) return true;
+          if (window.innerWidth <= 720 && (navigator.maxTouchPoints && navigator.maxTouchPoints > 0)) return true;
+        } catch (e) {}
+        return false;
+      }
+      if (!localStorage.getItem(KEY) && isMobileDevice()) {
+        const modal = document.getElementById('mobile-warning-modal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden','false');
+        // close handlers
+        const close = () => { modal.style.display = 'none'; modal.setAttribute('aria-hidden','true'); };
+        document.getElementById('mobile-warning-close').onclick = close;
+        document.getElementById('mobile-warning-close-2').onclick = close;
+        document.getElementById('mobile-warning-dismiss').onclick = () => {
+          try { localStorage.setItem(KEY, '1'); } catch(e){}
+          close();
+        };
+        // allow dismiss by tapping backdrop (but not the box)
+        modal.addEventListener('click', (ev) => {
+          if (ev.target === modal) close();
+        });
+      }
+    })();
+    </script>
+<!-- Add beta modal for Proxys button -->
+<script>
+  (function() {
+    const proxysBtn = document.getElementById('proxys-btn');
+    if (!proxysBtn) return;
+    proxysBtn.onclick = function() {
+      // If modal already exists, show it
+      let modal = document.getElementById('proxys-beta-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'proxys-beta-modal';
+        modal.style = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = `
+          <div style="background:#fff;color:#222;padding:2em 2.5em;border-radius:12px;box-shadow:0 8px 32px #0003;max-width:95vw;text-align:center;position:relative;">
+            <button id="proxys-beta-close" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.5em;line-height:1;color:#888;cursor:pointer;">&times;</button>
+            <h2 style="margin-top:0;">Proxys Beta Feature</h2>
+            <p style="font-size:1.1em;margin-bottom:1em;">
+              <b>This is a beta feature.</b> Some sites may not work yet.<br>
+              Please be patient as we improve it.<br>
+              For more details and known issues, visit:<br>
+              <a href="/Pro/work" style="color:#007bff;text-decoration:underline;">/Pro/work</a>
+            </p>
+            <button onclick="window.location.href='/CODE/proxys';" class="blue-btn" style="margin-top:1em;">Continue to Proxys</button>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById('proxys-beta-close').onclick = function() {
+          modal.style.display = 'none';
+        };
+      } else {
+        modal.style.display = 'flex';
+      }
+    };
+  })();
+</script>
+</body>
+<script src="stars.js"></script>
+</html>

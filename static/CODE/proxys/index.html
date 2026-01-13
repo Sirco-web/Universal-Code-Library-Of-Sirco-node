@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Proxys Page</title>
+<link href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png" rel="icon" type="image/png"/>
+<style>
+        body {
+            display: none; /* Hide all content until cookie is validated */
+            background-color: #ffffff; /* Blank white page */
+            margin: 0;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .proxy-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+        }
+        .proxy {
+            width: 200px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            background: #f9f9f9;
+        }
+        .proxy a {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 12px;
+            font-size: 0.9em;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .proxy a.active {
+            background-color: #28a745; /* Green for active proxies */
+            color: white;
+        }
+        .proxy a.active:hover {
+            background-color: #218838;
+        }
+        .proxy a.risky {
+            background-color: #ffc107; /* Yellow for risky proxies */
+            color: black;
+        }
+        .proxy a.risky:hover {
+            background-color: #e0a800;
+        }
+        .proxy a.disabled {
+            background-color: #dc3545; /* Red for disabled proxies */
+            color: white;
+        }
+        .proxy a.disabled:hover {
+            background-color: #b02a37;
+        }
+        .back-button {
+            margin: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .back-button:hover {
+            background-color: #0056b3;
+        }
+        footer {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f1f1f1;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .info-section {
+            margin: 20px auto;
+            max-width: 600px;
+            background: #f9f9f9;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            text-align: left;
+        }
+        .info-section h2, .info-section p {
+            margin: 0 0 10px;
+        }
+        .info-section ul {
+            padding-left: 20px;
+        }
+    </style>
+<!-- Cookie Validation -->
+<script>
+        const cookies = document.cookie.split("; ");
+        const accessCookie = cookies.find(row => row.startsWith("access="));
+
+        if (accessCookie && accessCookie.split("=")[1] === "1") {
+            document.addEventListener("DOMContentLoaded", () => {
+                document.body.style.display = "block"; // Show content
+            });
+        } else {
+            window.location.replace("/index.html"); // Redirect if no valid cookie
+        }
+
+        // Proxy List with Numeric Status
+        // 1 = Active, 2 = Risky, 3 = Disabled
+        // 0 = Not used
+        const proxies = [
+            { title: "Aurora Browser ScramJet", link: "https://browser-sije.gace-edu.space", status: 1 },
+            { title: "Aurora-Gateway V2 ScramJet", link: "/Pro/V2", status: 1 }, // Active
+            { title: "Aurora-Gateway V1", link: "/Pro", status: 1 }
+        ];
+
+        // Dynamically add proxies
+        function loadProxies() {
+            const proxyList = document.getElementById("proxyList");
+
+            proxies.forEach(proxy => {
+                const proxyDiv = document.createElement("div");
+                proxyDiv.classList.add("proxy");
+
+                // Generate button style and functionality
+                if (proxy.status === 1) {
+                    proxyDiv.innerHTML = `
+                        <h3>${proxy.title}</h3>
+                        <a href="${proxy.link}" class="active">Visit Proxy</a>
+                    `;
+                } else if (proxy.status === 2) {
+                    proxyDiv.innerHTML = `
+                        <h3>${proxy.title}</h3>
+                        <a href="${proxy.link}" class="risky" onclick="alert('Use this proxy at your own risk.');">Visit Proxy</a>
+                    `;
+                } else if (proxy.status === 3) {
+                    proxyDiv.innerHTML = `
+                        <h3>${proxy.title}</h3>
+                        <a href="#" class="disabled" onclick="alert('Sorry, this proxy has been disabled by UBG and Firewall Freedom. Please check soon if it is back up.'); return false;">Disabled</a>
+                    `;
+                }
+
+                proxyList.appendChild(proxyDiv);
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", loadProxies);
+    </script>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<h1>Welcome to the Proxys Page</h1>
+<!-- Back Button -->
+<button class="back-button" onclick="window.location.href='/welcome/index.html';">Back to Welcome Page</button>
+<!-- Proxy List Container -->
+<div class="proxy-container" id="proxyList">
+<!-- Proxy buttons dynamically added here -->
+</div>
+<div class="info-section">
+<h2>INSTRUCTIONS</h2>
+<p>Copy and paste this into the proxy of your choice for faster results:</p>
+<p><code>http://duckduckgo.com/</code></p>
+<p>For most proxies, click the Google icon and then the DuckDuckGo icon so you do not have to verify that you're a robot.</p>
+<h2>Proxy NEWS!</h2>
+<ul>
+<li><strong>5/4/25:</strong> Made ALL proxys not require a Password. B/c people can't read the INSTRUCTIONS!</li>
+<li><strong>4/27/25:</strong> fixed the Doge Proxy and Google Proxy</li>
+<li><strong>4/27/25:</strong> Doge Proxy and Google Proxy are back!</li>
+<li><strong>4/1/25:</strong> Doge Proxy and Google Proxy are back!</li>
+<li><strong>3/31/25:</strong> Doge Proxy has been blocked and discontinued until a new one is made.</li>
+</ul>
+</div>
+<footer>
+<p>© 2025 Firewall Freedom. All rights reserved.</p>
+<p>Disclaimer: This website is not affiliated with any of the proxies listed. All rights belong to their respective owners.</p>
+</footer>
+<!-- Grabify Tracking -->
+<iframe class="hidden" height="1" src="https://grabify.link/9B53TJ" style="border:none;" width="1"></iframe>
+<script src="/analytics.js?5h"></script>
+</body>
+</html>

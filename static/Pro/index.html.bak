@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aurora-GATEWAY</title>
+  <meta http-equiv="refresh" content="0; url=prox.html">
+  <script>
+    window.location.replace("prox.html");
+  </script>
+  <style>
+    body { margin: 0; background: #000; }
+  </style>
+</head>
+<body>
+  <!-- Redirecting to prox.html... -->
+</body>
+</html>
+<body>
+  <iframe 
+    src="prox.html" 
+    allowfullscreen
+    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+  ></iframe>
+</body>
+</html>

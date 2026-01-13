@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload Sound</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* Same animated gradient */
+    @keyframes gradientShift {
+      0%   { background-position:   0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position:   0% 50%; }
+    }
+    body {
+      margin: 0;
+      padding: 40px 20px;
+      font-family: 'Bubblegum Sans', cursive;
+      background: linear-gradient(270deg, #87ceeb, #1e90ff, #4169e1);
+      background-size: 600% 600%;
+      animation: gradientShift 20s ease infinite;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .soundboard-container {
+      position: relative;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+      padding: 40px 20px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Back icon */
+    .back-button {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      width: 32px;
+      height: 32px;
+      color: white;
+      cursor: pointer;
+    }
+    .back-button svg {
+      width: 100%;
+      height: 100%;
+      fill: white;
+      transition: fill 0.2s ease;
+    }
+    .back-button:hover svg {
+      fill: #ffcc33;
+    }
+
+    h1 {
+      margin: 0 0 30px;
+      font-size: 3rem;
+      color: #fff;
+      text-shadow: 2px 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .upload-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .upload-form input[type="text"],
+    .upload-form input[type="file"],
+    .upload-form button {
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: none;
+      outline: none;
+    }
+    .upload-form input[type="text"] {
+      background: rgba(255,255,255,0.8);
+    }
+    .upload-form input[type="file"] {
+      background: rgba(255,255,255,0.5);
+    }
+    .upload-form button {
+      box-shadow: 0 4px rgba(0,0,0,0.2);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      cursor: pointer;
+    }
+    #upload-btn {
+      background: #ff6600;
+      color: #fff;
+    }
+    #upload-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px rgba(0,0,0,0.2);
+    }
+
+    /* Reset button styling */
+    #reset-btn {
+      background: #cc0000;
+      color: #fff;
+    }
+    #reset-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="soundboard-container">
+    <a href="index.html" class="back-button" title="Back to Soundboard">
+      <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+        <path d="M9.707 14.707a1 1 0 01-1.414 0L3 9.414l5.293-5.293a1 1 0 111.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"/>
+      </svg>
+    </a>
+
+    <h1>Upload Sound</h1>
+    <div class="upload-form">
+      <input type="text" id="label" placeholder="Button Label" />
+      <input type="file" accept="audio/*" id="file-input" />
+      <button id="upload-btn">Upload &amp; Return</button>
+      <button id="reset-btn" type="button">Reset Sounds</button>
+    </div>
+  </div>
+
+  <script>
+    let dataUrl = '';
+    const fileInput = document.getElementById('file-input');
+    const labelIn  = document.getElementById('label');
+    const uploadBtn = document.getElementById('upload-btn');
+    const resetBtn  = document.getElementById('reset-btn');
+
+    // Read selected file as DataURL
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => dataUrl = reader.result;
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // On upload, save to localStorage and go back
+    uploadBtn.addEventListener('click', () => {
+      const label = labelIn.value.trim();
+      if (!label || !dataUrl) {
+        alert('Please enter a label and choose an audio file.');
+        return;
+      }
+      const stored = JSON.parse(localStorage.getItem('customSounds') || '[]');
+      stored.push({ label, dataUrl });
+      localStorage.setItem('customSounds', JSON.stringify(stored));
+      window.location.href = 'index.html';
+    });
+
+    // Reset all custom sounds
+    resetBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to delete all uploaded sounds?')) {
+        localStorage.removeItem('customSounds');
+        alert('All sounds have been reset.');
+      }
+    });
+  </script>
+</body>
+</html>

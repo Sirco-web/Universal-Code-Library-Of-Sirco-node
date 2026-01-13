@@ -1,0 +1,33 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proxy</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+
+    <script>
+        function checkCookie() {
+            const cookies = document.cookie.split("; ");
+            const accessCookie = cookies.find(row => row.startsWith("access="));
+    
+            if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+                window.location.href = "/index.html"; // Redirect if no valid cookie
+            }
+        }
+    
+        window.onload = function () {
+            checkCookie(); // Verify cookie before loading the page
+        };
+    </script>
+
+    <style>
+        iframe {
+            width: 100%;
+            height: 100vh;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <iframe src="https://funmathquestions.bibektimsina.com.np"></iframe>
+</body>
+</html>

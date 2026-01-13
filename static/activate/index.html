@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activate Access</title>
+  <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      text-align: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .hidden { display: none; }
+    .container {
+      padding: 40px;
+      background: white;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      border-radius: 20px;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 2em;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+    .input-group {
+      margin-bottom: 20px;
+    }
+    .input-group label {
+      display: block;
+      text-align: left;
+      margin-bottom: 8px;
+      color: #555;
+      font-weight: 500;
+    }
+    .input-group input {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 18px;
+      text-align: center;
+      letter-spacing: 4px;
+      transition: border-color 0.3s;
+    }
+    .input-group input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button {
+      padding: 15px 40px;
+      font-size: 1.1em;
+      color: #fff;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      width: 100%;
+      margin-top: 10px;
+    }
+    button:hover { 
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .message {
+      font-size: 1.1em;
+      font-weight: bold;
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 10px;
+    }
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    input.copy-box {
+      width: 100%;
+      padding: 15px;
+      margin-top: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: monospace;
+      text-align: center;
+      background: #f5f5f5;
+    }
+    .success-container {
+      text-align: center;
+    }
+    .success-container h1 {
+      color: #155724;
+    }
+    .checkmark {
+      font-size: 80px;
+      margin-bottom: 20px;
+    }
+    .rules-section {
+      text-align: left;
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .rules-section h3 {
+      margin-bottom: 10px;
+      color: #333;
+    }
+    .rules-section p {
+      color: #666;
+      margin-bottom: 10px;
+      font-size: 0.95em;
+    }
+    .rules-section a {
+      color: #667eea;
+    }
+    .warning-text {
+      color: #dc3545;
+      font-weight: bold;
+      margin-top: 15px;
+    }
+    .loader {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="container">
+    <!-- Initial PIN Entry -->
+    <div id="pinSection">
+      <h1>🔑 Activate Access</h1>
+      <p class="subtitle">Enter your activation PIN to get access</p>
+      
+      <div class="input-group">
+        <label for="pinInput">Activation PIN</label>
+        <input type="text" id="pinInput" placeholder="Enter PIN" maxlength="10" autocomplete="off">
+      </div>
+      
+      <button id="verifyBtn" onclick="verifyPin()">Verify PIN</button>
+      
+      <div id="pinMessage" class="message hidden"></div>
+    </div>
+
+    <!-- Rules Section (shown after valid PIN) -->
+    <div id="rulesSection" class="hidden">
+      <h1>📋 Agreement Required</h1>
+      <p class="subtitle">Please read and accept the terms</p>
+      
+      <div class="rules-section">
+        <h3>Terms of Use</h3>
+        <p>By activating access, you agree to use this service responsibly and in accordance with our guidelines.</p>
+        <p><a href="/agree/agreement.html" target="_blank">📄 View Full Agreement</a></p>
+      </div>
+      
+      <p class="warning-text">⚠️ By clicking "I Agree," you acknowledge and accept these terms.</p>
+      
+      <button id="agreeBtn" onclick="activateAccess()">✅ I Agree - Activate</button>
+    </div>
+
+    <!-- Success Section -->
+    <div id="successSection" class="hidden success-container">
+      <div class="checkmark">✅</div>
+      <h1>Access Activated!</h1>
+      <div class="message success" id="successMessage"></div>
+      
+      <p style="margin-top:20px;color:#666">Copy this code for external sites:</p>
+      <input class="copy-box" id="activationCode" readonly>
+      <button onclick="copyCode()" style="margin-top:10px;background:#28a745">📋 Copy Code</button>
+      <button onclick="window.location.href='/welcome/'" style="margin-top:10px">🏠 Go to Welcome Page</button>
+    </div>
+
+    <!-- Error/Banned Section -->
+    <div id="errorSection" class="hidden">
+      <h1 style="color:#dc3545">❌ Access Denied</h1>
+      <div class="message error" id="errorMessage"></div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration
+    let activationType = null;
+    let activationDays = 0;
+
+    // Check if already activated
+    (function checkAccess() {
+      const cookies = document.cookie.split("; ");
+      const accessCookie = cookies.find(c => c.startsWith("access="));
+      if (accessCookie && accessCookie.split("=")[1] === "1") {
+        // Already has access, redirect to welcome
+        window.location.href = '/welcome/';
+      }
+    })();
+
+    // Check for banned status
+    (function checkBanned() {
+      if (localStorage.getItem('banned')) {
+        showError('You are banned from accessing this service.');
+        return;
+      }
+    })();
+
+    // Detect Windows/Mac and warn (but don't block completely)
+    (function detectOS() {
+      const ua = navigator.userAgent;
+      if (ua.includes('Windows') || ua.includes('Macintosh')) {
+        // Log warning to server
+        fetch('/api/collect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'desktop_activation_attempt',
+            os: ua.includes('Windows') ? 'Windows' : 'Mac',
+            page: '/activate/'
+          })
+        }).catch(() => {});
+      }
+    })();
+
+    async function verifyPin() {
+      const pin = document.getElementById('pinInput').value.trim();
+      const btn = document.getElementById('verifyBtn');
+      const msg = document.getElementById('pinMessage');
+
+      if (!pin) {
+        showPinMessage('Please enter a PIN', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loader"></span> Verifying...';
+
+      try {
+        const res = await fetch('/api/verify-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin })
+        });
+
+        const data = await res.json();
+
+        if (data.valid) {
+          activationType = data.type;
+          activationDays = data.days;
+          
+          // Show rules section
+          document.getElementById('pinSection').classList.add('hidden');
+          document.getElementById('rulesSection').classList.remove('hidden');
+        } else {
+          showPinMessage('Invalid PIN. Please try again.', 'error');
+        }
+      } catch (err) {
+        showPinMessage('Connection error. Please try again.', 'error');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Verify PIN';
+    }
+
+    async function activateAccess() {
+      const btn = document.getElementById('agreeBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loader"></span> Activating...';
+
+      try {
+        // Set access cookie
+        const expirationDate = new Date();
+        expirationDate.setDate(expirationDate.getDate() + activationDays);
+        document.cookie = `access=1; path=/; expires=${expirationDate.toUTCString()}`;
+
+        // Generate access cookie ID for tracking
+        const accessCookieId = generateId();
+        localStorage.setItem('accessCookieId', accessCookieId);
+
+        // Generate external code
+        const code = await generateExternalCode();
+
+        // Log activation to server
+        await fetch('/api/collect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'activation',
+            activationType,
+            days: activationDays,
+            accessCookieId
+          })
+        }).catch(() => {});
+
+        // Show success
+        document.getElementById('rulesSection').classList.add('hidden');
+        document.getElementById('successSection').classList.remove('hidden');
+        
+        const daysText = activationDays >= 36500 ? 'forever' : `${activationDays} days`;
+        document.getElementById('successMessage').textContent = `Access activated for ${daysText}!`;
+        document.getElementById('activationCode').value = code;
+
+      } catch (err) {
+        showError('Activation failed. Please try again.');
+      }
+
+      btn.disabled = false;
+      btn.textContent = '✅ I Agree - Activate';
+    }
+
+    function showPinMessage(text, type) {
+      const msg = document.getElementById('pinMessage');
+      msg.textContent = text;
+      msg.className = `message ${type}`;
+      msg.classList.remove('hidden');
+    }
+
+    function showError(text) {
+      document.getElementById('pinSection').classList.add('hidden');
+      document.getElementById('rulesSection').classList.add('hidden');
+      document.getElementById('successSection').classList.add('hidden');
+      document.getElementById('errorSection').classList.remove('hidden');
+      document.getElementById('errorMessage').textContent = text;
+    }
+
+    function copyCode() {
+      const code = document.getElementById('activationCode').value;
+      navigator.clipboard.writeText(code).then(() => {
+        alert('Code copied to clipboard!');
+      });
+    }
+
+    function generateId() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    // External code generation (for other sites)
+    function stringToHex(str) {
+      return Array.from(str)
+        .map(c => c.charCodeAt(0).toString(16).padStart(2, "0"))
+        .join("");
+    }
+
+    async function sha256(msg) {
+      const buf = new TextEncoder().encode(msg);
+      const hash = await crypto.subtle.digest("SHA-256", buf);
+      return Array.from(new Uint8Array(hash))
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
+    }
+
+    async function generateExternalCode() {
+      const SECRET_KEY = "sirco-is-best-also-any-person-looking-at-this-you-cant-you-are-going-against-the-code-of-conduct-123456767-abc";
+      const created = Date.now();
+      const expires = created + 2 * 60 * 60 * 1000; // 2 hours
+      const sum = await sha256(`${created}:${expires}:${SECRET_KEY}`);
+      const payload = JSON.stringify({ created, expires, sum });
+      const hex1 = stringToHex(payload);
+      const hex2 = stringToHex(hex1);
+      return btoa(hex2).replace(/=+$/, "");
+    }
+
+    // Allow Enter key to submit
+    document.getElementById('pinInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') verifyPin();
+    });
+  </script>
+</body>
+</html>

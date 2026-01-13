@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BustAnEar Virtual Piano</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body {
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #24243e, #302b63, #0f0c29 80%);
+      color: #fff;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* HOMEPAGE */
+    #home {
+      margin-top: 8vh;
+      text-align: center;
+      padding: 32px 24px;
+      background: rgba(24,34,64,0.7);
+      border-radius: 30px;
+      box-shadow: 0 2px 32px 0 rgba(46, 57, 207, 0.09);
+      backdrop-filter: blur(2px);
+      animation: homefadein 0.7s cubic-bezier(.64,-0.17,.49,1.16) both;
+    }
+    @keyframes homefadein {
+      0% {opacity:0;transform:translateY(32px);}
+      100% {opacity:1;transform:translateY(0);}
+    }
+
+    #home h1 {
+      font-size: 2.6rem;
+      letter-spacing: -1.5px;
+      margin-bottom: 32px;
+      font-weight: 800;
+      background: linear-gradient(90deg,#ff416c,#ff4b2b,#ffec4c 70%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 6px 26px #0f0c2940;
+    }
+
+    .bigbtn {
+      font-size: 1.5rem;
+      font-weight: 700;
+      padding: 18px 42px;
+      border-radius: 18px;
+      margin: 10px 16px;
+      background: linear-gradient(90deg,#ff416c,#ff4b2b,#ffec4c 70%);
+      color: #1a1934;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 2px 20px 0 #ff416c40;
+      transition: transform 0.15s cubic-bezier(.7,.2,.16,.98), box-shadow 0.15s;
+      outline: none;
+    }
+    .bigbtn:active {
+      transform: scale(0.97);
+      box-shadow: 0 1px 8px 0 #ff416c90;
+    }
+    .bigbtn:hover, .bigbtn:focus {
+      background: linear-gradient(90deg,#ff4b2b 15%,#ff416c 55%,#ffec4c 85%);
+      box-shadow: 0 4px 36px 0 #ff4b2b67;
+      filter: brightness(1.22) saturate(1.1);
+    }
+
+    /* MODALS */
+    .modal {
+      position: fixed;
+      z-index: 200;
+      left: 50%;
+      top: 12vh;
+      transform: translateX(-50%);
+      width: min(95vw,380px);
+      background: rgba(23,30,56,.86);
+      border-radius: 22px;
+      box-shadow: 0 5px 30px 0 #34269f42;
+      padding: 32px 24px;
+      text-align: center;
+      color: #f7f7fc;
+      animation: popModal 0.29s cubic-bezier(.81,-0.42,.51,1.41) both;
+      backdrop-filter: blur(2px);
+    }
+    @keyframes popModal {
+      0% {opacity:0;transform:translateX(-50%) scale(.97);}
+      100% {opacity:1;transform:translateX(-50%) scale(1);}
+    }
+    .modal button {
+      margin-top: 18px;
+      padding: 9px 26px;
+      border-radius: 9px;
+      font-size: 1rem;
+      background: linear-gradient(90deg,#5221c3,#ff416c 90%);
+      color: #fff;
+      font-weight: bold;
+      border: none;
+      box-shadow: 0 2px 8px #5221c340;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .modal button:hover {
+      background: linear-gradient(90deg,#ff416c,#5221c3 90%);
+    }
+    .modal label, .modal select {
+      font-size: 1.03rem;
+      margin-top: 8px;
+      display: block;
+    }
+    .modal input[type=checkbox] {
+      accent-color: #ff416c;
+      transform: scale(1.25);
+    }
+    .modal select {
+      margin-top:6px;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 1rem;
+      background: #2e325a;
+      color: #ffec4c;
+      border: none;
+      outline: none;
+      box-shadow: 0 1px 4px #2e229f23;
+    }
+
+    /* SETTINGS BUTTON */
+    #settingsBar {
+      display: flex;
+      justify-content: flex-end;
+      padding: 20px 30px 0 0;
+      margin-bottom: -20px;
+    }
+    #settingsBtn {
+      background: linear-gradient(120deg,#5221c3,#ff416c 70%);
+      border: none;
+      color: #fff;
+      font-size: 2.2rem;
+      border-radius: 50%;
+      width: 56px;
+      height: 56px;
+      cursor: pointer;
+      box-shadow: 0 1px 10px #ff416c60;
+      transition: background .19s, transform .15s;
+      outline: none;
+    }
+    #settingsBtn:hover {
+      background: linear-gradient(110deg,#ff416c,#ffec4c 70%);
+      filter: brightness(1.22);
+      transform: scale(1.08) rotate(-14deg);
+    }
+
+    /* PIANO SECTION */
+    #pianoSection {
+      width: 100vw;
+      max-width: 900px;
+      margin: 0 auto;
+      padding-top: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+    #piano {
+      margin: 14px auto 60px auto;
+      position: relative;
+      width: 96vw; max-width:880px;
+      height: 150px;
+      user-select: none;
+      overflow: visible;
+    }
+    /* WHITE KEY STYLE */
+    .white-key {
+      width: calc((100% - 18*17px)/26);
+      height: 150px;
+      display: inline-block;
+      background: linear-gradient(180deg, #e8e8ff 65%, #aeaabd 100%);
+      border: 1px solid #aeadb5;
+      border-radius: 0 0 18px 18px;
+      margin-right: 0px;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 7px 24px #222f9a28;
+      cursor: pointer;
+      transition: filter .08s, box-shadow .1s;
+      filter: brightness(1.22);
+    }
+    .white-key:last-child { margin-right: 0; }
+    .white-key:active, .white-key.active {
+      filter: brightness(1.48) drop-shadow(0 0 4px #ff416c88);
+      box-shadow: 0 7px 32px #ff416c80;
+      border-color: #ff416c;
+    }
+    /* BLACK KEY STYLE */
+    .black-key {
+      width: calc((100% - 22*9px)/18);
+      height: 76px;
+      background: linear-gradient(180deg,#24243e 60%, #ff416c35 130%);
+      border: 2px solid #5221c3;
+      border-radius: 0 0 15px 15px;
+      position: absolute;
+      top:0;
+      z-index: 2;
+      box-shadow: 0 11px 28px #0f0c2970;
+      cursor: pointer;
+      transition: filter .09s, box-shadow .09s;
+      filter: brightness(1.1);
+    }
+    .black-key:active, .black-key.active {
+      filter: brightness(1.41) drop-shadow(0 0 10px #ff416c88);
+      box-shadow: 0 13px 38px #ff416cab;
+      border-color: #ffec4c;
+    }
+    /* Note name text on white keys */
+    .note-label {
+      font-size: 1.07rem;
+      font-weight: 700;
+      position: absolute;
+      left: 50%;
+      bottom: 9px;
+      transform: translateX(-50%);
+      color: #4221c3cc;
+      text-shadow: 0 1px 2px #ffec4c55;
+      pointer-events:none;
+      user-select:none;
+    }
+    /* Responsive piano resizing */
+    @media (max-width:440px) {
+      #piano { height: 90px;}
+      .white-key{ height:88px;}
+      .black-key{ height:44px;}
+    }
+  </style>
+</head>
+<body>
+  <!-- Homepage Section -->
+  <div id="home">
+    <h1>Welcome to BustAnEar Virtual Piano</h1>
+    <button class="bigbtn" id="beginBtn">Begin</button>
+    <button class="bigbtn" id="infoBtn">What is this?</button>
+  </div>
+
+  <!-- Piano Panel Section -->
+  <div id="pianoSection" style="display:none;">
+    <div id="settingsBar">
+      <button id="settingsBtn" title="Settings">⚙️</button>
+    </div>
+    <div id="piano"></div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settingsModal" class="modal" style="display:none;">
+    <label><input type="checkbox" id="loudMode"/> Loud Mode</label>
+    <label for="bgColor" style="margin-top:14px;">Change Background:</label>
+    <select id="bgColor">
+      <option value="#24243e">Default</option>
+      <option value="#ff416c">Red</option>
+      <option value="#ffec4c">Yellow</option>
+      <option value="#5221c3">Purple</option>
+      <option value="#2acc76">Green</option>
+      <option value="#009aff">Blue</option>
+      <option value="#2d3748">Dark</option>
+      <option value="#fff">White</option>
+      <option value="#feb47b">Orange</option>
+    </select>
+    <button id="closeSettings">Close</button>
+  </div>
+
+  <!-- Info modal -->
+  <div id="infoModal" class="modal" style="display:none;">
+    <p>
+      <b>BustAnEar Virtual Piano</b> is a web piano that can blast extra LOUD notes.<br>
+      Use <b>Loud Mode</b> in settings. Change the color to your taste.<br>
+      Enjoy, but protect your hearing!<br>
+      <br>
+      <em>(Powered by Web Audio API, no downloads, 1 sound file, all client-side)</em>
+    </p>
+    <button id="closeInfo">Close</button>
+  </div>
+
+  <!-- Javascript -->
+  <script>
+    // Layout show/hide logic
+    const beginBtn = document.getElementById('beginBtn');
+    const infoBtn = document.getElementById('infoBtn');
+    const closeInfo = document.getElementById('closeInfo');
+    const home = document.getElementById('home');
+
+    beginBtn.onclick = () => {
+      home.style.display = 'none';
+      document.getElementById('pianoSection').style.display = '';
+      window.scrollTo(0,0);
+    }
+    infoBtn.onclick = () => {
+      document.getElementById('infoModal').style.display = '';
+    }
+    closeInfo.onclick = ()=> {
+      document.getElementById('infoModal').style.display='none';
+    };
+
+    // Settings modal logic
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsModal = document.getElementById('settingsModal');
+    const closeSettings = document.getElementById('closeSettings');
+    const bgColorSel = document.getElementById('bgColor');
+    settingsBtn.onclick = () => { settingsModal.style.display = ''; }
+    closeSettings.onclick = () => { settingsModal.style.display = 'none'; }
+    bgColorSel.onchange = (e) => {
+      document.body.style.background = e.target.value;
+    };
+
+    // Piano rendering logic
+    // We'll use 26 white notes (C-D-E-F-G-A-B x 3 + 2?) and 18 black
+    // We'll map them chromatically from C3 to D#5 (or similar).
+    // Piano key label (just notes, no midi code for now)
+    // Chromatic notes
+    const noteNames = [
+      "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+    ];
+
+    // Generate keys layout: white key positions, black key offset
+    const whiteKeyNotes = [];
+    const blackKeyNotes = [];
+    let note = 36; // starting midi (C3)
+    let octave = 3;
+    for (let w = 0; w < 26; w++) {
+      let idx = w % 7;
+      // which note: CDEFGAB pattern for white keys
+      let baseName = ["C","D","E","F","G","A","B"][idx];
+      whiteKeyNotes.push({midi: note, label: `${baseName}${octave}`});
+      // Step to next chromatic
+      if (baseName=="B") { octave++; }
+      note += (baseName=="E"||baseName=="B") ? 1 : 2;
+    }
+    // Find black notes between whites
+    note = 37; octave = 3;
+    for (let b = 0; b < 18; b++) {
+      let idx = b % 5;
+      // skip E-F and B-C gaps (no black key)
+      let baseName = ["C#","D#","F#","G#","A#"][idx];
+      let parentWhite = b + Math.floor(b/5) + (b>4?1:0);
+      blackKeyNotes.push({midi: note,label: `${baseName}${octave}`,wIdx: parentWhite});
+      if (baseName=="A#") octave++;
+      // Step: for black key pattern, usually after white except E/B
+      note += (baseName=="D#"||baseName=="A#")?2:1;
+    }
+
+    // Piano key element building
+    const pianoDiv = document.getElementById("piano");
+    pianoDiv.innerHTML = "";
+    // position white keys
+    whiteKeyNotes.forEach((nk,i)=>{
+      let key = document.createElement("div");
+      key.className = "white-key";
+      key.dataset.note = nk.midi;
+      key.dataset.keyindex = i;
+      key.innerHTML = `<span class="note-label">${nk.label}</span>`;
+      key.onmousedown = playNote;
+      key.onmouseup = () => key.classList.remove("active");
+      key.onmouseleave = () => key.classList.remove("active");
+      key.ontouchstart = playNote;
+      key.ontouchend = () => key.classList.remove("active");
+      pianoDiv.appendChild(key);
+    });
+
+    // position black keys—calculate left offsets
+    // black keys map: on white key at index minus a percentage of white key width
+    const pianoWidth = pianoDiv.clientWidth || 880;
+    blackKeyNotes.forEach((bk,i)=>{
+      let key = document.createElement("div");
+      key.className = "black-key";
+      key.dataset.note = bk.midi;
+      key.style.left = `calc(${(bk.wIdx+1)*100/26}% - ${(33/26)*bk.wIdx+13}px)`;
+      key.innerHTML = `<span class="note-label" style="color:#ffec4c">${bk.label}</span>`;
+      key.onmousedown = playNote;
+      key.onmouseup = () => key.classList.remove("active");
+      key.onmouseleave = () => key.classList.remove("active");
+      key.ontouchstart = playNote;
+      key.ontouchend = () => key.classList.remove("active");
+      pianoDiv.appendChild(key);
+    });
+
+    /** NOTE AUDIO LOGIC **/
+    let audioCtx, sampleBuffer = null;
+    const sampleFile = "sample.wav"; // put ONE sample as sample.wav, probably C4!
+
+    async function loadSample() {
+      try {
+        audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+        const resp = await fetch(sampleFile);
+        const arrayBuffer = await resp.arrayBuffer();
+        sampleBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      } catch(e) {
+        alert("Error loading piano sample.wav. Put a sound file named 'sample.wav' in this folder!");
+      }
+    }
+    loadSample();
+
+    function playNote(e) {
+      e.preventDefault();
+      // Only play if sample loaded
+      if (!sampleBuffer) return;
+      const noteMidi = parseInt(e.target.dataset?.note || e.currentTarget.dataset?.note||0);
+      if (!noteMidi || isNaN(noteMidi)) return;
+      // Mark active visually
+      e.target.classList.add("active");
+      setTimeout(()=>e.target.classList.remove("active"),100+Math.random()*90);
+
+      // Map MIDI to semitone offset from Middle C (MIDI 60)
+      const baseNote = 60; // sample.wav should be MIDI 60 (C4)
+      const semitoneOffset = noteMidi - baseNote;
+
+      // Get Loud Mode gain
+      const loudMode = document.getElementById("loudMode").checked;
+      // Build audio nodes
+      const ctx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+      const source = ctx.createBufferSource();
+      source.buffer = sampleBuffer;
+      source.playbackRate.value = Math.pow(2, semitoneOffset/12);
+
+      const gainNode = ctx.createGain();
+      // Gain value: Loud Mode is nearly max, safe gain for headphones is 1, Normal Mode about 0.85
+      gainNode.gain.value = loudMode ? 4.5 : 0.85;
+      source.connect(gainNode).connect(ctx.destination);
+      source.start();
+    }
+
+    // Optionally add keyboard shortcuts (z-m for white, s-l for black)
+    // Optional! Not mapped for full 26, you can add if you want.
+  </script>
+</body>
+</html>

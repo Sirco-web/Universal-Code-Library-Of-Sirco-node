@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Activation Instructions</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#0f1724;
+      --accent:#6ee7b7;
+      --muted:#9aa4b2;
+      --white:#f8fafc;
+    }
+    body{
+      margin:0;
+      font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background:linear-gradient(180deg,var(--bg),#071023);
+      color:var(--white);
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      border:1px solid rgba(255,255,255,0.04);
+      border-radius:12px;
+      padding:24px;
+      width:100%;
+      max-width:760px;
+      box-shadow:0 8px 30px rgba(2,6,23,0.6);
+    }
+    h1{ margin:0 0 8px 0; font-size:20px; }
+    p.lead{ color:var(--muted); margin:0 0 16px 0; }
+    .link-row{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin:12px 0 18px 0;
+    }
+    .primary-btn{
+      background:linear-gradient(90deg,var(--accent), #4fd1c5);
+      border:none;
+      color:#042018;
+      padding:10px 14px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:600;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    ol{ color:var(--white); margin-left:20px; }
+    .code-entry{
+      margin-top:18px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    input[type="text"]{
+      flex:1;
+      padding:10px 12px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.06);
+      background:rgba(255,255,255,0.02);
+      color:var(--white);
+      font-size:14px;
+      outline:none;
+    }
+    input[type="text"]::placeholder{ color:rgba(255,255,255,0.35); }
+    .secondary-btn{
+      padding:10px 12px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.06);
+      background:transparent;
+      color:var(--white);
+      cursor:pointer;
+    }
+    .message{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:8px;
+      background:rgba(0,0,0,0.25);
+      border:1px solid rgba(255,255,255,0.03);
+      color:var(--accent);
+      display:none;
+    }
+    .message.error{ color:#ffb4b4; --bgmsg:rgba(255,0,0,0.08); }
+    .muted{ color:var(--muted); font-size:13px; margin-top:8px; }
+    a.site-link{ color:var(--accent); text-decoration:underline; }
+    footer { margin-top:18px; color:var(--muted); font-size:13px; }
+    @media (max-width:520px){
+      .card{ padding:16px; }
+      h1{ font-size:18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card" role="main" aria-labelledby="title">
+    <h1 id="title">Activation — Instructions & Link</h1>
+    <p class="lead">Follow these steps to obtain your activation code and use the link below.</p>
+
+    <div class="link-row">
+      <a class="primary-btn" href="https://class-efh2.sl7.gace-edu.space/sorry.html" target="_blank" rel="noopener noreferrer">
+        Open the proxy page
+      </a>
+      <span class="muted">or visit <a class="site-link" href="https://class-efh2.sl7.gace-edu.space/sorry.html" target="_blank" rel="noopener noreferrer">https://class-efh2.sl7.gace-edu.space/sorry.html</a></span>
+    </div>
+
+    <section aria-label="steps">
+      <ol>
+        <li>Go to the <strong>welcome page</strong> URL (path: <code>/welcome</code>).</li>
+        <li>On that page, click the <strong>Remove Access Key</strong> button.</li>
+        <li>Go to the <strong>Coding</strong> page. Hover over the <em>Activate</em> button in the bottom-right corner, then click it.</li>
+        <li>When prompted, click <strong>Agree</strong> and copy the activation code that appears.</li>
+        <li>Return here (this page) and click the link above: <a class="site-link" href="https://class-efh2.sl7.gace-edu.space/sorry.html" target="_blank" rel="noopener noreferrer">https://class-efh2.sl7.gace-edu.space/sorry.html</a>.</li>
+      </ol>
+    </section>
+
+    <footer>If you run into issues, make sure you completed steps 1–4 exactly, and that the code you copied is complete.</footer>
+  </div>
+
+  <script>
+    const input = document.getElementById('codeInput');
+    const submit = document.getElementById('submitBtn');
+    const clear = document.getElementById('clearBtn');
+    const msg = document.getElementById('msg');
+
+    function showMessage(text, isError = false) {
+      msg.textContent = text;
+      msg.classList.toggle('error', isError);
+      msg.style.display = 'block';
+    }
+
+    function clearMessage() {
+      msg.textContent = '';
+      msg.style.display = 'none';
+      msg.classList.remove('error');
+    }
+
+    function handleSubmit() {
+      clearMessage();
+      const code = input.value.trim();
+      if (!code) {
+        showMessage('Please enter the activation code you copied from the Activate prompt.', true);
+        return;
+      }
+
+      // Here we simply show success. Replace this block with real validation if you have a server-side check.
+      showMessage('Activation code accepted. Access granted — you now have access.');
+      // Optional: open the sorry page in a new tab (commented out; uncomment if you want automatic navigation)
+      // window.open('https://class-efh2.sl7.gace-edu.space/sorry.html', '_blank', 'noopener');
+
+      // If you want to clear the input automatically after success, uncomment:
+      // input.value = '';
+    }
+
+    submit.addEventListener('click', handleSubmit);
+    clear.addEventListener('click', () => { input.value = ''; clearMessage(); input.focus(); });
+
+    // Submit on Enter
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+    });
+
+    // Focus the input on load for convenience
+    input.focus();
+  </script>
+</body>
+</html>

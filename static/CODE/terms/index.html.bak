@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activate Access</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        .container {
+            margin: auto;
+            padding: 20px;
+            background: white;
+            max-width: 600px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+
+    <script>
+        function activateAgreement() {
+            const agreementDate = new Date().toISOString();
+            document.cookie = `agreementTimestamp=${agreementDate}; path=/; expires=Fri, 31 Dec 9999 23:59:59 GMT`;
+            alert("You have agreed to the updated terms.");
+            window.location.href = "/welcome";
+        }
+
+        function checkActivation() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("agreement") !== null) {
+                document.getElementById("agreementBox").style.display = "block";
+            } else {
+                document.getElementById("activationBox").style.display = "block";
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", checkActivation);
+    </script>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Activate Access</h1>
+
+        <!-- Agreement Section (Shown When ?agreement is Present) -->
+        <div id="agreementBox" class="hidden">
+            <h2>Updated Agreement</h2>
+            <p>By using this site, you agree to:</p>
+            <ul style="text-align: left; margin-left: 20px;">
+                <li>Follow all applicable rules and policies.</li>
+                <li>Use the site responsibly and legally.</li>
+                <li>Accept data privacy policies and site restrictions.</li>
+            </ul>
+            <button onclick="activateAgreement()">I Agree & Continue</button>
+        </div>
+
+        <!-- Activation Section (Shown When No ?agreement is Present) -->
+        <div id="activationBox" class="hidden">
+            <h2>Activation Required</h2>
+            <p>You need to activate your account before continuing.</p>
+            <p>Go to <a href="/activate?agreement">/activate?agreement</a> to accept the updated terms.</p>
+        </div>
+    </div>
+
+<script src="/analytics.js?5h"></script>
+
+</body>
+</html>

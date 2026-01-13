@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Games Page</title>
+<link href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png" rel="icon" type="image/png"/>
+<!-- Preload images for instant loading -->
+<link as="image" href="form.png" rel="preload"/>
+<link as="image" href="imgs/1v1lol.png" rel="preload"/>
+<link as="image" href="imgs/basketballstars.png" rel="preload"/>
+<link as="image" href="imgs/basketrandom.png" rel="preload"/>
+<link as="image" href="imgs/bitlife.png" rel="preload"/>
+<link as="image" href="imgs/blockblast.png" rel="preload"/>
+<link as="image" href="imgs/boxingrandom.png" rel="preload"/>
+<link as="image" href="imgs/cookieclicker.png" rel="preload"/>
+<link as="image" href="imgs/clusterrush.png" rel="preload"/>
+<link as="image" href="imgs/draw.png" rel="preload"/>
+<link as="image" href="imgs/drivemad.png" rel="preload"/>
+<link as="image" href="imgs/eagler.png" rel="preload"/>
+<link as="image" href="imgs/eaglercraftbeta.png" rel="preload"/>
+<link as="image" href="imgs/eaglergc.png" rel="preload"/>
+<link as="image" href="imgs/eaglymc.jpg" rel="preload"/>
+<link as="image" href="imgs/flappybird.png" rel="preload"/>
+<link as="image" href="imgs/fridaynightfunkin.png" rel="preload"/>
+<link as="image" href="imgs/getawayshootout.png" rel="preload"/>
+<link as="image" href="imgs/letssurf.png" rel="preload"/>
+<link as="image" href="imgs/mcstart.png" rel="preload"/>
+<link as="image" href="imgs/monkeymart.png" rel="preload"/>
+<link as="image" href="imgs/paperio.png" rel="preload"/>
+<link as="image" href="imgs/retrobowl.png" rel="preload"/>
+<link as="image" href="imgs/retrohaunt.png" rel="preload"/>
+<link as="image" href="imgs/rooftopsnipers.png" rel="preload"/>
+<link as="image" href="imgs/slope.png" rel="preload"/>
+<link as="image" href="imgs/soccerrandom.png" rel="preload"/>
+<link as="image" href="imgs/stack.png" rel="preload"/>
+<link as="image" href="imgs/tinyfishing.png" rel="preload"/>
+<link as="image" href="imgs/tombofthemask.png" rel="preload"/>
+<link as="image" href="imgs/basketbros.png" rel="preload"/>
+<!-- Originals area images -->
+<link as="image" href="imgs/pixelquest.png" rel="preload"/>
+<style>
+    body {
+      background-color: #ffffff;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    .game-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      padding: 20px;
+    }
+    .game {
+      width: 200px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      background: #f9f9f9;
+    }
+    .game img {
+      width: 100%;
+      border-radius: 5px;
+    }
+    .back-button {
+      margin: 20px;
+      padding: 0;
+      width: 44px;
+      height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid #eee;
+      box-shadow: 0 2px 8px #0002;
+      cursor: pointer;
+      color: #007bff;
+      font-size: 16px;
+    }
+    .back-button:hover { box-shadow: 0 6px 18px #0003; }
+    .blue-btn {
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5em 1.2em;
+      font-size: 1em;
+      cursor: pointer;
+      transition: background 0.15s;
+      box-shadow: 0 1px 4px #0001;
+      outline: none;
+      display: inline-block;
+    }
+    .dark-mode body, .dark-mode #games-heading, .dark-mode h1, .dark-mode footer {
+      background: #0b1220;
+      color: #d7e6ff;
+    }
+    .dark-mode .game {
+      background: #0f1724;
+      border-color: #1f2937;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+      color: #e6f0ff;
+    }
+    .dark-mode .back-button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: #9fc9ff;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+    }
+
+    /* Keep content readable on small screens */
+    @media (max-width:600px) {
+      .game { width: calc(50% - 20px); }
+    }
+  </style>
+<script>
+    function checkAccessCookie() {
+      const cookies = document.cookie.split("; ");
+      const accessCookie = cookies.find(row => row.startsWith("access="));
+      if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+        window.location.href = "/index.html"; // Redirect if no valid cookie
+      }
+    }
+
+    // More reliable offline detection
+    function checkOfflineStatus() {
+      const isOffline = !navigator.onLine;
+      localStorage.setItem('wasOffline', isOffline ? '1' : '0');
+      if (isOffline) {
+        document.getElementById('offline-notice').style.display = '';
+        document.getElementById('offline-games-info').style.display = '';
+      }
+    }
+
+    // Check offline status on load and when it changes
+    window.addEventListener('online', checkOfflineStatus);
+    window.addEventListener('offline', checkOfflineStatus);
+    window.addEventListener('DOMContentLoaded', () => {
+      // Check current status
+      checkOfflineStatus();
+      // Also respect previous offline state
+      if (localStorage.getItem('wasOffline') === '1') {
+        document.getElementById('offline-notice').style.display = '';
+        document.getElementById('offline-games-info').style.display = '';
+      }
+    });
+
+    // Utility: check if a game is cached offline
+    async function isGameCached(path) {
+      if (!navigator.onLine || localStorage.getItem('wasOffline') === '1') {
+        const cache = await caches.open('site-offline-cache-v1');
+        // Check both with and without trailing slash for game pages
+        let match = await cache.match('/CODE/games/' + path);
+        if (!match && path.endsWith('/index.html')) {
+          // Also check for directory path (e.g. /CODE/games/game/xxx/)
+          const dirPath = '/CODE/games/' + path.replace(/\/index\.html$/, '/');
+          match = await cache.match(dirPath);
+        }
+        return !!match;
+      }
+      return true; // If online, always show
+    }
+
+    // Main games array (already global)
+    const games = [
+      { title: "Request games", img: "form.png", link: "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__VD4IRRUQ09GM0RCWUU0RUkzRVcyQVAyU0lVWFhHWS4u&rd574bdb047cc4584af89aba2a24b3684=5", status: 1 },
+      { title: "1v1.lol", img: "imgs/1v1lol.png", link: "game/1v1lol/index.html", status: 1 },
+      { title: "Basketball Stars", img: "imgs/basketballstars.png", link: "game/basketballstars/index.html", status: 1 },
+      { title: "Basketbros", img: "imgs/basketbros.png", link: "game/basketbros/index.html", status: 1 },
+      { title: "Basket Random", img: "imgs/basketrandom.png", link: "game/basketrandom/index.html", status: 1 },
+      { title: "Bitlife", img: "imgs/bitlife.png", link: "game/bitlife/index.html", status: 1 },
+      { title: "Block Blast", img: "imgs/blockblast.png", link: "game/blockblast/index.html", status: 1 },
+      { title: "Boxing Random", img: "imgs/boxingrandom.png", link: "game/boxingrandom/index.html", status: 1 },
+      { title: "Cookie Clicker", img: "imgs/cookieclicker.png", link: "game/cookieclicker/index.html", status: 1 },
+      { title: "Cluster Rush", img: "imgs/clusterrush.png", link: "game/ClusterRush/index.html" },
+      { title: "Drive Mad", img: "imgs/drivemad.png", link: "game/drivemad/index.html", status: 1 },
+      { title: "Eaglercraft", img: "imgs/eagler.png", link: "game/eaglercraft/index.html", status: 1 },
+      { title: "Forge mod Eaglercraft", img: "imgs/eagler.png", link: "game/eaglercraft/forge-1.8.8.html", status: 1 },
+      { title: "Pixle client", img: "imgs/eagler.png", link: "game/eaglercraft/pxcraft-1.8.8.html", status: 1 },
+      { title: "Eaglercraft Beta", img: "imgs/eaglercraftbeta.png", link: "game/eaglercraftbeta/index.html", status: 2 },
+      { title: "Eaglercraft GC", img: "imgs/eaglergc.png", link: "game/eaglercraftgc/index.html", status: 2 },
+      { title: "Eagly MC", img: "imgs/eaglymc.jpg", link: "game/eaglymc/index.html", status: 1 },
+      { title: "Flappy Bird", img: "imgs/flappybird.png", link: "game/flappybird/index.html", status: 1 },
+      { title: "Friday Night Funkin'", img: "imgs/fridaynightfunkin.png", link: "game/fridaynightfunkin/index.html", status: 1 },
+      { title: "Getaway Shootout (New)", img: "imgs/getawayshootout.png", link: "game/getawayshootoutnew/index.html", status: 1 },
+      { title: "Let's Surf", img: "imgs/letssurf.png", link: "game/letssurf/index.html", status: 1 },
+      { title: "Minecraft Start", img: "imgs/mcstart.png", link: "game/mcstart/index.html", status: 1 },
+      { title: "Monkey Mart", img: "imgs/monkeymart.png", link: "game/monkeymart/index.html", status: 1 },
+      { title: "Paper IO 2", img: "imgs/paperio.png", link: "game/paperio/index.html", status: 1 },
+      { title: "Retro Bowl", img: "imgs/retrobowl.png", link: "game/retrobowl/index.html", status: 1 },
+      { title: "Retro Haunt", img: "imgs/retrohaunt.png", link: "game/retrohaunt/index.html", status: 1 },
+      { title: "Rooftop Snipers", img: "imgs/rooftopsnipers.png", link: "game/rooftopsnipers/index.html", status: 1 },
+      { title: "Slope", img: "imgs/slope.png", link: "game/slope/index.html", status: 1 },
+      { title: "Soccer Random", img: "imgs/soccerrandom.png", link: "game/soccerrandom/index.html", status: 1 },
+      { title: "Stack", img: "imgs/stack.png", link: "game/stack/index.html", status: 1 },
+      { title: "Tiny Fishing", img: "imgs/tinyfishing.png", link: "game/tinyfishing/index.html", status: 1 },
+      { title: "Tomb of the Mask", img: "imgs/tombofthemask.png", link: "game/tombofthemask/index.html", status: 1 }
+    ];
+
+    // Originals array (move to global scope)
+    const originalGames = [
+      { title: "Beyond Rare", img: "imgs/beyond-rare.png", link: "game/beyond-rare", status: 1 },
+      { title: "Draw", img: "imgs/draw.png", link: "game/draw/index.html", status: 1 }
+    ];
+
+    async function loadGames() {
+      const gamesList = document.getElementById("gamesList");
+
+      for (const game of games) {
+        // Only show if game page is cached when offline
+        let show = true;
+        // Only check for actual game pages (not external links)
+        if (!navigator.onLine && game.link.startsWith('game/')) {
+          show = await isGameCached(game.link);
+        }
+        if (show) {
+          const gameDiv = document.createElement("div");
+          gameDiv.classList.add("game");
+
+          gameDiv.innerHTML = `
+            <img src="${game.img}" alt="${game.title}" loading="eager">
+            <h3>${game.title}</h3>
+            <a href="${game.link}" class="${game.status === 1 ? 'active' : game.status === 2 ? 'risky' : 'disabled'}">
+              ${game.status === 3 ? 'Disabled' : 'Play Now'}
+            </a>
+          `;
+
+          if (game.status === 2) {
+            gameDiv.querySelector("a").onclick = () => alert('Use this game at your own risk.');
+          } else if (game.status === 3) {
+            gameDiv.querySelector("a").onclick = () => {
+              alert('Sorry, this game has been disabled.');
+              return false;
+            };
+          }
+
+          gamesList.appendChild(gameDiv);
+        }
+      }
+    }
+
+    // --- Originals Area Function ---
+    async function loadOriginalGames() {
+      const originalsContainer = document.getElementById("originalGamesList");
+      for (const game of originalGames) {
+        let show = true;
+        if (!navigator.onLine && game.link.startsWith('game/')) {
+          show = await isGameCached(game.link);
+        }
+        if (show) {
+          const gameDiv = document.createElement("div");
+          gameDiv.classList.add("game");
+          gameDiv.innerHTML = `
+            <img src="${game.img}" alt="${game.title}" loading="eager">
+            <h3>${game.title}</h3>
+            <a href="${game.link}" class="${game.status === 1 ? 'active' : game.status === 2 ? 'risky' : 'disabled'}">
+              ${game.status === 3 ? 'Disabled' : 'Play Now'}
+            </a>
+          `;
+          if (game.status === 2) {
+            gameDiv.querySelector("a").onclick = () => alert('Use this game at your own risk.');
+          } else if (game.status === 3) {
+            gameDiv.querySelector("a").onclick = () => {
+              alert('Sorry, this game has been disabled.');
+              return false;
+            };
+          }
+          originalsContainer.appendChild(gameDiv);
+        }
+      }
+    }
+
+    window.onload = function () {
+      checkAccessCookie();
+      loadGames();
+      loadOriginalGames();
+    };
+
+    // Show offline notice and info if offline
+    window.addEventListener('DOMContentLoaded', function() {
+      if (!navigator.onLine) {
+        document.getElementById('offline-notice').style.display = '';
+        document.getElementById('offline-games-info').style.display = '';
+      }
+    });
+
+    // Modal logic for offline games info
+    function showOfflineGamesInfoPopup() {
+      const list = document.getElementById('offline-games-list');
+      list.innerHTML = '';
+      // Combine main games and original games
+      const allGames = [...games, ...originalGames];
+      allGames.forEach(game => {
+        const li = document.createElement('li');
+        li.style.marginBottom = '0.3em';
+        const a = document.createElement('a');
+        a.textContent = game.title;
+        a.href = game.link;
+        a.style.color = '#007bff';
+        a.style.textDecoration = 'underline';
+        a.style.cursor = 'pointer';
+        a.target = "_blank";
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+      document.getElementById('offline-games-modal').style.display = 'flex';
+    }
+
+    // Ensure close button works after DOM is loaded
+    window.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('offline-games-modal-close').onclick = function() {
+        document.getElementById('offline-games-modal').style.display = 'none';
+      };
+    });
+
+    (function(){
+      // Only mirror dark_mode from the welcome page. No local UI for changing mode here.
+      function applyDarkModeFromStorage() {
+        try {
+          const saved = localStorage.getItem('dark_mode');
+          const enabled = (saved === '1' || saved === null);
+          document.documentElement.classList.toggle('dark-mode', !!enabled);
+        } catch (e) {}
+      }
+      applyDarkModeFromStorage();
+      window.addEventListener('storage', (ev) => {
+        if (ev.key === 'dark_mode') applyDarkModeFromStorage();
+      });
+    })();
+  </script>
+<script async="" crossorigin="anonymous" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4660041917882468"></script>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<!-- top-right controls and banner removed (mode is mirrored from welcome page only) -->
+<h1>Welcome to the Games Page</h1>
+<!-- Offline notice -->
+<div id="offline-notice" style="display:none;color:#d9534f;font-weight:bold;margin:18px 0 0 0;">
+    You are offline. These are the games you have downloaded.
+  </div>
+<!-- Back Button (styled like welcome's round button) -->
+<button class="back-button" onclick="window.location.href='/welcome/index.html';" title="Back to Welcome">
+    ←
+  </button>
+<!-- ADD: Game Dictionary button -->
+<button class="blue-btn" onclick="window.location.href='/CODE/games/dictionary/';" style="margin-left:10px;" title="Game Dictionary">
+    Game Dictionary
+  </button>
+<!-- Games heading -->
+<h2 id="games-heading" style="margin-top:10px;">Games</h2>
+<!-- Standard Games List Container -->
+<div class="game-container" id="gamesList"></div>
+<!-- Originals Area -->
+<h2>Original Games</h2>
+<div class="game-container" id="originalGamesList"></div>
+<footer>
+<!-- Blue info text, only visible offline -->
+<div id="offline-games-info" style="display:none;text-align:center;">
+<span onclick="showOfflineGamesInfoPopup()" style="color:#007bff;font-size:13px;cursor:pointer;">All games</span>
+</div>
+<!-- Modal for all games list -->
+<div id="offline-games-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:rgba(0,0,0,0.25);align-items:center;justify-content:center;">
+<div style="background:#fff;padding:1.5em 2em;border-radius:10px;box-shadow:0 4px 24px #0003;max-width:95vw;max-height:90vh;overflow:auto;position:relative;text-align:left;">
+<button aria-label="Close" id="offline-games-modal-close" style="position:absolute;top:10px;right:12px;background:none;border:none;font-size:1.5em;line-height:1;color:#007bff;cursor:pointer;">×</button>
+<h3 style="color:#007bff;margin-top:0;">All Games</h3>
+<p style="font-size:13px;color:#007bff;">These are all the games. You can select one, but if you have not downloaded it, it will not work. This is just in case the downloader is not working properly.</p>
+<ul id="offline-games-list" style="margin:1em 0 0 0;padding:0 0 0 1em;">
+<!-- Games will be injected here -->
+</ul>
+</div>
+</div>
+<p>© 2025 Firewall Freedom. All rights reserved.</p>
+<p>Disclaimer: This website is not affiliated with any of the games listed. All rights belong to their respective owners, except for the games in the original games section, for which we have permission from the respective owners.</p>
+</footer>
+<script src="/analytics.js?5h"></script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<title>Rarity Clicker – Bubblegum Edition</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&amp;display=swap" rel="stylesheet"/>
+<link href="styles.css" rel="stylesheet">
+</link><script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<!-- Background Music (Looping) -->
+<audio autoplay="" id="bgm" loop="" src="beyondmusic1.mp3"></audio>
+<!-- Header: Timer and Settings Icon -->
+<div id="header">
+<div id="timer">Time: 0.0s</div>
+<div id="settingsIcon" onclick="toggleSettingsModal()">⚙️</div>
+</div>
+<!-- Settings Modal -->
+<div class="modal" id="settingsModal">
+<div class="modal-content">
+<span class="close" onclick="toggleSettingsModal()">×</span>
+<h3>Settings</h3>
+<!-- Shop Upgrades Section -->
+<div class="shop-section">
+<h4>Shop Upgrades</h4>
+<p>Points: <span id="pointsDisplay">0</span></p>
+<button id="autoClickerBtn">Buy Auto Clicker (50 pts)</button>
+<button id="doublePointsBtn">Buy Double Points (150 pts)</button>
+<button id="goldenClickBtn">Buy Golden Click (200 pts)</button>
+<button id="luckBoostBtn">Buy Luck Boost (300 pts)</button>
+<button id="timeFreezeBtn">Buy Time Freeze (200 pts)</button>
+<button id="goldenModeBtn">Buy Golden Mode (1500 pts)</button>
+<p>Auto Clickers: <span id="autoCount">0</span></p>
+<p>Double Points: <span id="doubleStatus">Off</span></p>
+<p>Golden Click: <span id="goldenStatus">Not Ready</span></p>
+<p>Luck Boost: <span id="luckBoostStatus">Inactive</span></p>
+<p>Time Freeze: <span id="timeFreezeStatus">Inactive</span></p>
+<p>Golden Mode: <span id="goldenModeStatus">Inactive</span></p>
+</div>
+<!-- Music Toggle Section -->
+<div class="music-section">
+<h4>Music</h4>
+<button id="musicToggleBtn">Mute Music</button>
+</div>
+<hr/>
+<!-- Upstage Button -->
+<button id="upstageButton" style="display:none; background: orange;">UPSTAGE?</button>
+<hr/>
+<!-- Background Shop Section -->
+<div class="background-shop-section">
+<h4>Background Shop</h4>
+<ul id="backgroundShopList"></ul>
+</div>
+<hr/>
+<!-- Stats Section -->
+<div class="stats-section">
+<h4>Stats for Nerds</h4>
+<p>Total Clicks: <span id="totalClicks">0</span></p>
+<p>Rarest Find: <span id="rarestFind">None</span></p>
+<div>
+<h5>Rarity Chances:</h5>
+<ul id="chancesList"></ul>
+</div>
+<p id="masteryMedals">Mastery Medals: </p>
+</div>
+<hr/>
+<button id="resetButton">RESET</button>
+</div>
+</div>
+<!-- Main Click Button -->
+<button id="clickButton">Click Me!</button>
+<!-- Result Display -->
+<div id="resultContainer">
+<p id="result"></p>
+</div>
+<!-- Log of Finds -->
+<h2>Log of Finds</h2>
+<ul id="log"></ul>
+<!-- JavaScript Files -->
+<script src="script.js"></script>
+<script src="script2.js"></script>
+</body>
+</html>

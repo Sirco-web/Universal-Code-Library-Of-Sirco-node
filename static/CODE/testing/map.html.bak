@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Testing</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+
+    <script>
+        function checkCookie() {
+            const cookies = document.cookie.split("; ");
+            const accessCookie = cookies.find(row => row.startsWith("access="));
+    
+            if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+                window.location.href = "/index.html"; // Redirect if no valid cookie
+            }
+        }
+    
+        window.onload = function () {
+            checkCookie(); // Verify cookie before loading the page
+        };
+    </script>
+    
+
+    <script>
+        function confirmDisclaimer() {
+            if (confirm("Disclaimer: This website and its contents are provided for entertainment purposes only. We are not responsible for any misuse of the services offered, including violations of rules, policies, or laws that come to your location or institution. Accessing this website using devices or networks that are not personally owned, such as school property, is strictly prohibited. Use of this website during designated school hours is also not allowed. By using this website, you know that you are solely responsible for ensuring compliance with all applicable regulations. \n\nDo you agree?")) {
+                window.location.href = "https://wbte.drcedirect.com/MO/portals/mo"; // Redirect to testing site
+            } else {
+                window.location.href = "/CODE/testing"; // Redirect back if declined
+            }
+        }
+
+        window.onload = confirmDisclaimer;
+    </script>
+</head>
+<body>
+    <h1>Redirecting...</h1>
+
+<script src="/analytics.js?5h"></script>
+
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "name": "sirco-code-universe",
+  "version": "2.0.0",
+  "description": "Code Universe - Dynamic Node.js Server with Owner Dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "build": "echo 'No build step required'",
+    "build:games": "bash scripts/build-games.sh"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "geoip-lite": "^1.4.7",
+    "node-fetch": "^2.7.0",
+    "nodemailer": "^6.9.7",
+    "uuid": "^9.0.0"
+  },
+  "keywords": [
+    "code-universe",
+    "sirco"
+  ],
+  "author": "Sirco",
+  "license": "MIT"
+}

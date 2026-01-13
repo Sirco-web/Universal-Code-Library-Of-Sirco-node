@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Banner</title>
+<link href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png" rel="icon" type="image/png"/>
+<style>
+        /* Use CSS variables and prefers-color-scheme so text is readable on light or dark parent backgrounds */
+        :root {
+            --banner-bg: transparent !important;
+            --banner-text: #fff;        /* force white text */
+            --banner-muted: #ddd;       /* secondary text */
+            --banner-accent: #4da3ff;   /* link accent */
+            --highlight-bg: rgba(0,0,0,0.85); /* black highlight behind text */
+            --text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                /* keep white text and black highlight in dark mode too */
+                --banner-text: #fff;
+                --banner-muted: #ddd;
+                --banner-accent: #4da3ff;
+                --highlight-bg: rgba(0,0,0,0.85);
+                --text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+            }
+        }
+
+        /* Make the page transparent so parent background shows through */
+        html, body {
+            background: var(--banner-bg);
+        }
+        body {
+            text-align: center;
+            padding: 0;
+            margin: 0;
+            color: var(--banner-text);
+            text-shadow: var(--text-shadow);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .banner-content {
+            padding: 10px 0;
+            background: var(--banner-bg); /* no panel background */
+        }
+
+        h2 {
+            font-size: 1.5em;
+            color: var(--banner-text);
+            margin: 0;
+        }
+
+        /* New: highlight the banner text with a black rounded background */
+        .highlight {
+            display: inline; /* tight to the text instead of creating a big box */
+            background: var(--highlight-bg);
+            color: var(--banner-text);
+            padding: 0 0.28em; /* minimal horizontal padding, no extra vertical space */
+            border-radius: 0.35em; /* subtle rounding that follows the words */
+            line-height: 1;
+            vertical-align: middle;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone; /* keep highlight tight on wrapped lines */
+        }
+        .highlight a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        p {
+            color: var(--banner-muted);
+            font-size: 1.2em;
+        }
+
+        a {
+            color: var(--banner-accent);
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Classic mode: keep transparency, only control text colors using the same variables */
+        html.classic-mode, html.classic-mode body {
+            background: var(--banner-bg);
+            color: var(--banner-text);
+        }
+        html.classic-mode .banner-content {
+            background: var(--banner-bg);
+            color: var(--banner-text);
+            border-radius: 0 !important;
+        }
+        html.classic-mode h2 {
+            color: var(--banner-accent);
+        }
+        html.classic-mode a {
+            color: var(--banner-accent);
+        }
+    </style>
+<script>
+        // Apply classic mode if set in localStorage
+        (function() {
+            try {
+                if (window.localStorage && localStorage.classic_mode === '1') {
+                    document.documentElement.classList.add('classic-mode');
+                }
+            } catch(e){}
+        })();
+    </script>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<div class="banner-content">
+<h2>
+<span class="highlight">
+                We are not shuting down, but look at the other sites button we added lots of sites!
+            </span>
+</h2>
+</div>
+<script>
+        // Send the height of the banner to the parent window
+        function sendHeight() {
+            window.parent.postMessage({
+                type: 'bannerHeight',
+                height: document.body.scrollHeight
+            }, '*');
+        }
+        window.onload = sendHeight;
+        window.onresize = sendHeight;
+    </script>
+</body>
+</html>
+

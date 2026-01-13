@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Beyond Rare - Home</title>
+<!-- Using the Chewy font for that playful vibe -->
+<link href="https://fonts.googleapis.com/css2?family=Chewy&amp;display=swap" rel="stylesheet"/>
+<style>
+    /* Reset defaults */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    /* Background: gradient red to blue to yellow */
+    body {
+      background: linear-gradient(90deg, red, blue, yellow);
+      font-family: 'Chewy', cursive, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    /* Header styling */
+    header {
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 4rem;
+      margin-bottom: 10px;
+    }
+    .sub-header {
+      font-size: 1.5rem;
+    }
+    /* Container for all game options arranged vertically */
+    .button-container {
+      margin-top: 30px;
+    }
+    .game-option {
+      margin-bottom: 30px;
+    }
+    /* Button styling */
+    .game-option a.btn {
+      padding: 15px 30px;
+      min-width: 250px;
+      text-decoration: none;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.2rem;
+      transition: transform 0.2s ease-in-out;
+      display: inline-block;
+    }
+    .game-option a.btn:hover {
+      transform: scale(1.05);
+    }
+    /* Specific button color schemes */
+    .btn-og {
+      background: linear-gradient(to right, red, blue);
+      color: black;
+    }
+    .btn-x {
+      background-color: white;
+      color: black;
+    }
+    .btn-y {
+      background: linear-gradient(to right, red, yellow);
+      color: black;
+    }
+    .btn-z {
+      background: linear-gradient(to right, blue, yellow);
+      color: black;
+    }
+    /* Description text styling: Black Chewy font */
+    .description {
+      color: black;
+      font-size: 1.1rem;
+      margin-top: 10px;
+    }
+    /* Footer styling */
+    footer {
+      margin-top: 20px;
+      font-size: 1rem;
+    }
+    /* For header, sub-header, & footer alternating colored letters */
+    .colored-letter {
+      display: inline;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+    }
+  </style>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<header>
+<h1 id="header-text">Hello!</h1>
+<p class="sub-header" id="sub-header-text">Welcome to Beyond Rare. Please select your game:</p>
+</header>
+<div class="button-container">
+<!-- Beyond Rare OG -->
+<div class="game-option" id="game-og">
+<a class="btn btn-og" href="og/">Beyond Rare OG</a>
+<p class="description">
+        Click the button and unlock a random rarity—will it be common, epic, or ultra rare? Use points earned from pulls to buy shop items that boost your luck and increase your chances. It’s simple, addictive, and all about the thrill of chasing the rarest pulls.
+      </p>
+</div>
+<!-- Beyond Rare X -->
+<div class="game-option" id="game-x">
+<a class="btn btn-x" href="x/">Beyond Rare X</a>
+<p class="description">
+        Beyond Rare X takes everything you love about the original and turns it up a notch. Better visuals, smarter shop upgrades, and refined luck mechanics make every click feel even more rewarding. It's the same concept—but sharper, sleeker, and more satisfying.
+      </p>
+</div>
+<!-- Beyond Rare Y -->
+<div class="game-option" id="game-y">
+<a class="btn btn-y" href="y/">Beyond Rare Y</a>
+<p class="description">
+        Beyond Rare Y explodes with an endless list of new rarities, powerful shop items, and dynamic progression systems. Climb through rarity tiers, unlock achievements, and strategize with layered upgrades for long-term growth. It’s the ultimate evolution of the Beyond Rare formula—deeper, bigger, and endlessly replayable.
+      </p>
+</div>
+<!-- Beyond Rare Z -->
+<div class="game-option" id="game-z">
+<a class="btn btn-z" href="z/">Beyond Rare Z</a>
+<p class="description">
+        Developed by a new team, Beyond Rare Z reimagines the core experience with fresh mechanics and unique systems. While the heart of rarity-hunting remains, new twists like events, evolving shop items, and interactive boosts set it apart. It’s a bold take on the Beyond Rare legacy—familiar yet entirely new.
+      </p>
+</div>
+</div>
+<footer>
+<p id="footer-text">©2025 Glitch&amp;Go</p>
+</footer>
+<script>
+    // Function to wrap each character in a span with alternating colors (for header, sub-header & footer)
+    function colorizeText(elementId, colors) {
+      var element = document.getElementById(elementId);
+      if (!element) return;
+      var text = element.textContent;
+      var coloredText = "";
+      var colorIndex = 0;
+      for (var i = 0; i < text.length; i++) {
+        var char = text.charAt(i);
+        coloredText += '<span class="colored-letter" style="color:' + colors[colorIndex] + ';">' + char + '</span>';
+        colorIndex = (colorIndex + 1) % colors.length;
+      }
+      element.innerHTML = coloredText;
+    }
+
+    // Colors used for alternating effects on header, sub-header, and footer
+    var colors = ["#B22222", "#4169E1", "#DAA520"];
+    colorizeText("header-text", colors);
+    colorizeText("sub-header-text", colors);
+    colorizeText("footer-text", colors);
+    }
+  </script>
+</body>
+</html>

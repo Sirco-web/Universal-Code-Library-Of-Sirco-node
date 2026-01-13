@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Remove Access Key</title>
+<link href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png" rel="icon" type="image/png"/>
+<script>
+        function deleteCookie() {
+            document.cookie = "access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+            document.getElementById("message").textContent = "The access cookie has been deleted.";
+        }
+
+        function panicKeyHandler(event) {
+            if (event.key === "Escape") { // Triggered when the "Escape" key is pressed
+                deleteCookie(); // Delete the cookie
+                document.getElementById("message").textContent = "Panic key triggered! The access cookie has been deleted.";
+            }
+        }
+
+        window.onload = function() {
+            document.addEventListener("keydown", panicKeyHandler);
+        };
+    </script>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<h1>Remove Access Key</h1>
+<button onclick="deleteCookie()">Delete Access Cookie</button>
+<p id="message"></p>
+<script src="/analytics.js?5h"></script>
+</body>
+</html>

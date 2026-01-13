@@ -1,0 +1,19 @@
+[
+  {
+    "timestamp": "2026-01-13T22:47:19.255Z",
+    "type": "request",
+    "data": {
+      "method": "GET",
+      "path": "/CODE/games/ext/",
+      "query": {}
+    },
+    "ip": "::1",
+    "location": {
+      "country": "Unknown",
+      "region": "Unknown",
+      "city": "Unknown",
+      "timezone": "Unknown"
+    },
+    "userAgent": "curl/8.5.0"
+  }
+]

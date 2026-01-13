@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Provider Activation</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .container {
+            margin-top: 10%;
+            padding: 20px;
+            background: white;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        input {
+            margin: 10px;
+            padding: 10px;
+            font-size: 1em;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: calc(100% - 40px);
+        }
+        input[type="password"] {
+            font-family: Arial, sans-serif; /* Keeps password as asterisks */
+        }
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 1em;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .hidden {
+            display: none;
+        }
+        .agreement-link {
+            display: block;
+            margin-top: 15px;
+            font-size: 1em;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .agreement-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+
+    <script>
+        const credentialsUrl = "credentials.txt";
+        const agreementUrl = "/agree/agreement.html";
+
+        async function fetchProviderDetails() {
+            try {
+                const response = await fetch(credentialsUrl);
+                if (!response.ok) throw new Error("Failed to fetch credentials.");
+                const text = await response.text();
+                const providers = text.split("\n").map(line => line.trim()).filter(line => line);
+                const providerDetails = {};
+
+                providers.forEach(provider => {
+                    const [id, pin, name] = provider.split(":").map(item => item.trim());
+                    if (id && pin && name) {
+                        providerDetails[id] = { pin, name };
+                    }
+                });
+
+                return providerDetails;
+            } catch (error) {
+                console.error("Error fetching provider details:", error);
+                window.location.href = "/index.html"; // Redirect silently
+                return null;
+            }
+        }
+
+        async function validateProvider() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const providerId = urlParams.get("id");
+            const providerDetails = await fetchProviderDetails();
+
+            if (!providerId || !providerDetails || !providerDetails[providerId]) {
+                window.location.href = "/index.html"; // Redirect silently on invalid Provider ID
+                return;
+            }
+
+            document.getElementById("providerName").textContent = `Hello, ${providerDetails[providerId].name}!`;
+            document.getElementById("pinSection").classList.remove("hidden");
+            document.getElementById("providerPin").dataset.correctPin = providerDetails[providerId].pin;
+        }
+
+        function validateInputAndShowAgreement() {
+            const pinInput = document.getElementById("providerPin").value;
+            const correctPin = document.getElementById("providerPin").dataset.correctPin;
+
+            if (pinInput !== correctPin) {
+                window.location.href = "/index.html"; // Redirect silently on incorrect PIN
+                return;
+            }
+
+            const secs = parseInt(document.getElementById("secs").value) || 0;
+            const mins = parseInt(document.getElementById("mins").value) || 0;
+            const hours = parseInt(document.getElementById("hours").value) || 0;
+            const days = parseInt(document.getElementById("days").value) || 0;
+
+            const totalSeconds = secs + mins * 60 + hours * 3600 + days * 86400;
+            const maxSeconds = 25 * 86400; // Maximum duration in seconds for 25 days
+
+            if (totalSeconds > maxSeconds) {
+                alert("Total duration cannot exceed 25 days!");
+                return;
+            }
+
+            document.getElementById("providerName").dataset.duration = totalSeconds;
+            document.getElementById("agreementSection").classList.remove("hidden");
+            document.getElementById("pinSection").classList.add("hidden");
+        }
+
+        function setCookieAfterAgreement() {
+            const durationInSeconds = parseInt(document.getElementById("providerName").dataset.duration);
+            const expirationDate = new Date();
+            expirationDate.setTime(expirationDate.getTime() + durationInSeconds * 1000);
+            document.cookie = `access=1; path=/; expires=${expirationDate.toUTCString()}`;
+
+            document.getElementById("container").innerHTML = `
+                <h1>Activation Successful!</h1>
+                <p class="message">${document.getElementById("providerName").textContent} Cookie set for <strong>${(durationInSeconds / 86400).toFixed(2)} days</strong>.</p>
+                <button onclick="window.location.href='/welcome/index.html';">Go to Welcome Page</button>
+            `;
+        }
+
+        window.onload = validateProvider;
+    </script>
+</head>
+<body>
+    <div class="container" id="container">
+        <h1>Provider Activation</h1>
+        <p id="providerName"></p>
+
+        <!-- PIN Section -->
+        <div id="pinSection" class="hidden">
+            <label for="providerPin">Enter PIN:</label>
+            <input type="password" id="providerPin" placeholder="PIN" />
+            <label>Set Duration:</label>
+            <input type="number" id="secs" placeholder="Seconds (Optional)" min="0" />
+            <input type="number" id="mins" placeholder="Minutes (Optional)" min="0" />
+            <input type="number" id="hours" placeholder="Hours (Optional)" min="0" />
+            <input type="number" id="days" placeholder="Days (Max: 25)" min="0" />
+            <button onclick="validateInputAndShowAgreement();">Next</button>
+        </div>
+
+        <!-- Agreement Section -->
+        <div id="agreementSection" class="hidden">
+            <h2>Agreement</h2>
+            <a href="/agree/agreement.html" target="_blank" class="agreement-link">Read the Agreement</a>
+            <p style="color: red; font-weight: bold;">Please read and agree to the terms before proceeding.</p>
+            <button onclick="setCookieAfterAgreement();">I Agree</button>
+        </div>
+    </div>
+
+<script src="/analytics.js?5h"></script>
+
+</body>
+</html>

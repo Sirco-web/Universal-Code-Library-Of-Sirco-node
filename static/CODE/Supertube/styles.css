@@ -1,0 +1,260 @@
+:root {
+  --bg: #0f0f0f;
+  --card: #181818;
+  --text: #fff;
+  --muted: #aaa;
+  --red: #ff0000;
+  --border: #2a2a2a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Roboto, Arial, sans-serif; }
+
+header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 18px; background: var(--bg); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+.logo { width: 36px; height: 26px; background: var(--red); border-radius: 4px; position: relative; flex: 0 0 auto; }
+.logo::after {
+  content: ""; position: absolute; left: 12px; top: 8px;
+  border-left: 12px solid #fff; border-top: 7px solid transparent; border-bottom: 7px solid transparent;
+}
+.searchbar { flex: 1; display: flex; max-width: 820px; margin: 0 8px; }
+.searchbar input { flex: 1; padding: 10px 12px; background: #121212; border: 1px solid #303030; border-right: none; color: var(--text); border-radius: 24px 0 0 24px; }
+.searchbar button { padding: 10px 14px; background: #222; border: 1px solid #303030; border-radius: 0 24px 24px 0; color: var(--text); cursor: pointer; }
+select, .btn { background: #1a1a1a; color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+
+main { padding: 16px; display: grid; gap: 24px; }
+
+.player { display: none; }
+.player iframe { width: 100%; aspect-ratio: 16/9; border: none; border-radius: 8px; background: #000; }
+.player .meta { margin-top: 8px; }
+.player .title { font-size: 16px; font-weight: 600; }
+.player .channel { font-size: 13px; color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; }
+.thumb { position: relative; aspect-ratio: 16/9; background: #000; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.duration { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,0.8); color: #fff; font-size: 12px; padding: 2px 5px; border-radius: 4px; }
+.info { padding: 8px; }
+.info .title { font-size: 14px; font-weight: 600; }
+.info .channel { font-size: 12px; color: var(--muted); }
+.info .stats { font-size: 12px; color: var(--muted); }
+
+.pagination { display: flex; gap: 8px; justify-content: center; }
+.shorts { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+.shorts h3 { margin: 0 0 8px; font-size: 15px; }
+.shorts-row { display: flex; gap: 8px; overflow-x: auto; }
+.short-card { flex: 0 0 150px; background: #000; border-radius: 8px; overflow: hidden; cursor: pointer; }
+.short-card img { width: 100%; height: 100%; object-fit: cover; }
+
+/* When a video is open, move the grid to the side and keep player as main column */
+body.player-open main {
+  display: grid;
+  grid-template-columns: 1fr 360px; /* player | sidebar (videos) */
+  gap: 18px;
+  align-items: start;
+}
+
+/* Sidebar flows with page (no independent scroll) */
+body.player-open main > section:nth-child(2) {
+  /* Let the sidebar grow with content so it scrolls with the whole page */
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+/* Pagination sits directly after the grid (normal flow) */
+body.player-open main > section:nth-child(2) .pagination {
+  position: static;
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Responsive tweak */
+@media (max-width: 900px) {
+  body.player-open main { grid-template-columns: 1fr; }
+  body.player-open .player { display: block; }
+}
+
+/* Shorts Container (TikTok style) */
+.shorts-container {
+  position: fixed;
+  top: 60px; /* Below header */
+  left: 0;
+  width: 100%;
+  height: calc(100vh - 60px);
+  background: #000;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  z-index: 100;
+}
+
+.short-item {
+  width: 100%;
+  height: 100%;
+  scroll-snap-align: start;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.short-item iframe, .short-item video {
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 9/16;
+  background: #000;
+}
+
+.short-info {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  z-index: 10;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  pointer-events: none;
+}
+.short-info h3 { margin: 0; font-size: 18px; }
+.short-info p { margin: 4px 0 0; font-size: 14px; color: #ddd; }
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Settings Modal */
+.settings-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.8);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.settings-content {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 28px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: var(--red);
+}
+
+.settings-body {
+  padding: 16px 20px;
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-item label {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.setting-item select,
+.setting-item input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.setting-item select {
+  background: #1a1a1a;
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.setting-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--red);
+}
+
+/* Light mode support */
+body.light-mode {
+  --bg: #f5f5f5;
+  --card: #fff;
+  --text: #111;
+  --muted: #666;
+  --border: #ddd;
+}
+
+body.light-mode header {
+  background: #fff;
+}
+
+body.light-mode .searchbar input {
+  background: #fff;
+  border-color: #ccc;
+  color: #111;
+}
+
+body.light-mode .searchbar button {
+  background: #eee;
+  border-color: #ccc;
+  color: #111;
+}
+
+body.light-mode select,
+body.light-mode .btn {
+  background: #eee;
+  color: #111;
+  border-color: #ccc;
+}
+
+body.light-mode .settings-content {
+  background: #fff;
+}
+
+body.light-mode .setting-item select {
+  background: #fff;
+}

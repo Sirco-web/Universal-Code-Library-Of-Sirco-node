@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Activate Access</title>
+<link href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png" rel="icon" type="image/png"/>
+<style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        .container {
+            margin: auto;
+            padding: 20px;
+            background: white;
+            max-width: 600px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+<script>
+        function activateAgreement() {
+            const agreementDate = new Date().toISOString();
+            document.cookie = `agreementTimestamp=${agreementDate}; path=/; expires=Fri, 31 Dec 9999 23:59:59 GMT`;
+            alert("You have agreed to the updated terms.");
+            window.location.href = "/welcome";
+        }
+
+        function checkActivation() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("agreement") !== null) {
+                document.getElementById("agreementBox").style.display = "block";
+            } else {
+                document.getElementById("activationBox").style.display = "block";
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", checkActivation);
+    </script>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<div class="container">
+<h1>Activate Access</h1>
+<!-- Agreement Section (Shown When ?agreement is Present) -->
+<div class="hidden" id="agreementBox">
+<h2>Updated Agreement</h2>
+<p>By using this site, you agree to:</p>
+<ul style="text-align: left; margin-left: 20px;">
+<li>Follow all applicable rules and policies.</li>
+<li>Use the site responsibly and legally.</li>
+<li>Accept data privacy policies and site restrictions.</li>
+</ul>
+<button onclick="activateAgreement()">I Agree &amp; Continue</button>
+</div>
+<!-- Activation Section (Shown When No ?agreement is Present) -->
+<div class="hidden" id="activationBox">
+<h2>Activation Required</h2>
+<p>You need to activate your account before continuing.</p>
+<p>Go to <a href="/activate?agreement">/activate?agreement</a> to accept the updated terms.</p>
+</div>
+</div>
+<script src="/analytics.js?5h"></script>
+</body>
+</html>

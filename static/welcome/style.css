@@ -1,0 +1,354 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    text-align: center;
+    padding-top: 60px; /* Prevent content from being hidden under the banner */
+}
+.container {
+    text-align: center;
+    margin-top: 5%;
+    padding: 20px;
+    background: white;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+.version-footer {
+    margin-top: 20px;
+    background-color: #f8f9fa;
+    color: #6c757d;
+    padding: 10px;
+    font-size: 0.85em;
+    border-top: 1px solid #ddd;
+}
+.footer-container {
+    margin-top: 40px;
+    background-color: #007bff;
+    color: white;
+    font-size: 0.9em;
+    padding: 15px 20px;
+    border-top: 1px solid #0056b3;
+}
+.footer-container p {
+    margin: 5px 0;
+}
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0; /* Add vertical spacing above and below each button group */
+}
+.button-group button {
+    padding: 10px 20px;
+    font-size: 1em;
+    border-radius: 6px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+.button-group button:hover {
+    background-color: #0056b3;
+}
+.top-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+/* Banner fixed to top */
+#banner-frame {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 60px;
+    border: none;
+    display: block;
+    margin-bottom: 0;
+    z-index: 1000;
+    background: transparent;
+}
+
+/* General layout improvements */
+body, html {
+    font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+    background: #f7f8fa;
+    color: #23272f;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    transition: background 0.3s, color 0.3s;
+}
+
+.container {
+    max-width: 700px;
+    margin: 48px auto 0 auto;
+    background: rgba(255,255,255,0.92);
+    border-radius: 18px;
+    box-shadow: 0 6px 32px #0002;
+    padding: 2.5em 2em 2em 2em;
+    position: relative;
+    z-index: 1;
+}
+
+.main-header {
+    text-align: center;
+    margin-bottom: 2em;
+}
+.brand {
+    color: #7c3aed;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+.subtitle {
+    color: #6c757d;
+    font-size: 1.15em;
+    margin-top: 0.5em;
+}
+
+nav.main-nav {
+    margin: 2em 0 1em 0;
+}
+
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1em;
+    justify-content: center;
+    margin-bottom: 1.5em;
+}
+
+.button-group button, .button-group a {
+    min-width: 120px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px #0001;
+    border: none;
+    padding: 0.7em 1.5em;
+    background: linear-gradient(90deg, #7c3aed 0%, #2eb9df 100%);
+    color: #fff;
+    transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+    cursor: pointer;
+    outline: none;
+    font-size: 1.08em;
+}
+
+.button-group button:hover, .button-group a:hover {
+    background: linear-gradient(90deg, #2eb9df 0%, #7c3aed 100%);
+    color: #fff;
+    box-shadow: 0 4px 16px #0002;
+}
+
+#dark-mode-toggle {
+    position: fixed;
+    top: 18px;
+    left: 22px;
+    z-index: 10002;
+    background: #fff;
+    color: #23272f;
+    border-radius: 50%;
+    border: 1px solid #eee;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+    box-shadow: 0 2px 8px #0002;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+#dark-mode-toggle:hover {
+    background: #e0e7ef;
+    color: #7c3aed;
+}
+
+.version-footer {
+    text-align: center;
+    font-size: 0.98em;
+    color: #6c757d;
+    margin-top: 2.5em;
+    padding: 1.5em 0 0.5em 0;
+    border-top: 1px solid #e0e7ef;
+    background: transparent;
+}
+.version-footer .disclaimer {
+    font-size: 0.93em;
+    color: #a0a4ad;
+    margin-top: 1em;
+    line-height: 1.6;
+}
+
+/* Modal polish */
+#offline-modal > div,
+#offline-list-modal > div {
+    border: 1px solid #e0e7ef;
+    box-shadow: 0 8px 32px #0003;
+    background: #fff;
+}
+#offline-modal button,
+#offline-list-modal button {
+    margin-top: 0.7em;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+    .container {
+        max-width: 98vw;
+        padding: 1.2em 0.5em;
+    }
+    .main-header {
+        font-size: 0.95em;
+    }
+    .button-group button, .button-group a {
+        min-width: 90px;
+        font-size: 0.97em;
+        padding: 0.6em 1em;
+    }
+}
+
+/* Dark mode styles */
+html.dark-mode, html.dark-mode body {
+    background: #181a20;
+    color: #e2e6ee;
+}
+html.dark-mode .container {
+    background: rgba(28, 29, 36, 0.97);
+    box-shadow: 0 6px 32px #0006;
+}
+html.dark-mode .main-header .brand {
+    color: #2eb9df;
+}
+html.dark-mode .subtitle {
+    color: #b0b8c7;
+}
+html.dark-mode .button-group button, 
+html.dark-mode .button-group a {
+    background: linear-gradient(90deg, #2eb9df 0%, #7c3aed 100%);
+    color: #fff;
+    border: none;
+}
+html.dark-mode .button-group button:hover, 
+html.dark-mode .button-group a:hover {
+    background: linear-gradient(90deg, #7c3aed 0%, #2eb9df 100%);
+    color: #fff;
+}
+html.dark-mode #dark-mode-toggle {
+    background: #23272f;
+    color: #fff;
+    border: 1px solid #333;
+}
+html.dark-mode #dark-mode-toggle:hover {
+    background: #2eb9df;
+    color: #fff;
+}
+html.dark-mode .version-footer {
+    color: #7c8ca0;
+    border-top: 1px solid #23272f;
+    background: transparent;
+}
+html.dark-mode .version-footer .disclaimer {
+    color: #4e5a6e;
+}
+html.dark-mode #offline-modal > div,
+html.dark-mode #offline-list-modal > div {
+    background: #23272f;
+    color: #e2e6ee;
+    border: 1px solid #333;
+}
+html.dark-mode .blue-btn {
+    background: #2eb9df;
+    color: #fff;
+}
+html.dark-mode .blue-btn:hover, html.dark-mode .blue-btn:focus {
+    background: #7c3aed;
+    color: #fff;
+}
+
+/* Classic mode overrides */
+html.classic-mode, html.classic-mode body {
+    background: #eaeaea !important;
+    color: #222 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+html.classic-mode .container {
+    background: #fff !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 1.2em 0.5em !important;
+    max-width: 900px !important;
+    border: 1px solid #bbb !important;
+}
+html.classic-mode .main-header .brand {
+    color: #007bff !important;
+}
+html.classic-mode .subtitle {
+    color: #444 !important;
+}
+html.classic-mode .button-group button, 
+html.classic-mode .button-group a {
+    background: #f0f0f0 !important;
+    color: #222 !important;
+    border: 1px solid #bbb !important;
+    box-shadow: none !important;
+    border-radius: 4px !important;
+    font-size: 1em !important;
+    font-weight: 400 !important;
+    padding: 0.5em 1.1em !important;
+}
+html.classic-mode .button-group button:hover, 
+html.classic-mode .button-group a:hover {
+    background: #e0e7ef !important;
+    color: #007bff !important;
+}
+html.classic-mode #dark-mode-toggle,
+html.classic-mode #classic-mode-toggle {
+    background: #f0f0f0 !important;
+    color: #222 !important;
+    border: 1px solid #bbb !important;
+}
+html.classic-mode #dark-mode-toggle:hover,
+html.classic-mode #classic-mode-toggle:hover {
+    background: #e0e7ef !important;
+    color: #007bff !important;
+}
+html.classic-mode .version-footer {
+    color: #555 !important;
+    border-top: 1px solid #bbb !important;
+    background: #f8f8f8 !important;
+}
+html.classic-mode .version-footer .disclaimer {
+    color: #888 !important;
+}
+html.classic-mode #offline-modal > div,
+html.classic-mode #offline-list-modal > div {
+    background: #fff !important;
+    color: #222 !important;
+    border: 1px solid #bbb !important;
+}
+html.classic-mode .blue-btn {
+    background: #007bff !important;
+    color: #fff !important;
+}
+html.classic-mode .blue-btn:hover, html.classic-mode .blue-btn:focus {
+    background: #0056b3 !important;
+    color: #fff !important;
+}
+
+/* Stars */
+#canvas {
+    display: block;
+    position: fixed;  /* Cover the viewport */
+    top: 0;
+    left: 0;
+    width: 100vw;  /* 100% of the viewport width */
+    height: 100vh; /* 100% of the viewport height */
+    pointer-events: none; /* Prevents canvas from interfering with interactions */
+    z-index: 0;
+}

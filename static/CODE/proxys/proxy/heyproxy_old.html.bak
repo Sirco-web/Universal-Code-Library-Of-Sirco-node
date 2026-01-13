@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Content Loader</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+    
+    <!-- Start with a blank page -->
+    <style>
+        body {
+            display: none; /* Hide all content until cookie is validated */
+            background-color: #f4f4f9; /* Blank screen color */
+            margin: 0;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #loadingMessage, #errorMessage {
+            font-size: 18px;
+        }
+        #loadingMessage {
+            color: #007bff;
+        }
+        #errorMessage {
+            color: red;
+        }
+    </style>
+
+    <!-- Cookie Validation -->
+    <script>
+        const cookies = document.cookie.split("; ");
+        const accessCookie = cookies.find(row => row.startsWith("access="));
+
+        if (accessCookie && accessCookie.split("=")[1] === "1") {
+            // Valid cookie found, show the page
+            document.addEventListener("DOMContentLoaded", () => {
+                document.body.style.display = "flex"; // Display content
+                loadFromGitHub("https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/hey_proxy.html");
+            });
+        } else {
+            // No valid cookie, redirect to main page
+            window.location.replace("/index.html");
+        }
+
+        async function loadFromGitHub(url) {
+            try {
+                if (!url) throw new Error("GitHub URL is missing.");
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Failed to fetch content.");
+
+                const content = await response.text();
+                document.open();
+                document.write(content);
+                document.close();
+            } catch (error) {
+                document.body.innerHTML = `<h1>Error</h1><p id="errorMessage">${error.message}</p>`;
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Loading...</h1>
+    <p id="loadingMessage">Please wait while we fetch content from GitHub...</p>
+</body>
+</html>
+
+

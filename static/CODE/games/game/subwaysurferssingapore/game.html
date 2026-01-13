@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<script>
+function checkCookie() {
+    const cookies = document.cookie.split("; ");
+    const accessCookie = cookies.find(row => row.startsWith("access="));
+    if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+        window.location.href = "/index.html"; // Redirect if no valid cookie
+    }
+}
+checkCookie();
+</script>
+<script src="poki-sdk.js"></script>
+<meta content="text/html; charset=utf-8" http-equiv="content-type"/>
+<meta content="IE=edge" http-equiv="X-UA-Compatible"/>
+<meta content="yes" name="apple-mobile-web-app-capable"/>
+<meta content="black" name="apple-mobile-web-app-status-bar-style"/>
+<meta content="height=device-height, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui, viewport-fit=cover" name="viewport">
+<meta content="" name="description"/>
+<link href="subwaysurfers.webmanifest" rel="manifest"/>
+<link href="assets/images/app-icon-16.png" rel="icon" type="image/png"/>
+<link href="assets/images/app-icon-114.png" rel="apple-touch-icon-precomposed" sizes="114x114"/>
+<link href="assets/images/app-icon-72.png" rel="apple-touch-icon-precomposed" sizes="72x72"/>
+<link href="assets/images/app-icon-57.png" rel="apple-touch-icon-precomposed" sizes="57x57"/>
+<link href="assets/images/app-icon-57.png" rel="apple-touch-icon-precomposed"/>
+<title>Outlook</title>
+<style>
+        body, html { 
+            margin: 0;
+            height: 100%;
+            background-color: #0b316b;
+            overflow: hidden;
+            background-image: url('assets/preload/splash.png');
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        #message {
+            text-align: center;
+            font-size: 8px;
+            z-index: 5;
+            font-family: "Verdana", sans-serif;
+            color: #fff;
+            position: fixed;
+            width: 100%;
+            z-index: 9999;
+        }
+
+        .dot {
+            display: inline;
+            margin-left: 0.2em;
+            margin-right: 0.2em;
+            position: relative;
+            top: -1em;
+            font-size: 3.5em;
+            opacity: 0;
+            animation: showHideDot 2.5s ease-in-out infinite;
+        }
+
+        .dot.one { animation-delay: 0.2s; }
+        .dot.two { animation-delay: 0.4s; }
+        .dot.three { animation-delay: 0.6s; }
+
+        @keyframes showHideDot {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            60% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+    </style>
+</meta><script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<script>
+        window.NOSW = true;
+        window.GAME_CONFIG = {
+            pokiSdkDebug: false,
+            leaderboard: 'mockup',
+            bundlesPath: './bundles',
+            quality: 'high'
+        }
+    </script>
+<div id="message">
+<h1>Loading</h1>
+<h1 class="dot one">.</h1><h1 class="dot two">.</h1><h1 class="dot three">.</h1>
+</div>
+<script src="js/loading.js"></script>
+<script src="js/boot.js"></script>
+</body>
+</html>

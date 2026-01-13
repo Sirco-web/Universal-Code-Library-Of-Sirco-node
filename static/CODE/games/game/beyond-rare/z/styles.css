@@ -1,0 +1,315 @@
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: #e0f7fa;
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+#header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #00796b;
+  color: #fff;
+  padding: 10px 20px;
+}
+#settingsIcon {
+  font-size: 28px;
+  cursor: pointer;
+  user-select: none;
+}
+#shopIcon {
+  font-size: 28px;
+  cursor: pointer;
+  user-select: none;
+  margin-left: 18px;
+  display: inline-block;
+}
+#timer {
+  font-size: 20px;
+}
+#clickButton {
+  display: block;
+  margin: 40px auto 20px auto;
+  padding: 36px 80px;
+  font-size: 2em;
+  border-radius: 18px;
+  border: none;
+  background: #009688;
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  transition: background 0.2s, transform 0.15s;
+}
+#clickButton:hover { background: #00bfae; transform: scale(1.03);}
+#resultContainer {
+  text-align: center;
+  margin-bottom: 18px;
+}
+#result {
+  font-size: 1.4em;
+  font-weight: bold;
+}
+#log, .log-list {
+  max-width: 310px;
+  width: 48%;
+  margin: 12px 0 24px 0;
+  background: #f2faff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  padding: 18px;
+  font-size: 1.1em;
+  min-height: 40px;
+  display: block;
+}
+.center-flex-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 30px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 1100px;
+}
+#log, .log-list, #unlockedRaritiesBox, .achievement-list {
+  margin-left: 0;
+  margin-right: 0;
+}
+#unlockedRaritiesBox {
+  display: inline-block;
+  vertical-align: top;
+  width: 48%;
+  margin-right: 0;
+  box-sizing: border-box;
+}
+.achievement-list {
+  display: inline-block;
+  vertical-align: top;
+  width: 48%;
+  margin: 0;
+  background: #fefefe;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+  padding: 24px;
+  text-align: left;
+  box-sizing: border-box;
+}
+.achievement-list h2 {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.achievement {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18px;
+  border-left: 8px solid #bdbdbd;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #fafafa;
+  transition: border-color 0.2s;
+}
+.achievement.achieved {
+  border-color: #ffd700;
+  background: #fffde7;
+}
+.achievement .icon {
+  font-size: 32px;
+  margin-right: 16px;
+  width: 36px;
+  text-align: center;
+}
+.achievement .details {
+  flex: 1;
+}
+.achievement .details .name {
+  font-size: 20px;
+  font-weight: bold;
+}
+.achievement .details .desc {
+  font-size: 15px;
+  color: #666;
+}
+.save-modal-content {
+  max-width: 530px;
+}
+#saveTextarea {
+  font-family: monospace;
+  font-size: 15px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  padding: 8px;
+  resize: vertical;
+  background: #f8f8f8;
+  color: #333;
+  margin-bottom: 10px;
+}
+#cheaterOverlay {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(50,0,0,0.90);
+  align-items: center;
+  justify-content: center;
+}
+.cheater-message {
+  background: #fff0f0;
+  border-radius: 20px;
+  padding: 48px 32px;
+  text-align: center;
+  border: 6px solid #ff2222;
+  max-width: 400px;
+  margin: auto;
+  box-shadow: 0 0 40px #a00;
+}
+.cheater-message h1 {
+  color: #ff2222;
+  font-size: 3em;
+  margin-bottom: 10px;
+  letter-spacing: 2px;
+}
+.cheater-message p {
+  font-size: 1.25em;
+  color: #b22222;
+  margin-bottom: 24px;
+}
+body.cheater-mode #header,
+body.cheater-mode #clickButton,
+body.cheater-mode #resultContainer,
+body.cheater-mode #log,
+body.cheater-mode .achievement-list,
+body.cheater-mode #settingsModal {
+  filter: blur(5px) grayscale(0.6);
+  pointer-events: none;
+  user-select: none;
+}
+.reset-section {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin: 16px 0 0 0;
+}
+#softResetButton, .soft-reset-btn {
+  background: #FFB833;
+  color: #222;
+  font-size: 18px;
+  padding: 10px 20px;
+  margin: 10px 0;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+}
+#softResetButton:hover, .soft-reset-btn:hover {
+  background: #ffe080;
+  transform: scale(1.05);
+  box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
+#resetButton {
+  background: #ff4d4d;
+  color: white;
+  font-size: 18px;
+  padding: 10px 20px;
+  margin: 10px 0;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+}
+#resetButton:hover {
+  background: #c91414;
+  transform: scale(1.05);
+  box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+}
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 50;
+  left: 0; top: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.28);
+}
+.modal-content {
+  background: #fff;
+  margin: 55px auto;
+  padding: 30px 25px;
+  border-radius: 18px;
+  width: 95%;
+  max-width: 520px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.13);
+  position: relative;
+}
+/* Make settings modal scrollable if content overflows */
+#settingsModal .modal-content {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+#shopModal .modal-content {
+  max-width: 520px;
+  overflow-y: auto;
+  background: #f9f9ff;
+  border: 2px solid #a88734;
+}
+
+/* Style for shop upgrade buttons */
+#settingsModal .shop-section button,
+#shopModal .modal-content button {
+  display: block;
+  width: 100%;
+  margin: 6px 0;
+  padding: 10px 0;
+  background: #f0c14b;
+  border: 1px solid #a88734;
+  border-radius: 8px;
+  color: #222;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+#settingsModal .shop-section button:hover,
+#shopModal .modal-content button:hover {
+  background: #ffe066;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.close {
+  position: absolute;
+  top: 13px; right: 20px;
+  font-size: 27px;
+  color: #888;
+  cursor: pointer;
+  user-select: none;
+  font-weight: bold;
+}
+.achievement-list #achievementsSection.collapsed {
+  display: none;
+}
+.achievement-list #achievementsHeader {
+  user-select: none;
+}
+.shop-status {
+  margin-top: 18px;
+  background: #fffbe7;
+  border-radius: 8px;
+  padding: 10px;
+  border: 1px solid #ffd700;
+}
+@media (max-width: 900px) {
+  #unlockedRaritiesBox, .achievement-list {
+    display: block;
+    width: 100%;
+    margin-right: 0;
+  }
+  #log, .log-list, .achievement-list {
+    display: block;
+    width: 100%;
+    margin-right: 0;
+    max-width: 100%;
+  }
+  .center-flex-row {
+    flex-direction: column;
+    gap: 0;
+  }
+}

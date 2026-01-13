@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Weekly Link Portal</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0b0f14;--panel:#111826;--muted:#94a3b8;--text:#e2e8f0;--acc:#47b0ff;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;--line:rgba(255,255,255,.08)}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 700px at 20% -10%,#17202e,transparent),radial-gradient(1000px 600px at 120% 10%,#131b27,transparent),var(--bg);color:var(--text);font:16px/1.6 Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+    .logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#2dd4bf,#60a5fa);box-shadow:0 8px 30px rgba(71,176,255,.35)}
+    h1{font-size:24px;margin:0;font-weight:800;letter-spacing:.2px}
+    .muted{color:var(--muted)}
+
+    .row{display:grid;grid-template-columns:1fr 320px;gap:18px}
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 12px 30px rgba(0,0,0,.25);backdrop-filter:blur(6px)}
+
+    .pill{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:8px 12px}
+    .countdown{font-variant-numeric:tabular-nums}
+
+    /* Catalog grid (root & folder popup) */
+    .catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:10px}
+    .card{display:grid;grid-template-rows:auto 1fr auto;gap:10px;min-height:140px;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:default}
+    .card-head{display:flex;align-items:center;gap:10px;min-height:24px}
+    .card-head img{width:20px;height:20px;border-radius:4px;flex:0 0 auto}
+    .title{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sub{color:var(--muted);font-size:12px;min-height:18px}
+    .actions{display:flex;justify-content:flex-end;gap:10px}
+    button{background:var(--acc);border:0;color:#00111c;font-weight:800;border-radius:12px;padding:10px 14px;cursor:pointer}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+    .folder-card{cursor:pointer}
+    .folder-card:hover{background:rgba(255,255,255,.06)}
+
+    /* History */
+    .history{margin:0;padding-left:18px}
+    .history li{margin:6px 0}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+
+    .dot-admin{position:fixed;right:6px;bottom:6px;width:8px;height:8px;border-radius:50%;background:#8096b1;opacity:.1;transition:opacity .2s,transform .2s;z-index:50}
+    .dot-admin:hover{opacity:1;transform:scale(1.6)}
+
+    dialog{border:1px solid rgba(255,255,255,.15);border-radius:16px;background:var(--panel);color:var(--text);max-width:760px;width:calc(100% - 32px);box-shadow:0 30px 90px rgba(0,0,0,.5);padding:20px}
+    dialog::backdrop{background:rgba(0,0,0,.5)}
+    input, select{background:#0e141d;color:var(--text);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px;width:100%}
+    .mini{font-size:12px}
+    .hide{display:none}
+
+    /* Folder breadcrumb in popup */
+    .breadcrumb{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;margin-top:4px}
+    .crumb{cursor:pointer;color:var(--acc)}
+    .crumb:hover{text-decoration:underline}
+
+    /* Admin panel */
+    .list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+    .list-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:10px}
+    .badge{font-size:11px;border:1px solid var(--line);padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.05)}
+    .row2{display:grid;grid-template-columns:1fr auto;gap:10px}
+    .row3{display:grid;grid-template-columns:1fr 1fr auto;gap:10px}
+    .scroll{max-height:55vh;overflow:auto}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo"></div>
+      <div>
+        <h1>Weekly Link Portal</h1>
+        <div class="muted">For all of your gaming addictions.</div>
+      </div>
+    </header>
+
+    <div class="row">
+      <section class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div class="pill"><span id="dot" style="width:8px;height:8px;border-radius:50%;background:var(--ok)"></span><span id="status">Ready</span></div>
+          <div class="pill countdown">Next new link in: <b id="cd">now</b></div>
+        </div>
+
+        <h3 style="margin:14px 0 8px 0">Available Links & Folders</h3>
+        <div id="catalogRoot" class="catalog"></div>
+        <div class="actions" style="margin-top:10px">
+          <button id="refresh">Refresh</button>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <h3>Your Unlocked Links</h3>
+        <ul id="history" class="history"></ul>
+        <div class="muted mini">Unlocked links stay here forever.</div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Admin tiny button -->
+  <div class="dot-admin" id="adminDot" title="Owner"></div>
+
+  <!-- Confirm claim dialog -->
+  <dialog id="confirmDlg">
+    <form method="dialog">
+      <h3 id="dlgTitle">Claim this link?</h3>
+      <div id="dlgBody" class="muted"></div>
+      <div class="mini muted" style="margin-top:8px">Claiming uses up your weekly allowance. You’ll be able to claim a new link 2-3 days from now.</div>
+      <div class="actions" style="margin-top:14px;gap:10px">
+        <button value="cancel" type="submit" class="ghost">Cancel</button>
+        <button id="dlgYes" value="yes" type="submit">Yes, claim it</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Folder view popup (nested navigation) -->
+  <dialog id="folderDlg">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div>
+        <h3 id="folderTitle" style="margin:0">Folder</h3>
+        <div id="folderBreadcrumb" class="breadcrumb"></div>
+      </div>
+      <div class="actions" style="gap:10px">
+        <button id="folderClose" class="ghost">Close</button>
+      </div>
+    </div>
+    <div id="folderCatalog" class="catalog scroll" style="margin-top:18px"></div>
+  </dialog>
+
+  <!-- Admin dialog -->
+  <dialog id="adminDlg">
+    <div id="adminLogin">
+      <h3>Owner Login</h3>
+      <p class="muted mini">Enter the PIN.</p>
+      <input id="pinInput" placeholder="PIN" inputmode="numeric" minlength="1" />
+      <div class="actions" style="margin-top:10px;gap:10px">
+        <button id="pinGo">Unlock</button>
+        <button id="pinCancel" class="ghost">Close</button>
+      </div>
+      <div id="pinMsg" class="err mini hide">Bad PIN</div>
+    </div>
+
+    <div id="adminPanel" class="hide">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <h3 style="margin:0">Owner Panel</h3>
+        <span class="pill mini">Service: <b id="svcState">enabled</b></span>
+      </div>
+      <div class="actions" style="margin-top:10px;gap:10px">
+        <button id="toggleSvcBtn">Toggle Access</button>
+        <button id="closeAdmin" class="ghost">Close</button>
+      </div>
+
+      <h4 style="margin-top:18px">Catalog</h4>
+      <div id="adminSummary" class="list"></div>
+
+      <div class="mini muted" style="margin-top:8px">
+        • Manage opens a view where you can move links up/down, delete, add, and move links to folders. Context stays where you left it.
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Catalog Manager popup (context-preserving) -->
+  <dialog id="manageDlg">
+    <form method="dialog">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div>
+          <h3 id="manageTitle" style="margin:0">Manage</h3>
+          <div id="manageCrumb" class="breadcrumb"></div>
+        </div>
+        <div class="actions">
+          <button value="close" class="ghost">Close</button>
+        </div>
+      </div>
+
+      <div id="manageMeta" class="mini muted" style="margin-top:4px"></div>
+
+      <div id="manageList" class="list" style="max-height:50vh;overflow:auto"></div>
+
+      <div id="manageAddArea" style="margin-top:14px">
+        <h4 style="margin:0 0 8px 0">Add Link here</h4>
+        <div class="row3">
+          <input id="m_newUrl" placeholder="https://..." />
+          <input id="m_newTitle" placeholder="Title (auto)" />
+          <button id="m_probeBtn" type="button" class="ghost">Probe</button>
+        </div>
+        <div class="row2" style="margin-top:8px;grid-template-columns:1fr auto">
+          <input id="m_newIcon" placeholder="Favicon URL (auto)" />
+          <button id="m_addBtn" type="button">Add Link</button>
+        </div>
+      </div>
+
+      <div id="manageFolderArea" style="margin-top:14px">
+        <h4 style="margin:0 0 8px 0">Add Folder here</h4>
+        <div class="row2">
+          <input id="m_newFolderName" placeholder="New folder name..." />
+          <button id="m_addFolderBtn" type="button">Add Folder</button>
+        </div>
+      </div>
+
+      <div id="manageDanger" class="mini err hide" style="margin-top:8px">
+        Deleting a folder will remove all links inside it.
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Move dialog (pick destination folder) -->
+  <dialog id="moveDlg">
+    <form method="dialog">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">Move Link</h3>
+        <button value="close" class="ghost">Close</button>
+      </div>
+      <div class="mini muted" style="margin-top:6px">Choose destination. Select Top Level to move out of a folder.</div>
+      <div style="margin-top:10px">
+        <select id="moveFolderSelect"></select>
+      </div>
+      <div class="actions" style="margin-top:14px">
+        <button value="cancel" class="ghost">Cancel</button>
+        <button id="moveConfirmBtn" value="ok">Move</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    // ===== CONFIG =====
+    const API_BASE = "https://linkkkkkkkkkkkk-production.up.railway.app";
+    const LS_KEY = "weeklyLinkState";
+    const WEEK_MS = 2 * 24 * 60 * 60 * 1000;
+
+    // ===== State =====
+    let clickLock = false;
+    let pendingId = null;
+    let adminToken = null;
+
+    // Public tree + folder popup
+    let treeCache = [];
+    let folderStack = [];
+
+    // Admin manage state
+    let managing = { parentId: null, parentName: "Top Level", path: ["Top Level"] };
+    let lastScrollTop = 0;
+    const adminLinkUrlById = new Map(); // id => url (for showing URLs in admin)
+
+    // ===== Utilities =====
+    const $ = (q) => document.querySelector(q);
+    const $$ = (q) => Array.from(document.querySelectorAll(q));
+    const el = (tag, cls) => { const n = document.createElement(tag); if (cls) n.className = cls; return n; };
+
+    function loadState(){
+      try { return JSON.parse(localStorage.getItem(LS_KEY)) || { lastAt:0, nextAt:0, history:[] }; }
+      catch { return { lastAt:0, nextAt:0, history:[] }; }
+    }
+    function saveState(s){ localStorage.setItem(LS_KEY, JSON.stringify(s)); }
+    function canGetNew(s){ return Date.now() >= (s.nextAt||0); }
+    function setStatus(ok,msg){ $("#dot").style.background = ok ? "var(--ok)" : "var(--err)"; $("#status").textContent = msg; }
+    function fmtCountdown(ms){
+      const t = Math.max(0, ms|0);
+      const d=Math.floor(t/86400000), h=Math.floor((t%86400000)/3600000), m=Math.floor((t%3600000)/60000), s=Math.floor((t%60000)/1000);
+      if (d) return `${d}d ${h}h ${m}m`; if (h) return `${h}h ${m}m ${s}s`; if (m) return `${m}m ${s}s`; return `${s}s`;
+    }
+
+    // ===== Public: fetch tree and render =====
+    async function fetchTree(){
+      const r = await fetch(API_BASE + "/api/urls?tree=1");
+      if (!r.ok) throw new Error("tree fetch failed");
+      return r.json();
+    }
+
+    function folderIconSvg(){
+      return `<svg xmlns="http://www.w3.org/2000/svg" fill="%23ffd166" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v1H3V5Zm0 5h22v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9Z"/></svg>`;
+    }
+
+    function renderRoot(tree){
+      const grid = $("#catalogRoot");
+      grid.innerHTML = "";
+      const s = loadState();
+      const disabled = !canGetNew(s);
+
+      tree.forEach(node=>{
+        if (node.type === "folder"){
+          const card = document.createElement("div");
+          card.className = "card folder-card";
+          card.innerHTML = `
+            <div class="card-head">
+              <img src="data:image/svg+xml,${encodeURIComponent(folderIconSvg())}" width="20" height="20" alt="folder"/>
+              <div class="title" title="${node.name||'Folder'}">${node.name||'Folder'}</div>
+            </div>
+            <div class="sub">${(node.children||[]).length} item(s)</div>
+            <div class="actions"><button class="ghost openFolderBtn" data-id="${node.id}">Open</button></div>
+          `;
+          card.querySelector(".openFolderBtn").addEventListener("click", ()=> openFolderPopup(node.id));
+          grid.appendChild(card);
+        } else {
+          const card = document.createElement("div");
+          card.className = "card";
+          card.innerHTML = `
+            <div class="card-head">
+              <img src="${node.favicon||''}" onerror="this.style.opacity=.2" alt="">
+              <div class="title" title="${node.title||'Untitled'}">${node.title||'Untitled'}</div>
+            </div>
+            <div class="sub">Link Hidden until claimed</div>
+            <div class="actions"><button class="getBtn" data-id="${node.id}" ${disabled?"disabled":""}>Get</button></div>
+          `;
+          card.querySelector(".getBtn").addEventListener("click", onGetClick);
+          grid.appendChild(card);
+        }
+      });
+    }
+
+    // ===== Folder popup (nested navigation) =====
+    const folderDlg = $("#folderDlg");
+    $("#folderClose").addEventListener("click", ()=> folderDlg.close());
+
+    function findNodeById(id, arr=treeCache){
+      for (const n of arr){
+        if (n.id === id) return n;
+        if (n.type === "folder"){
+          const f = findNodeById(id, n.children||[]);
+          if (f) return f;
+        }
+      }
+      return null;
+    }
+
+    function openFolderPopup(folderId){
+      const folderNode = findNodeById(folderId);
+      if (!folderNode || folderNode.type !== "folder") return;
+      folderStack = buildPathStack(folderId);
+      renderFolderPopup();
+      folderDlg.showModal();
+    }
+
+    function buildPathStack(targetId){
+      const path = [];
+      function dfs(arr, trail){
+        for (const n of arr){
+          if (n.type === "folder"){
+            const nextTrail = [...trail, n];
+            if (n.id === targetId){ path.push(...nextTrail); return true; }
+            if (dfs(n.children||[], nextTrail)) return true;
+          }
+        }
+        return false;
+      }
+      dfs(treeCache, []);
+      return path;
+    }
+
+    function renderBreadcrumb(){
+      const crumbWrap = $("#folderBreadcrumb");
+      crumbWrap.innerHTML = "";
+      const rootCrumb = document.createElement("span");
+      rootCrumb.className = "crumb";
+      rootCrumb.textContent = "Root";
+      rootCrumb.addEventListener("click", ()=> folderDlg.close());
+      crumbWrap.appendChild(rootCrumb);
+
+      folderStack.forEach((f,idx)=>{
+        const sep = document.createElement("span");
+        sep.textContent = "›";
+        sep.style.opacity = ".6";
+        sep.style.margin = "0 2px";
+        crumbWrap.appendChild(sep);
+        const c = document.createElement("span");
+        c.className = "crumb";
+        c.textContent = f.name || "Folder";
+        c.addEventListener("click", ()=>{
+          folderStack = folderStack.slice(0, idx+1);
+          renderFolderPopup();
+        });
+        crumbWrap.appendChild(c);
+      });
+    }
+
+    function renderFolderPopup(){
+      const currentFolder = folderStack[folderStack.length-1];
+      $("#folderTitle").textContent = currentFolder?.name || "Folder";
+      renderBreadcrumb();
+      const wrap = $("#folderCatalog");
+      wrap.innerHTML = "";
+      const s = loadState();
+      const disabled = !canGetNew(s);
+      const items = currentFolder?.children || [];
+
+      if (!items.length){
+        wrap.innerHTML = `<div class="muted mini" style="padding:10px">Empty folder.</div>`;
+        return;
+      }
+
+      items.forEach(node=>{
+        if (node.type === "folder"){
+          const card = document.createElement("div");
+          card.className = "card folder-card";
+          card.innerHTML = `
+            <div class="card-head">
+              <img src="data:image/svg+xml,${encodeURIComponent(folderIconSvg())}" width="20" height="20" alt="folder"/>
+              <div class="title" title="${node.name||'Folder'}">${node.name||'Folder'}</div>
+            </div>
+            <div class="sub">${(node.children||[]).length} item(s)</div>
+            <div class="actions"><button class="ghost openFolderBtn" data-id="${node.id}">Open</button></div>
+          `;
+          card.querySelector(".openFolderBtn").addEventListener("click", ()=>{
+            folderStack.push(node);
+            renderFolderPopup();
+          });
+          wrap.appendChild(card);
+        } else {
+          const card = document.createElement("div");
+          card.className = "card";
+          card.innerHTML = `
+            <div class="card-head">
+              <img src="${node.favicon||''}" onerror="this.style.opacity=.2" alt="">
+              <div class="title" title="${node.title||'Untitled'}">${node.title||'Untitled'}</div>
+            </div>
+            <div class="sub">Link Hidden until claimed</div>
+            <div class="actions"><button class="getBtn" data-id="${node.id}" ${disabled?"disabled":""}>Get</button></div>
+          `;
+          card.querySelector(".getBtn").addEventListener("click", onGetClick);
+          wrap.appendChild(card);
+        }
+      });
+    }
+
+    // ===== Claim flow =====
+    async function onGetClick(e){
+      if (clickLock) return;
+      const state = loadState();
+      if (!canGetNew(state)) { setStatus(false,"Waiting period active"); return; }
+
+      const id = e.currentTarget.getAttribute("data-id");
+      pendingId = id;
+      const r = await fetch(API_BASE + "/api/resolve/" + encodeURIComponent(id));
+      if (!r.ok){ setStatus(false,"Access disabled or URL missing"); return; }
+      const data = await r.json();
+
+      $("#dlgTitle").textContent = "Claim this link?";
+      $("#dlgBody").innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="${data.favicon||''}" onerror="this.style.opacity=.2" width="20" height="20"/>
+          <div style="font-weight:700">${data.title || "Untitled"}</div>
+        </div>
+      `;
+      $("#confirmDlg").showModal();
+    }
+
+    $("#confirmDlg").addEventListener("close", async ()=>{
+      if ($("#confirmDlg").returnValue !== "yes" || !pendingId) return;
+      if (clickLock) return;
+      clickLock = true;
+
+      const r = await fetch(API_BASE + "/api/resolve/" + encodeURIComponent(pendingId));
+      if (!r.ok){ setStatus(false,"Access disabled or URL missing"); clickLock=false; return; }
+      const { url, title, favicon, id } = await r.json();
+
+      const s = loadState();
+      const now = Date.now();
+      s.lastAt = now; s.nextAt = now + WEEK_MS;
+      s.history.push({ id, url, title, favicon, at: now });
+      saveState(s);
+
+      renderHistory(s.history);
+      bootCountdown();
+      window.open(url,"_blank","noopener");
+      clickLock = false;
+    });
+
+    // ===== History =====
+    function renderHistory(list){
+      const h = $("#history");
+      if (!list.length){ h.innerHTML = `<li class="muted mini">None yet.</li>`; return; }
+      h.innerHTML = list.slice().reverse().map(x=>`
+        <li>
+          <a href="${x.url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none">
+            <img src="${x.favicon||''}" onerror="this.style.opacity=.2" width="16" height="16" />
+            <span>${x.title || new URL(x.url).hostname}</span>
+          </a>
+          <span class="muted mini"> – unlocked ${new Date(x.at).toLocaleString()}</span>
+        </li>
+      `).join("");
+    }
+
+    // ===== Countdown =====
+    function bootCountdown(){
+      const s = loadState();
+      const left = (s.nextAt||0) - Date.now();
+      const cd = $("#cd");
+      if (canGetNew(s)){ cd.textContent = "now"; setStatus(true,"Ready"); $$(".getBtn").forEach(b=>b.disabled=false); }
+      else {
+        cd.textContent = fmtCountdown(left);
+        setStatus(false,"Waiting period active");
+        $$(".getBtn").forEach(b=>b.disabled=true);
+      }
+    }
+    setInterval(bootCountdown, 1000);
+
+    // ===== Admin (login + panel) =====
+    const adminDlg = $("#adminDlg");
+    $("#adminDot").addEventListener("click", ()=> adminDlg.showModal());
+    $("#pinCancel").addEventListener("click", ()=> adminDlg.close());
+
+    $("#pinGo").addEventListener("click", async ()=>{
+      const pin = $("#pinInput").value.trim();
+      const r = await fetch(API_BASE + "/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pin})});
+      if (!r.ok){ $("#pinMsg").classList.remove("hide"); return; }
+      const j = await r.json(); adminToken = j.token;
+      $("#adminLogin").classList.add("hide"); $("#adminPanel").classList.remove("hide"); $("#pinMsg").classList.add("hide");
+      await refreshAdminSummary();
+    });
+
+    $("#closeAdmin").addEventListener("click", ()=> adminDlg.close());
+    $("#toggleSvcBtn").addEventListener("click", async ()=>{
+      const cur = $("#svcState").textContent === "enabled";
+      const r = await fetch(API_BASE + "/api/admin/toggle", {
+        method:"POST",
+        headers:{"Content-Type":"application/json", Authorization:"Bearer "+adminToken},
+        body:JSON.stringify({enabled:!cur})
+      });
+      const j = await r.json(); $("#svcState").textContent = j.enabled ? "enabled":"disabled";
+    });
+
+    async function fetchTreeForAdmin(){
+      // Get sanitized tree for structure (no URLs) AND flat list with URLs for mapping
+      const [treeRes, flatRes] = await Promise.all([
+        fetch(API_BASE + "/api/urls?tree=1&all=1"),
+        fetch(API_BASE + "/api/urls?all=1")
+      ]);
+      if (!treeRes.ok) throw new Error("tree fetch failed");
+      if (!flatRes.ok) throw new Error("flat fetch failed");
+      const { urls: tree, enabled } = await treeRes.json();
+      treeCache = tree || [];
+      $("#svcState").textContent = enabled ? "enabled":"disabled";
+
+      adminLinkUrlById.clear();
+      const flat = (await flatRes.json()).urls || [];
+      flat.forEach(it => { if (it.id) adminLinkUrlById.set(it.id, it.url || ""); });
+    }
+
+    function renderAdminSummary(){
+      const wrap = $("#adminSummary");
+      wrap.innerHTML = "";
+
+      // Manage Top Level
+      const topRow = el("div","list-row");
+      topRow.innerHTML = `
+        <div class="badge">Top Level</div>
+        <div class="muted mini">Manage links and folders at the root.</div>
+        <div class="actions">
+          <button class="ghost" id="btnManageRoot">Manage</button>
+        </div>
+      `;
+      wrap.appendChild(topRow);
+      $("#btnManageRoot").addEventListener("click", ()=>{
+        managing = { parentId: null, parentName: "Top Level", path: ["Top Level"] };
+        openManagePopup();
+      });
+
+      // Root-level LINKS (show with icon + URL + controls as requested)
+      treeCache.filter(n=>n.type==="link").forEach(link=>{
+        const url = adminLinkUrlById.get(link.id) || "";
+        const row = el("div","list-row");
+        row.innerHTML = `
+          <div style="font-size:18px">🔗</div>
+          <div>
+            <div class="title" style="font-weight:700">${link.title || "Untitled"}</div>
+            <div class="mini muted">${link.favicon ? "Has icon" : "No icon"} | ${url ? `<span title="${url}">${url}</span>` : "(site url)"}</div>
+          </div>
+          <div class="actions" style="gap:6px">
+            <button class="ghost" data-act="up" title="Move up">⬆️</button>
+            <button class="ghost" data-act="down" title="Move down">⬇️</button>
+            <button class="ghost" data-act="remove" title="Delete">🗑️</button>
+            <button class="ghost" data-act="move" title="Move to folder">Move…</button>
+          </div>
+        `;
+        row.querySelectorAll("button[data-act]").forEach(btn=>{
+          const act = btn.getAttribute("data-act");
+          if (act === "move"){
+            btn.addEventListener("click", ()=> openMoveDialog({ id: link.id }));
+          } else {
+            btn.addEventListener("click", async ()=>{
+              await catalogModify(link.id, act, null); // parent is root
+              await refreshAdminSummary();
+            });
+          }
+        });
+        wrap.appendChild(row);
+      });
+
+      // Top-level FOLDERS (with manage + reorder/delete)
+      treeCache.filter(n=>n.type==="folder").forEach(folder=>{
+        const row = el("div","list-row");
+        row.innerHTML = `
+          <div class="badge">Folder</div>
+          <div class="title" title="${folder.name||'Untitled Folder'}">${folder.name||'Untitled Folder'}</div>
+          <div class="actions" style="gap:6px">
+            <button class="ghost" data-act="up" title="Move up">⬆️</button>
+            <button class="ghost" data-act="down" title="Move down">⬇️</button>
+            <button class="ghost" data-act="remove" title="Delete folder">🗑️</button>
+            <button class="ghost" data-act="manage">Manage</button>
+          </div>
+        `;
+        row.querySelectorAll("button[data-act]").forEach(btn=>{
+          const act = btn.getAttribute("data-act");
+          if (act === "manage"){
+            btn.addEventListener("click", ()=>{
+              managing = { parentId: folder.id, parentName: folder.name || "Folder", path: ["Top Level", folder.name || "Folder"] };
+              openManagePopup();
+            });
+          } else {
+            btn.addEventListener("click", async ()=>{
+              await catalogModify(folder.id, act, null); // reorder/delete at root
+              await refreshAdminSummary();
+            });
+          }
+        });
+        wrap.appendChild(row);
+      });
+    }
+
+    async function refreshAdminSummary(){
+      await fetchTreeForAdmin();
+      renderAdminSummary();
+    }
+
+    // ===== Manage Popup =====
+    const manageDlg = $("#manageDlg");
+
+    function getChildrenOf(parentId){
+      if (!parentId) return treeCache;
+      const stack = [...treeCache];
+      while (stack.length) {
+        const n = stack.shift();
+        if (n.type === "folder") {
+          if (n.id === parentId) return n.children || [];
+          (n.children || []).forEach(c => { if (c.type === "folder") stack.push(c); });
+        }
+      }
+      return [];
+    }
+
+    async function openManagePopup(){
+      await fetchTreeForAdmin(); // also refresh URL map
+      renderManagePopup();
+      manageDlg.showModal();
+    }
+
+    function renderManagePopup(){
+      $("#manageTitle").textContent = managing.parentId ? `Manage: ${managing.parentName}` : "Manage: Top Level";
+      $("#manageCrumb").innerHTML = managing.path.map((p,i)=> i===0 ? p : `› ${p}`).join(" ");
+      $("#manageMeta").textContent = managing.parentId ? "Links/folders inside this folder" : "Root-level links and folders";
+
+      const list = $("#manageList");
+      list.scrollTop = lastScrollTop;
+      list.innerHTML = "";
+      const children = getChildrenOf(managing.parentId);
+
+      if (!children.length){
+        const empty = el("div","mini muted");
+        empty.textContent = "Nothing here yet.";
+        list.appendChild(empty);
+      }
+
+      children.forEach(node=>{
+        const row = el("div","list-row");
+        const icon = node.type === "folder" ? "📁" : "🔗";
+        const main = node.type === "folder" ? (node.name || "Untitled Folder") : (node.title || "Untitled");
+        const url = adminLinkUrlById.get(node.id) || "";
+
+        row.innerHTML = `
+          <div style="font-size:18px">${icon}</div>
+          <div style="overflow:hidden">
+            <div class="title" title="${main}">${main}</div>
+            ${node.type === "link"
+              ? `<div class="mini muted">${node.favicon ? "Has icon" : "No icon"} | ${url ? `<span title="${url}">${url}</span>` : "(site url)"}</div>`
+              : `<div class="mini muted">Folder</div>`}
+          </div>
+          <div class="actions" style="gap:6px">
+            <button class="ghost" data-act="up" title="Up">⬆️</button>
+            <button class="ghost" data-act="down" title="Down">⬇️</button>
+            <button class="ghost" data-act="remove" title="Delete">🗑️</button>
+            ${node.type === "folder" ? `<button class="ghost" data-act="open">Open</button>` : `<button class="ghost" data-act="move">Move…</button>`}
+          </div>
+        `;
+        list.appendChild(row);
+
+        row.querySelectorAll("[data-act]").forEach(btn=>{
+          const act = btn.getAttribute("data-act");
+          if (act === "open" && node.type === "folder"){
+            btn.addEventListener("click", ()=>{
+              managing = { parentId: node.id, parentName: node.name || "Folder", path: [...managing.path, node.name || "Folder"] };
+              lastScrollTop = $("#manageList").scrollTop;
+              renderManagePopup(); // stay in dialog
+            });
+          } else if (act === "move" && node.type === "link"){
+            btn.addEventListener("click", ()=> openMoveDialog(node));
+          } else {
+            btn.addEventListener("click", async ()=>{
+              lastScrollTop = $("#manageList").scrollTop;
+              await catalogModify(node.id, act, managing.parentId || null);
+              await fetchTreeForAdmin();
+              renderManagePopup(); // remain in place
+            });
+          }
+        });
+      });
+
+      // Show add areas
+      $("#manageAddArea").classList.remove("hide");
+      $("#manageFolderArea").classList.remove("hide");
+      // warn on nested deletes
+      if (managing.parentId){
+        $("#manageDanger").classList.remove("hide");
+      } else {
+        $("#manageDanger").classList.add("hide");
+      }
+    }
+
+    async function catalogModify(id, action, parentId){
+      // action: up | down | remove
+      await fetch(API_BASE + "/api/admin/catalog-modify", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:"Bearer "+adminToken },
+        body: JSON.stringify({ id, action, parentId: parentId || null })
+      });
+    }
+
+    // ===== Move dialog =====
+    const moveDlg = $("#moveDlg");
+    const moveSelect = $("#moveFolderSelect");
+    let movingNodeId = null;
+
+    function listAllFoldersWithPaths(){
+      const out = [{ id: null, path: "Top Level" }];
+      function walk(arr, prefix){
+        for (const n of arr){
+          if (n.type === "folder"){
+            const label = prefix ? `${prefix} / ${n.name || "Folder"}` : (n.name || "Folder");
+            out.push({ id: n.id, path: label });
+            walk(n.children || [], label);
+          }
+        }
+      }
+      walk(treeCache, "");
+      return out;
+    }
+
+    function openMoveDialog(node){
+      movingNodeId = node.id;
+      moveSelect.innerHTML = "";
+      const opts = listAllFoldersWithPaths();
+      opts.forEach(o=>{
+        const opt = document.createElement("option");
+        opt.value = o.id || "";
+        opt.textContent = o.path;
+        moveSelect.appendChild(opt);
+      });
+      const curVal = (managing.parentId || "");
+      moveSelect.value = curVal;
+      moveDlg.showModal();
+    }
+
+    $("#moveConfirmBtn").addEventListener("click", async (e)=>{
+      e.preventDefault();
+      const newParentId = moveSelect.value || null;
+      if (!movingNodeId) { moveDlg.close(); return; }
+      lastScrollTop = $("#manageList").scrollTop;
+      // Requires server endpoint /api/admin/move
+      await fetch(API_BASE + "/api/admin/move", {
+        method: "POST",
+        headers: { "Content-Type":"application/json", Authorization:"Bearer "+adminToken },
+        body: JSON.stringify({ id: movingNodeId, newParentId })
+      });
+      movingNodeId = null;
+      moveDlg.close();
+      await fetchTreeForAdmin();
+      renderManagePopup(); // stay in same place
+      renderAdminSummary(); // update summary in case root membership changed
+    });
+
+    // Manage add actions
+    $("#m_probeBtn").addEventListener("click", async ()=>{
+      const u = $("#m_newUrl").value.trim(); if (!u) return;
+      const r = await fetch(API_BASE + "/api/probe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:u})});
+      if (r.ok){ const j = await r.json(); $("#m_newTitle").value = j.meta.title || ""; $("#m_newIcon").value = j.meta.favicon || ""; }
+    });
+
+    $("#m_addBtn").addEventListener("click", async ()=>{
+      const url = $("#m_newUrl").value.trim();
+      const title = $("#m_newTitle").value.trim();
+      const favicon = $("#m_newIcon").value.trim();
+      if (!url) return;
+      lastScrollTop = $("#manageList").scrollTop;
+      await fetch(API_BASE + "/api/admin/add",{
+        method:"POST",
+        headers:{"Content-Type":"application/json", Authorization:"Bearer "+adminToken},
+        body:JSON.stringify({url,title,favicon,parentId: managing.parentId || null})
+      });
+      $("#m_newUrl").value = $("#m_newTitle").value = $("#m_newIcon").value = "";
+      await fetchTreeForAdmin();
+      renderManagePopup();
+      renderAdminSummary();
+    });
+
+    $("#m_addFolderBtn").addEventListener("click", async ()=>{
+      const name = $("#m_newFolderName").value.trim(); if (!name) return;
+      lastScrollTop = $("#manageList").scrollTop;
+      await fetch(API_BASE + "/api/admin/folder-add",{
+        method:"POST",
+        headers:{"Content-Type":"application/json", Authorization:"Bearer "+adminToken},
+        body:JSON.stringify({ name, parentId: managing.parentId || null })
+      });
+      $("#m_newFolderName").value = "";
+      await fetchTreeForAdmin();
+      renderManagePopup();
+      renderAdminSummary();
+    });
+
+    // ===== Controls =====
+    $("#refresh").addEventListener("click", boot);
+
+    async function boot(){
+      try{
+        const data = await fetchTree();
+        treeCache = data.urls || [];
+        renderRoot(treeCache);
+        const s = loadState(); renderHistory(s.history||[]); bootCountdown();
+        setStatus(true, data.enabled ? "Ready" : "Disabled by owner");
+      }catch{ setStatus(false,"API not reachable"); }
+    }
+    boot();
+  </script>
+</body>
+</html>

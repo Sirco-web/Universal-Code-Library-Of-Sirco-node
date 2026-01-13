@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<title>Cookie Saver &amp; Exporter</title>
+<style>
+        body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 2em; }
+        #container { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 2em; max-width: 600px; margin: auto; }
+        input, button, textarea { width: 100%; margin-bottom: 1em; padding: 0.7em; font-size: 1em; }
+        textarea { height: 120px; }
+        .hidden { display: none; }
+        #cookie-table { width: 100%; border-collapse: collapse; margin-bottom: 1em; background: #f4f4f4; border-radius: 4px; overflow-x: auto; }
+        #cookie-table th, #cookie-table td { border: 1px solid #ddd; padding: 0.5em 0.7em; text-align: left; }
+        #cookie-table th { background: #e9e9e9; }
+        #cookie-table tr:nth-child(even) { background: #fafafa; }
+        #cookie-table tr:hover { background: #f1f7ff; }
+        #cookie-table-container { max-height: 250px; overflow-y: auto; margin-bottom: 1em; }
+        #message { min-height: 1.5em; }
+        button { cursor: pointer; }
+        h2, h3, h4 { margin-top: 0.5em; }
+    </style>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<div id="container">
+<h2>Cookie Saver &amp; Exporter</h2>
+<div id="cookie-section">
+<h3>Your Cookies &amp; Local Storage</h3>
+<div id="cookie-table-container">
+<table id="cookie-table">
+<thead>
+<tr>
+<th>Cookie Name</th>
+<th>Value</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody>
+<!-- Cookies will be rendered here -->
+</tbody>
+</table>
+</div>
+<div id="localstorage-table-container" style="max-height:250px; overflow:auto; margin-bottom:1em; background:#f4f4f4; border-radius:4px;"></div>
+<button id="refresh-cookies">Refresh Data</button>
+<button id="export-all">Export All (Cookies + Local Storage)</button>
+<input accept="application/json" id="import-all-file" type="file"/>
+<button id="import-all">Import All (Cookies + Local Storage)</button>
+<div id="message" style="color:green;"></div>
+</div>
+<script>
+    let BACKEND_URL = '';
+    fetch('/backend.json')
+        .then(res => res.json())
+        .then(cfg => {
+            BACKEND_URL = cfg.url.replace(/\/$/, '');
+            initApp();
+        });
+
+    function initApp() {
+        function checkCookie() {
+            const cookies = document.cookie.split("; ");
+            const accessCookie = cookies.find(row => row.startsWith("access="));
+
+            if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+                window.location.href = "/index.html"; // Redirect if no valid cookie
+            }
+        }
+
+        window.onload = function () {
+            checkCookie(); // Verify cookie before loading the page
+
+            // Check for permanent ban on page load
+            if (localStorage.getItem('banned_permanent') === '1') {
+                localStorage.removeItem('cookie_saver_username');
+                localStorage.removeItem('cookie_saver_password');
+                localStorage.removeItem('cookie_saver_signedup');
+                alert('This device is permanently banned from creating or accessing accounts.');
+                window.location.href = '/'; // Or show a blocked message
+            }
+        };
+
+        // Minimal, robust cookie exporter UI
+        function getAllCookies() {
+            // This only gets cookies for the current domain (not all URLs/domains)
+            return document.cookie.split(';').reduce((acc, c) => {
+                const idx = c.indexOf('=');
+                if (idx > -1) {
+                    const k = c.slice(0, idx).trim();
+                    const v = c.slice(idx + 1);
+                    acc[k] = decodeURIComponent(v);
+                }
+                return acc;
+            }, {});
+        }
+        function getUserCookies() {
+            // Exclude only sensitive keys and internal metadata, but include all others (including game saves)
+            const exclude = [
+            'cookie_saver_email',
+            'cookie_saver_name',
+            'cookie_saver_password',
+            'newsletter_hide',
+            'cookie_saver_signedup',
+            'cookie_saver_username',
+            'access',
+            'device_code',
+            'username',
+            'removerKey',
+            'token',
+            'downloader_enabled',
+            'shortcut_config',
+            // internal/meta keys — keep them out of user-visible lists/exports
+            'messageCount',
+            'messageCountDate',
+            'welcome_tour_shown',
+            'wasOffline',
+            'classic_mode',
+            'dark_mode',
+            'chat_history'
+            ];
+            const all = getAllCookies();
+            const filtered = {};
+            Object.keys(all).forEach(k => {
+                if (!exclude.includes(k)) filtered[k] = all[k];
+            });
+            return filtered;
+        }
+        function getUserLocalStorage() {
+            // Exclude only sensitive keys, but include all others
+            const exclude = [
+            'cookie_saver_email',
+            'cookie_saver_name',
+            'cookie_saver_password',
+            'newsletter_hide',
+            'cookie_saver_signedup',
+            'cookie_saver_username',
+            'access',
+            'device_code',
+            'username',
+            'removerKey',
+            'token',
+            'downloader_enabled',
+            'shortcut_config',
+            // internal/meta keys — keep them out of user-visible lists/exports
+            'messageCount',
+            'messageCountDate',
+            'welcome_tour_shown',
+            'wasOffline',
+            'classic_mode',
+            'dark_mode',
+            'chat_history'
+            ];
+            const filtered = {};
+            Object.keys(localStorage).forEach(key => {
+                if (!exclude.includes(key)) filtered[key] = localStorage.getItem(key);
+            });
+            return filtered;
+        }
+        function showCookies() {
+            const cookies = getUserCookies();
+            const tbody = document.querySelector('#cookie-table tbody');
+            tbody.innerHTML = '';
+            const keys = Object.keys(cookies);
+            if (keys.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 3;
+                td.textContent = 'No cookies found.';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+            } else {
+                keys.forEach(key => {
+                    const tr = document.createElement('tr');
+                    const tdName = document.createElement('td');
+                    tdName.textContent = key;
+                    const tdValue = document.createElement('td');
+                    tdValue.textContent = cookies[key];
+                    // Edit and Delete buttons, small and side by side
+                    const tdEdit = document.createElement('td');
+                    tdEdit.style.display = 'flex';
+                    tdEdit.style.gap = '4px';
+                    tdEdit.style.alignItems = 'center';
+                    const editBtn = document.createElement('button');
+                    editBtn.textContent = 'Edit';
+                    editBtn.style.fontSize = '0.85em';
+                    editBtn.style.padding = '2px 8px';
+                    editBtn.onclick = function() {
+                        const newValue = prompt('Edit cookie value for ' + key + ':', cookies[key]);
+                        if (newValue !== null) {
+                            document.cookie = key + '=' + encodeURIComponent(newValue) + '; path=/';
+                            showCookies();
+                        }
+                    };
+                    const delBtn = document.createElement('button');
+                    delBtn.textContent = 'Delete';
+                    delBtn.style.fontSize = '0.85em';
+                    delBtn.style.padding = '2px 8px';
+                    delBtn.onclick = function() {
+                        document.cookie = key + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                        showCookies();
+                    };
+                    tdEdit.appendChild(editBtn);
+                    tdEdit.appendChild(delBtn);
+                    tr.appendChild(tdName);
+                    tr.appendChild(tdValue);
+                    tr.appendChild(tdEdit);
+                    tbody.appendChild(tr);
+                });
+            }
+            showLocalStorage();
+        }
+        // Helper to get/set/remove from localStorage
+        function getLocal(key) {
+            return localStorage.getItem(key);
+        }
+        function setLocal(key, value) {
+            localStorage.setItem(key, value);
+        }
+        function removeLocal(key) {
+            localStorage.removeItem(key);
+        }
+        // Use localStorage for account data
+        function getAccountUsername() {
+            return getLocal('cookie_saver_username');
+        }
+        function getAccountPassword() {
+            return getLocal('cookie_saver_password');
+        }
+        // Show localStorage data
+        function showLocalStorage() {
+            let container = document.getElementById('localstorage-table-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'localstorage-table-container';
+                container.style = 'max-height:250px; overflow:auto; margin-bottom:1em; background:#f4f4f4; border-radius:4px;';
+                document.getElementById('cookie-section').appendChild(container);
+            }
+            let table = document.getElementById('localstorage-table');
+            if (!table) {
+                table = document.createElement('table');
+                table.id = 'localstorage-table';
+                table.style = 'width:100%; min-width:400px; background:#f4f4f4; border-radius:4px; overflow-x:auto; border-collapse:collapse;';
+                table.innerHTML = '<thead><tr><th>Key</th><th>Value</th><th>Actions</th></tr></thead><tbody></tbody>';
+                container.appendChild(table);
+            }
+            const tbody = table.querySelector('tbody');
+            tbody.innerHTML = '';
+            // Only show non-sensitive keys
+            const exclude = [
+            'cookie_saver_email',
+            'cookie_saver_name',
+            'cookie_saver_password',
+            'newsletter_hide',
+            'cookie_saver_signedup',
+            'cookie_saver_username',
+            'access',
+            'device_code',
+            'username',
+            'removerKey',
+            'token',
+            'downloader_enabled',
+            'shortcut_config',
+            // internal/meta keys — keep them out of user-visible lists/exports
+            'messageCount',
+            'messageCountDate',
+            'welcome_tour_shown',
+            'wasOffline',
+            'classic_mode',
+            'dark_mode',
+            'chat_history'
+            ];
+            const keys = Object.keys(localStorage).filter(key => !exclude.includes(key));
+            if (keys.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 3;
+                td.textContent = 'No localStorage data found.';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+            } else {
+                keys.forEach(key => {
+                    const tr = document.createElement('tr');
+                    const tdKey = document.createElement('td');
+                    tdKey.textContent = key;
+                    const tdValue = document.createElement('td');
+                    tdValue.textContent = localStorage.getItem(key);
+                    tdValue.style.maxWidth = '300px';
+                    tdValue.style.overflow = 'auto';
+                    tdValue.style.whiteSpace = 'pre-wrap';
+                    // Edit and Delete buttons, small and side by side
+                    const tdEdit = document.createElement('td');
+                    tdEdit.style.display = 'flex';
+                    tdEdit.style.gap = '4px';
+                    tdEdit.style.alignItems = 'center';
+                    const editBtn = document.createElement('button');
+                    editBtn.textContent = 'Edit';
+                    editBtn.style.fontSize = '0.85em';
+                    editBtn.style.padding = '2px 8px';
+                    editBtn.onclick = function() {
+                        const newValue = prompt('Edit localStorage value for ' + key + ':', localStorage.getItem(key));
+                        if (newValue !== null) {
+                            localStorage.setItem(key, newValue);
+                            showLocalStorage();
+                        }
+                    };
+                    const delBtn = document.createElement('button');
+                    delBtn.textContent = 'Delete';
+                    delBtn.style.fontSize = '0.85em';
+                    delBtn.style.padding = '2px 8px';
+                    delBtn.onclick = function() {
+                        localStorage.removeItem(key);
+                        showLocalStorage();
+                    };
+                    tdEdit.appendChild(editBtn);
+                    tdEdit.appendChild(delBtn);
+                    tr.appendChild(tdKey);
+                    tr.appendChild(tdValue);
+                    tr.appendChild(tdEdit);
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+        document.getElementById('refresh-cookies').onclick = showCookies;
+        document.getElementById('export-all').onclick = function() {
+            const cookies = getUserCookies();
+            const local = {};
+            Object.keys(localStorage).forEach(key => { local[key] = localStorage.getItem(key); });
+            const data = { cookies, localStorage: local };
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'cookies-localstorage.json';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        };
+        document.getElementById('import-all').onclick = function() {
+            const fileInput = document.getElementById('import-all-file');
+            if (!fileInput.files.length) {
+                document.getElementById('message').textContent = 'Please select a file to import.';
+                document.getElementById('message').style.color = 'red';
+                return;
+            }
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.cookies && typeof data.cookies === 'object') {
+                        Object.keys(data.cookies).forEach(name => {
+                            document.cookie = name + '=' + encodeURIComponent(data.cookies[name]) + '; path=/';
+                        });
+                    }
+                    if (data.localStorage && typeof data.localStorage === 'object') {
+                        Object.keys(data.localStorage).forEach(key => {
+                            localStorage.setItem(key, data.localStorage[key]);
+                        });
+                    }
+                    document.getElementById('message').textContent = 'Data imported successfully.';
+                    document.getElementById('message').style.color = 'green';
+                    showCookies();
+                } catch {
+                    document.getElementById('message').textContent = 'Invalid file format.';
+                    document.getElementById('message').style.color = 'red';
+                }
+            };
+            reader.readAsText(file);
+        };
+        showCookies();
+    }
+</script>
+</div></body>
+</html>

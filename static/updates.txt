@@ -1,0 +1,5 @@
+Version - 1.22.01
+
+- Updated the website's underlying homepage to a new, improved version of One Compiler.
+
+- Fixed the account sign up system to improve verification and user experience.

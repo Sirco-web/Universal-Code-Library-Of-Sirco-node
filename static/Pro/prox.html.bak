@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Aurora Gateway</title>
+  <style>
+    /* filepath: /workspaces/universal-code-library/Pro/prox.html */
+    /* Reworked styles to present a browser-like chrome and window */
+    :root{
+      --bg:#f3f4f6;
+      --chrome:#ffffff;
+      --chrome-accent:#1e3c72;
+      --text:#0f172a;
+      --muted:#64748b;
+      --shadow: 0 12px 30px rgba(2,6,23,0.12);
+    }
+    html,body{
+      height:100%;
+      margin:0;
+      font-family:Inter,Segoe UI,system-ui,-apple-system,Roboto,"Helvetica Neue",Arial;
+      width:100vw;
+      min-width:0;
+      min-height:0;
+      box-sizing:border-box;
+    }
+    body{
+      width:100vw;
+      height:100vh;
+      min-width:0;
+      min-height:0;
+      padding:0;
+      margin:0;
+      display:flex;
+      align-items:stretch;
+      justify-content:stretch;
+      background:linear-gradient(180deg,#e6eefc 0%, #f8fafc 50%);
+      color:var(--text);
+      /* Remove previous padding */
+    }
+
+    /* Browser window frame */
+    #main-container{
+      width:100vw;
+      height:100vh;
+      max-width:none;
+      max-height:none;
+      min-width:0;
+      min-height:0;
+      background:var(--chrome);
+      border-radius:0;
+      box-shadow:none;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      border:none;
+    }
+
+    /* Top chrome (tabs + window controls) */
+    .browser-chrome{
+      background:linear-gradient(90deg,var(--chrome-accent),#2a5298);
+      color:#fff;
+      padding:8px 12px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    .window-controls{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      margin-right:8px;
+    }
+    .control-dot{
+      width:12px;height:12px;border-radius:50%;
+      box-shadow:0 0 0 1px rgba(255,255,255,0.06) inset;
+    }
+    .dot-close{ background:#ff5f57; }
+    .dot-min{ background:#ffbd2e; }
+    .dot-max{ background:#28c840; }
+
+    /* Tabs row (browser-style tabs) */
+    #tabs {
+      display:flex;
+      gap:6px;
+      align-items:center;
+      overflow:auto;
+      padding:4px 6px;
+      flex:1;
+    }
+    .tab {
+      background:rgba(255,255,255,0.12);
+      color:#fff;
+      padding:8px 12px;
+      border-radius:8px 8px 0 0;
+      cursor:pointer;
+      font-weight:600;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      white-space:nowrap;
+      border:1px solid rgba(255,255,255,0.06);
+    }
+    .tab.active{
+      background:#fff;
+      color:var(--text);
+      border-bottom:2px solid var(--chrome-accent);
+      box-shadow:0 6px 18px rgba(2,6,23,0.08);
+    }
+
+    /* Toolbar: nav buttons + address bar */
+    #toolbar{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:10px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.96));
+      border-top:1px solid rgba(2,6,23,0.03);
+      border-bottom:1px solid rgba(2,6,23,0.04);
+    }
+    .nav-group{ display:flex; gap:6px; align-items:center; }
+    .nav-btn{
+      width:36px;height:36px;border-radius:8px;border:none;background:transparent;
+      display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);
+    }
+    .nav-btn:hover{ background:rgba(2,6,23,0.03); color:var(--text); }
+
+    #address-wrap{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex:1;
+    }
+    #urlInput{
+      flex:1;
+      min-width:120px;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid rgba(2,6,23,0.06);
+      background:#fff;
+      color:var(--text);
+      font-size:14px;
+      box-shadow:0 1px 0 rgba(2,6,23,0.02) inset;
+    }
+
+    /* compact selects/buttons */
+    #searchEngine, #proxySelect{
+      padding:8px 10px;
+      border-radius:8px;
+      border:1px solid rgba(2,6,23,0.06);
+      background:#fff;
+      color:var(--text);
+      font-size:13px;
+    }
+    .iconBtn{
+      padding:8px 10px;border-radius:8px;border:1px solid rgba(2,6,23,0.06);background:#fff;color:var(--text);cursor:pointer;
+    }
+
+    /* Main content area for tabs */
+    #tabContents{
+      flex:1;
+      background:#f8fafc;
+      position:relative;
+      overflow:hidden;
+      display:flex;
+      align-items:stretch;
+      min-height:0;
+      min-width:0;
+      height:100%;
+      width:100%;
+    }
+    .tabFrame{
+      width:100%;
+      height:100%;
+      border:0;
+      display:none;
+      background:#fff;
+      min-width:0;
+      min-height:0;
+    }
+    .tabFrame.visible{ display:block; }
+
+    /* Lower status bar */
+    .status-bar{
+      padding:8px 12px;
+      font-size:13px;
+      color:var(--muted);
+      background:linear-gradient(180deg, rgba(0,0,0,0.01), rgba(0,0,0,0.02));
+      border-top:1px solid rgba(2,6,23,0.02);
+    }
+
+    /* Settings icon moved into chrome (light) */
+    #settingsIcon{
+      width:22px;height:22px;background-size:contain;background-repeat:no-repeat;cursor:pointer;margin-left:8px;
+      filter:invert(1) brightness(1.2);
+    }
+
+    @media(max-width:880px){
+      #main-container{ max-width:100vw; height:100vh; }
+      .tab{ padding:6px 8px; font-size:13px; }
+    }
+  </style>
+</head>
+
+<body>
+  <script>
+    function checkCookie() {
+      const cookies = document.cookie.split("; ");
+      const accessCookie = cookies.find(row => row.startsWith("access="));
+      if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+        // Show fullscreen iframe of /404.html for 2.5 seconds, then redirect
+        document.body.innerHTML = `
+          <iframe src="/404.html" style="position:fixed;top:0;left:0;width:100vw;height:100vh;border:none;z-index:9999;"></iframe>
+        `;
+        setTimeout(function() {
+          window.location.href = "/404.html";
+        }, 2500);
+        return;
+      }
+    }
+    checkCookie();
+  </script>
+
+  <div id="main-container">
+    <!-- browser top chrome: window controls + tabs -->
+    <div class="browser-chrome" role="toolbar" aria-label="Browser chrome">
+      <div class="window-controls" aria-hidden="true">
+        <div class="control-dot dot-close"></div>
+        <div class="control-dot dot-min"></div>
+        <div class="control-dot dot-max"></div>
+      </div>
+
+      <div id="tabs" role="tablist" aria-label="Open tabs">
+        <!-- tabs created by index.js -->
+      </div>
+
+      <!-- Add settings button at right -->
+      <button id="settingsBtn" class="iconBtn" style="margin-left:8px;" title="Settings">Settings</button>
+    </div>
+
+    <!-- toolbar with nav buttons and address bar -->
+    <div id="toolbar" role="navigation" aria-label="Browser toolbar">
+      <div class="nav-group">
+        <button class="nav-btn" id="backBtn" title="Back" aria-label="Back">◀</button>
+        <button class="nav-btn" id="forwardBtn" title="Forward" aria-label="Forward">▶</button>
+        <button class="nav-btn" id="reloadBtn" title="Reload" aria-label="Reload">⟳</button>
+      </div>
+
+      <div id="address-wrap">
+        <select id="searchEngine" title="Search engine">
+          <option value="https://www.google.com/search?q=">Google</option>
+          <option value="https://duckduckgo.com/?q=">DuckDuckGo</option>
+          <option value="https://search.brave.com/search?q=">Brave</option>
+        </select>
+
+        <input type="text" id="urlInput" placeholder="Enter site URL or search (e.g. github.com or 'cats')" aria-label="Address bar" />
+
+        <select id="proxySelect" title="Proxy">
+          <option value="1">CorsProxy.io</option>
+          <option value="2">CORS Anywhere</option>
+          <option value="3">ThingProxy</option>
+          <option value="4">AllOrigins</option>
+        </select>
+
+        <button class="iconBtn" id="newTabBtn" title="New tab">＋</button>
+        <button class="iconBtn" id="openActiveBtn" title="Open">Open</button>
+        <button class="iconBtn" id="closeTabBtn" title="Close tab">✕</button>
+      </div>
+    </div>
+
+    <!-- content area where per-tab frames are shown -->
+    <div id="tabContents" role="main" aria-live="polite">
+      <!-- iframes created by index.js -->
+    </div>
+
+    <div class="status-bar" id="statusBar">Aurora Gateway — Tabbed proxy browser</div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" style="display: none;">
+    <div id="settingsModalContent">
+      <span id="settingsModalClose">&times;</span>
+      <h2>Settings</h2>
+      <label for="debugMode">Debug Mode:</label>
+      <input type="checkbox" id="debugMode" />
+      
+      <label for="extraOptions">Extra Options:</label>
+      <input type="text" id="extraOptions" placeholder="e.g., foo=bar" />
+      
+      <button id="saveSettingsBtn">Save Settings</button>
+    </div>
+  </div>
+  
+  <script src="index.js"></script>
+</body>
+</html>

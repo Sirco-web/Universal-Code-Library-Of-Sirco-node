@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UBG Mirror Site Checker</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+
+    <script>
+        function checkPassword() {
+            const correctPassword = "password12345"; // Change this password as needed
+            const cookieValue = document.cookie.split("; ").find(row => row.startsWith("siteAccess="));
+
+            // If cookie exists, allow access without asking for a password
+            if (cookieValue && cookieValue.split("=")[1] === "granted") {
+                document.body.style.display = "block";
+                return;
+            }
+
+            // Otherwise, ask for password
+            const enteredPassword = prompt("Enter the password to access this page:");
+
+            if (enteredPassword === correctPassword) {
+                // Set cookie to expire in 15 minutes
+                const expiryTime = new Date();
+                expiryTime.setMinutes(expiryTime.getMinutes() + 15);
+                document.cookie = `siteAccess=granted; expires=${expiryTime.toUTCString()}; path=/`;
+
+                document.body.style.display = "block"; // Show content if password is correct
+            } else {
+                alert("Incorrect password. Redirecting...");
+                window.location.href = "/index.html"; // Redirect if incorrect password
+            }
+        }
+
+        async function fetchMainSiteVersion(mainSiteURL) {
+            try {
+                const response = await fetch(`${mainSiteURL}/version.txt?nocache=${new Date().getTime()}`);
+                const data = await response.text();
+                // If the response looks like an HTML error page, show "Unavailable"
+                if (data.trim().startsWith('<!DOCTYPE')) {
+                    document.getElementById("mainSiteVersion").textContent = "Unavailable";
+                } else {
+                    document.getElementById("mainSiteVersion").textContent = data.trim();
+                }
+            } catch (error) {
+                console.error("Error fetching main site version:", error);
+                document.getElementById("mainSiteVersion").textContent = "Unavailable";
+            }
+        }
+
+        async function loadSites() {
+            try {
+                const response = await fetch(`https://raw.githubusercontent.com/Learn-by-video/assets/refs/heads/main/links/links.txt?nocache=${new Date().getTime()}`);
+                const text = await response.text();
+                const sites = text.split("\n").map(line => line.trim()).filter(line => line !== "");
+
+                if (sites.length === 0) {
+                    document.getElementById("siteList").innerHTML = "<p>No sites found in links.txt</p>";
+                    return;
+                }
+
+                const mainSiteURL = sites.shift();
+                document.getElementById("mainSiteLink").innerHTML = `<a href="${mainSiteURL}" target="_blank">${mainSiteURL}</a>`;
+                fetchMainSiteVersion(mainSiteURL);
+
+                const siteList = document.getElementById("siteList");
+                siteList.innerHTML = "";
+
+                sites.forEach(site => {
+                    const siteRow = document.createElement("p");
+                    siteRow.innerHTML = `<strong><a href="https://${site}" target="_blank">${site}</a>:</strong> <span id="${site}-version" class="loading">Checking...</span>`;
+                    siteList.appendChild(siteRow);
+
+                    fetch(`https://${site}/version.txt?nocache=${new Date().getTime()}`)
+                        .then(response => response.text())
+                        .then(data => {
+                            // If the response looks like an HTML error page, show "Unavailable"
+                            if (data.trim().startsWith('<!DOCTYPE')) {
+                                document.getElementById(`${site}-version`).textContent = "Unavailable";
+                            } else {
+                                document.getElementById(`${site}-version`).textContent = data.trim();
+                            }
+                        })
+                        .catch(error => {
+                            console.error(`Error fetching version for ${site}:`, error);
+                            document.getElementById(`${site}-version`).textContent = "Unavailable";
+                        });
+                });
+            } catch (error) {
+                console.error("Error fetching links.txt:", error);
+                document.getElementById("siteList").innerHTML = "<p>Error loading mirror sites.</p>";
+            }
+        }
+
+        window.onload = function () {
+            checkPassword();
+            loadSites();
+        };
+    </script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+            display: none;
+        }
+        .site-list {
+            margin-top: 20px;
+        }
+        .site-list p {
+            font-size: 1.2em;
+        }
+        .loading {
+            color: gray;
+            font-style: italic;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #007bff;
+            margin-top: 20px;
+        }
+        .back-button {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .back-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>UBG Mirror Site Version Checker</h1>
+    <p>This page checks the version of different UBG mirror sites.</p>
+
+    <div class="highlight">
+        <p>Main Site: (<span id="mainSiteLink">Checking...</span>)</p>
+        <p>Main Site Version: <span id="mainSiteVersion">Checking...</span></p>
+    </div>
+
+    <div id="siteList" class="site-list">
+        <!-- Versions will be dynamically generated here -->
+    </div>
+
+    <button class="back-button" onclick="window.location.href='/welcome';">Back to Welcome Page</button>
+
+<script src="/analytics.js?5h"></script>
+
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remove Access Key</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+    <script>
+        function deleteCookie() {
+            document.cookie = "access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+            document.getElementById("message").textContent = "The access cookie has been deleted.";
+        }
+
+        function panicKeyHandler(event) {
+            if (event.key === "Escape") { // Triggered when the "Escape" key is pressed
+                deleteCookie(); // Delete the cookie
+                document.getElementById("message").textContent = "Panic key triggered! The access cookie has been deleted.";
+            }
+        }
+
+        window.onload = function() {
+            document.addEventListener("keydown", panicKeyHandler);
+        };
+    </script>
+</head>
+<body>
+    <h1>Remove Access Key</h1>
+    <button onclick="deleteCookie()">Delete Access Cookie</button>
+    <p id="message"></p>
+
+<script src="/analytics.js?5h"></script>
+
+</body>
+</html>

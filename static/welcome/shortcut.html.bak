@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Shortcut Settings — Code‑Universe</title>
+	<link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+	<link rel="stylesheet" href="style.css">
+	<style>
+		/* page-specific small tweaks and ensure blue-btn present */
+		body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 1.25rem; background: #fafbfd; color: #07203c; }
+		.container { max-width: 880px; margin: 2rem auto; background: #fff; border-radius: 12px; padding: 1.25rem 1.6rem; box-shadow: 0 6px 30px rgba(2,10,20,0.06); }
+		h2 { margin-top: 0; color:#063a6b; }
+		fieldset { border:1px solid #eef3fb; padding: 0.8rem 1rem; border-radius:8px; margin-bottom:1rem; background:#fbfdff;}
+		label { display:inline-flex; align-items:center; gap:0.45rem; margin-right:0.8rem; font-size:0.98rem; color:#0b3b66; }
+		.row { display:flex; gap:0.8rem; align-items:center; flex-wrap:wrap; margin-top:0.4rem; }
+		input[type="text"] { padding:0.45rem 0.6rem; border:1px solid #dfe9f6; border-radius:6px; width:6rem; }
+		input[type="checkbox"] { width:18px; height:18px; }
+		.small { font-size:0.9rem; color:#4b6b89; }
+		.blue-btn { background: #007bff; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1.1rem; font-size: 1rem; cursor: pointer; margin-bottom: 0.2rem; transition: background 0.12s; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+		.blue-btn:hover { background:#0056b3; }
+		.secondary { background:#eef6ff; color:#036; border:1px solid #d6ebff; }
+		.top-row { display:flex; justify-content:flex-end; gap:0.6rem; margin-bottom:0.75rem; }
+		.note { margin-top:0.5rem; color:#5a7a9b; }
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="top-row">
+			<!-- keep a back button and link to welcome similar to welcome page buttons -->
+			<button onclick="location.href='/welcome/';" class="blue-btn secondary" title="Back to welcome">Back</button>
+			<button onclick="location.href='/';" class="blue-btn" title="Go home">Home</button>
+		</div>
+
+		<h2>Shortcut Settings</h2>
+		<p class="small">Press the shortcut anywhere to remove the access key and optionally open a site. Default: Alt + P</p>
+
+		<fieldset>
+			<legend style="font-weight:600;color:#23527c;">Modifiers & Key</legend>
+			<div class="row">
+				<label><input type="checkbox" id="ctrl" /> Ctrl</label>
+				<label><input type="checkbox" id="alt" /> Alt</label>
+				<label><input type="checkbox" id="shift" /> Shift</label>
+				<label><input type="checkbox" id="meta" /> Meta</label>
+				<label style="margin-left:0.2rem;">Key: <input id="mainKey" type="text" maxlength="1" style="text-transform:lowercase" /></label>
+			</div>
+		</fieldset>
+
+		<fieldset>
+			<legend style="font-weight:600;color:#23527c;">Action After Removing Access Key</legend>
+			<div class="row" style="flex-direction:column;align-items:flex-start;">
+				<label><input type="radio" name="action" value="none" checked /> None (do not open a site)</label>
+				<label><input type="radio" name="action" value="goto" /> Go to Home (default)</label>
+				<label><input type="radio" name="action" value="google" /> Open Google</label>
+				<label><input type="radio" name="action" value="custom" /> Open custom URL</label>
+				<label style="width:100%;margin-top:0.5rem;">Custom URL: <input id="customURL" type="text" placeholder="https://example.com" style="width:100%;"/></label>
+			</div>
+		</fieldset>
+
+		<div style="display:flex;gap:0.6rem;align-items:center;">
+			<button id="saveBtn" class="blue-btn">Save</button>
+			<button id="testBtn" class="blue-btn secondary">Test (simulate)</button>
+			<button id="resetBtn" class="blue-btn secondary">Reset to default</button>
+		</div>
+
+		<p class="note">Tip: After saving, the shortcut works on every page (analytics.js is injected site-wide).</p>
+	</div>
+
+	<script>
+		// load current config (analytics.js exposes helpers on window.__shortcutConfig if present)
+		function getConfig() {
+			try {
+				if (window.__shortcutConfig && window.__shortcutConfig.get) return window.__shortcutConfig.get();
+				const s = localStorage.getItem('shortcut_config');
+				return s ? JSON.parse(s) : null;
+			} catch (e) { return null; }
+		}
+		function saveConfig(cfg) {
+			try {
+				localStorage.setItem('shortcut_config', JSON.stringify(cfg));
+				if (window.__shortcutConfig && window.__shortcutConfig.save) window.__shortcutConfig.save(cfg);
+			} catch (e) {}
+		}
+
+		const ctrl = document.getElementById('ctrl');
+		const alt = document.getElementById('alt');
+		const shift = document.getElementById('shift');
+		const meta = document.getElementById('meta');
+		const mainKey = document.getElementById('mainKey');
+		const customURL = document.getElementById('customURL');
+
+		const DEFAULT = { modifiers:{ctrl:false,alt:true,shift:false,meta:false}, key:'p', action:'goto', customURL:'/' };
+
+		function populate() {
+			const cfg = getConfig() || DEFAULT;
+			ctrl.checked = !!cfg.modifiers.ctrl;
+			alt.checked = !!cfg.modifiers.alt;
+			shift.checked = !!cfg.modifiers.shift;
+			meta.checked = !!cfg.modifiers.meta;
+			mainKey.value = cfg.key || 'z';
+			customURL.value = cfg.customURL || '';
+			const radios = document.getElementsByName('action');
+			for (const r of radios) r.checked = (r.value === (cfg.action || 'none'));
+		}
+		populate();
+
+		document.getElementById('saveBtn').onclick = () => {
+			const action = document.querySelector('input[name="action"]:checked').value;
+			const cfg = {
+				modifiers: { ctrl: !!ctrl.checked, alt: !!alt.checked, shift: !!shift.checked, meta: !!meta.checked },
+				key: (mainKey.value || '').toLowerCase() || 'z',
+				action,
+				customURL: customURL.value.trim()
+			};
+			saveConfig(cfg);
+			alert('Shortcut saved.');
+		};
+
+		document.getElementById('testBtn').onclick = () => {
+			const cfg = getConfig() || DEFAULT;
+			// perform locally
+			try { if (typeof window.removeAccessKey === 'function') window.removeAccessKey(); } catch (e) {}
+			if (cfg.action === 'google') window.open('https://www.google.com', '_blank');
+			if (cfg.action === 'custom' && cfg.customURL) {
+				const href = (cfg.customURL.startsWith('http://') || cfg.customURL.startsWith('https://')) ? cfg.customURL : ('https://' + cfg.customURL);
+				window.open(href, '_blank');
+			}
+			// notify service worker
+			try {
+				if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+					navigator.serviceWorker.controller.postMessage({
+						type: 'SHORTCUT_TRIGGERED',
+						action: cfg.action || 'none',
+						customURL: cfg.customURL || '',
+						timestamp: Date.now()
+					});
+				}
+			} catch (e) {}
+		};
+
+		document.getElementById('resetBtn').onclick = () => {
+			if (confirm('Reset shortcut to default (Alt+P, go to /)?')) {
+				saveConfig(DEFAULT);
+				populate();
+				alert('Reset to default.');
+			}
+		};
+	</script>
+</body>
+</html>

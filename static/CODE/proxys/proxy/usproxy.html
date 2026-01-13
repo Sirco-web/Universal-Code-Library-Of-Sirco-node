@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Proxy</title>
+<link href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png" rel="icon" type="image/png"/>
+<style>
+        body {
+            display: none; /* Hide all content until cookie is validated */
+            background-color: #f4f4f9; /* Blank screen color */
+            margin: 0;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        iframe {
+            width: 100%;
+            height: 100vh;
+            border: none;
+        }
+    </style>
+<script>
+        function checkCookie() {
+            const cookies = document.cookie.split("; ");
+            const accessCookie = cookies.find(row => row.startsWith("access="));
+
+            if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+                window.location.href = "/index.html"; // Redirect if no valid cookie
+            } else {
+                document.body.style.display = "block"; // Show page after validation
+            }
+        }
+
+        window.onload = checkCookie; // Run cookie check on load
+    </script>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<iframe src="https://us4-z.global.ssl.fastly.net/pages/prox"></iframe>
+</body>
+</html>

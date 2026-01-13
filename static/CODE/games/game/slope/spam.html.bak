@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Enter Blaster</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    #blasterBtn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 9999;
+      padding: 10px 15px;
+      background: crimson;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    iframe {
+      width: 100vw;
+      height: 100vh;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <button id="blasterBtn">Start Enter Blaster</button>
+  <iframe id="targetFrame" src="index.html"></iframe>
+
+  <script>
+    const btn = document.getElementById('blasterBtn');
+    const iframe = document.getElementById('targetFrame');
+    let blasting = false;
+    let intervalId = null;
+
+    btn.onclick = () => {
+      blasting = !blasting;
+      btn.textContent = blasting ? 'Stop Enter Blaster' : 'Start Enter Blaster';
+      btn.style.background = blasting ? 'darkred' : 'crimson';
+
+      if (blasting) {
+        intervalId = setInterval(() => {
+          const enterEvent = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true
+          });
+
+          try {
+            iframe.contentWindow.document.dispatchEvent(enterEvent);
+          } catch (err) {
+            console.warn('Enter event dispatch failed:', err);
+          }
+        }, 50); // adjust speed here
+      } else {
+        clearInterval(intervalId);
+      }
+    };
+  </script>
+</body>
+</html>

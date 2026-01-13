@@ -1,0 +1,26 @@
+<html><head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script><script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head></html><div class="css-vpq0rm" id="game-container"><iframe allow="accelerometer; gyroscope; gamepad; autoplay; payment; fullscreen; microphone; clipboard-read; clipboard-write 'self' https://space-waves.game-files.crazygames.com/unity/unity2020/space-waves.html?czyExpModelGamePageSwitcher_20250715=knn_v4&amp;czyExpModelSwitcher_20250722=ineligible&amp;ssrDevice=desktop&amp;isNewUser=false&amp;v=1.336" allowfullscreen="true" id="game-iframe" mozallowfullscreen="true" msallowfullscreen="true" sandbox="allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-scripts allow-same-origin allow-downloads allow-popups-to-escape-sandbox" src="https://space-waves.game-files.crazygames.com/unity/unity2020/space-waves.html?czyExpModelGamePageSwitcher_20250715=knn_v4&amp;czyExpModelSwitcher_20250722=ineligible&amp;ssrDevice=desktop&amp;isNewUser=false&amp;v=1.336" style="border: 0px; background-color: rgb(255, 255, 255); width: 10px; height: 10px; min-width: 100%; min-height: 100%;" webkitallowfullscreen="true"></iframe></div>

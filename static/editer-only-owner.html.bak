@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GitHub Repo Admin Panel + Status Check</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body { font-family: system-ui, sans-serif; margin: 1rem; }
+fieldset { margin-bottom: 1rem; padding: 1rem; border: 1px solid #ccc; }
+label { display:block; margin-top: .5rem; font-weight: 600; }
+input { width: 100%; max-width: 30rem; padding: .4rem; }
+button { margin-top: .6rem; padding: .4rem .8rem; }
+.log { border: 1px solid #ccc; padding: .5rem; font-family: monospace; white-space: pre-wrap; height: 10rem; overflow-y: auto; }
+.ok { color: green; }
+.err { color: red; }
+pre { background: #f7f7f7; padding: .5rem; border-radius: .25rem; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>GitHub Repo Admin Panel</h1>
+
+<fieldset>
+<legend>Access</legend>
+<label>Personal Access Token</label>
+<input id="token" type="password" placeholder="Token with repo admin + pages scopes">
+</fieldset>
+
+<fieldset>
+<legend>Target Repo</legend>
+<label>Owner/Repo or URL</label>
+<input id="repo" type="text" placeholder="e.g. octocat/Hello-World">
+<button id="checkStatus">Check Status</button>
+</fieldset>
+
+<fieldset>
+<legend>Status</legend>
+<pre id="statusBox">— no data —</pre>
+</fieldset>
+
+<fieldset>
+<legend>Visibility</legend>
+<button id="makePrivate">Make Private</button>
+<button id="makePublic">Make Public</button>
+</fieldset>
+
+<fieldset>
+<legend>Pages</legend>
+<button id="enablePages">Enable Pages (main / root)</button>
+<label>Custom Domain</label>
+<input id="customDomain" type="text">
+<button id="setDomain">Set Domain</button>
+<button id="disablePages">Disable Pages</button>
+</fieldset>
+
+<fieldset>
+<legend>Repo Details</legend>
+<label>Rename Repo</label>
+<input id="newName" type="text">
+<button id="rename">Rename</button>
+
+<label>Transfer To</label>
+<input id="transferTo" type="text">
+<button id="transfer">Transfer</button>
+</fieldset>
+
+<fieldset>
+<legend>Log</legend>
+<div id="log" class="log"></div>
+</fieldset>
+
+<fieldset>
+<legend>File Editor</legend>
+<div style="display:flex; gap:1rem; align-items:flex-start;">
+  <div style="min-width:220px; max-width:320px;">
+    <label>Files in Workspace</label>
+    <ul id="fileList" style="list-style:none; padding:0; border:1px solid #ccc; min-height:200px; max-height:400px; overflow:auto;"></ul>
+    <button id="downloadAll" style="margin-top:1rem;">Download Everything (ZIP, includes all files & settings)</button>
+  </div>
+  <div style="flex:1;">
+    <label>File Content</label>
+    <textarea id="fileContent" style="width:100%; height:320px; font-family:monospace; font-size:1rem; margin-bottom:.5rem;"></textarea>
+    <div>
+      <button id="saveFile">Save</button>
+      <span id="fileStatus"></span>
+    </div>
+  </div>
+</div>
+</fieldset>
+
+<script>
+const el=id=>document.getElementById(id);
+const log=(msg,cls='')=>{
+  const d=document.createElement('div'); if(cls) d.className=cls;
+  d.textContent=msg; el('log').appendChild(d); el('log').scrollTop=el('log').scrollHeight;
+};
+const parseRepo = v => {
+  v=v.trim();
+  if(v.startsWith('http')) {
+    const u=new URL(v); const [o,r]=u.pathname.replace(/^\/+/,'').split('/');
+    return [o,r];
+  }
+  if(v.includes('/')) {const [o,r]=v.split('/'); return [o,r];}
+  return [];
+};
+const gh=async(method,path,body)=>{
+  const token=el('token').value.trim(); 
+  return fetch('https://api.github.com'+path,{
+    method,
+    headers:{
+      'Authorization':'Bearer '+token,
+      'Accept':'application/vnd.github+json'
+    },
+    body: body?JSON.stringify(body):undefined
+  }).then(async r=>({ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))}));
+};
+async function checkStatus(){
+  const [o,r]=parseRepo(el('repo').value);
+  if(!o||!r) return log('Invalid repo','err');
+  log('Fetching status...');
+  const repoRes=await gh('GET',`/repos/${o}/${r}`);
+  if(!repoRes.ok) return log(JSON.stringify(repoRes.data,null,2),'err');
+  const pagesRes=await gh('GET',`/repos/${o}/${r}/pages`);
+  const info={
+    name: repoRes.data.name,
+    full_name: repoRes.data.full_name,
+    private: repoRes.data.private,
+    default_branch: repoRes.data.default_branch,
+    description: repoRes.data.description,
+    stars: repoRes.data.stargazers_count,
+    forks: repoRes.data.forks_count,
+    watchers: repoRes.data.subscribers_count,
+    topics: repoRes.data.topics,
+    created_at: repoRes.data.created_at,
+    pushed_at: repoRes.data.pushed_at
+  };
+  if(pagesRes.ok){
+    info.pages_enabled=true;
+    info.pages_url=pagesRes.data.html_url;
+    info.custom_domain=pagesRes.data.cname||null;
+    info.pages_source=pagesRes.data.source;
+  } else {
+    info.pages_enabled=false;
+  }
+  el('statusBox').textContent=JSON.stringify(info,null,2);
+}
+el('checkStatus').onclick=checkStatus;
+el('token').addEventListener('change',checkStatus);
+el('repo').addEventListener('change',checkStatus);
+
+// Admin ops
+el('makePrivate').onclick=()=>{const [o,r]=parseRepo(el('repo').value);gh('PATCH',`/repos/${o}/${r}`,{private:true}).then(res=>log(JSON.stringify(res.data),res.ok?'ok':'err'));};
+el('makePublic').onclick=()=>{const [o,r]=parseRepo(el('repo').value);gh('PATCH',`/repos/${o}/${r}`,{private:false}).then(res=>log(JSON.stringify(res.data),res.ok?'ok':'err'));};
+el('enablePages').onclick=()=>{const [o,r]=parseRepo(el('repo').value);gh('POST',`/repos/${o}/${r}/pages`,{source:{branch:'main',path:'/'}}).then(res=>log(JSON.stringify(res.data),res.ok?'ok':'err'));};
+el('setDomain').onclick=()=>{const [o,r]=parseRepo(el('repo').value);gh('PUT',`/repos/${o}/${r}/pages`,{cname:el('customDomain').value.trim()}).then(res=>log(JSON.stringify(res.data),res.ok?'ok':'err'));};
+el('disablePages').onclick=()=>{const [o,r]=parseRepo(el('repo').value);gh('DELETE',`/repos/${o}/${r}/pages`).then(res=>log(JSON.stringify(res.data),res.ok?'ok':'err'));};
+el('rename').onclick=()=>{const [o,r]=parseRepo(el('repo').value);gh('PATCH',`/repos/${o}/${r}`,{name:el('newName').value.trim()}).then(res=>log(JSON.stringify(res.data),res.ok?'ok':'err'));};
+el('transfer').onclick=()=>{const [o,r]=parseRepo(el('repo').value);gh('POST',`/repos/${o}/${r}/transfer`,{new_owner:el('transferTo').value.trim()}).then(res=>log(JSON.stringify(res.data),res.ok?'ok':'err'));};
+
+// File Editor logic
+async function listFiles() {
+  const res = await fetch('/api/list-files');
+  const files = await res.json();
+  const ul = el('fileList');
+  ul.innerHTML = '';
+  files.forEach(f => {
+    const li = document.createElement('li');
+    li.textContent = f;
+    li.style.cursor = 'pointer';
+    li.onclick = () => loadFile(f);
+    ul.appendChild(li);
+  });
+}
+async function loadFile(path) {
+  el('fileStatus').textContent = '';
+  const res = await fetch('/api/file?path=' + encodeURIComponent(path));
+  if (res.ok) {
+    el('fileContent').value = await res.text();
+    el('fileContent').dataset.path = path;
+  } else {
+    el('fileContent').value = '';
+    el('fileContent').dataset.path = '';
+    el('fileStatus').textContent = 'Failed to load file.';
+  }
+}
+el('saveFile').onclick = async () => {
+  const path = el('fileContent').dataset.path;
+  if (!path) return;
+  const body = el('fileContent').value;
+  const res = await fetch('/api/file?path=' + encodeURIComponent(path), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'text/plain' },
+    body
+  });
+  el('fileStatus').textContent = res.ok ? 'Saved!' : 'Save failed.';
+  if (res.ok) log('Saved ' + path, 'ok');
+  else log('Failed to save ' + path, 'err');
+};
+el('downloadAll').onclick = async () => {
+  log('Preparing ZIP of everything (all files & settings)...');
+  const res = await fetch('/api/download-everything');
+  if (res.ok) {
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'workspace.zip';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();}, 2000);
+    log('Download started! ZIP includes all files and settings.', 'ok');
+  } else {
+    log('Failed to download ZIP', 'err');
+  }
+};
+listFiles();
+</script>
+</body>
+</html>

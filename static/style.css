@@ -1,0 +1,79 @@
+html, body {
+    overflow-x: hidden;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #003366;
+    color: white;
+    text-align: center;
+}
+header, footer {
+    background: #003366;
+    padding: 20px;
+}
+header h1 {
+    font-size: 28px;
+    margin: 0;
+}
+.main-content {
+    padding: 40px 20px;
+}
+/* Activate button bottom left styles (updated: round, smaller, flush left) */
+.activate-btn {
+    position: fixed;
+    left: 12px;            /* distance from left edge */
+    bottom: 12px;          /* distance from bottom edge */
+    height: 32px;           /* square for circle */
+    padding: 0 12px;         /* allow room for the word */
+    background: #007bff;
+    color: transparent;        /* hide original inline text (main.js puts "A") */
+    font-size: 0;              /* hide inline text; use ::after for visible label */
+    font-weight: bold;
+    border: none;
+    border-radius: 20px;       /* still very rounded (pill) */
+    cursor: pointer;
+    z-index: 1000;
+    opacity: 0;            /* hidden until hover/focus on area */
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    transition: opacity 0.18s, transform 0.12s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+    line-height: 1;
+}
+
+/* visible label injected via CSS so we don't need to change main.js */
+.activate-btn::after {
+    content: "Activate";
+    color: #fff;
+    font-size: 12px;           /* slightly smaller text */
+    font-weight: 600;
+    line-height: 1;
+    display: inline-block;
+}
+
+/* hover / focus behavior unchanged */
+.activate-btn:hover, .activate-btn:focus, .activate-btn:active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(-1px);
+}
+
+/* enlarge the invisible hit area to match pill width */
+.activate-btn-area {
+    position: fixed;
+    left: 8px;
+    bottom: 8px;
+    width: 92px;               /* wide enough to comfortably hover over label */
+    height: 44px;
+    z-index: 999;
+    background: transparent; /* invisible hit area */
+    display: block;
+}
+.activate-btn-area:hover .activate-btn,
+.activate-btn-area:focus-within .activate-btn {
+    opacity: 1;
+    pointer-events: auto;
+}

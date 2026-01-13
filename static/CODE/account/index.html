@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<title>Cookie Saver &amp; Exporter - Account</title>
+<style>
+        body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 2em; }
+        #container { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 2em; max-width: 600px; margin: auto; }
+        input, button, textarea { width: 100%; margin-bottom: 1em; padding: 0.7em; font-size: 1em; }
+        .hidden { display: none; }
+        #message { min-height: 1.5em; color: green; }
+        .switch-link { color: #007bff; cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; font-size: 1em; }
+        .switch-link:hover { color: #0056b3; }
+        .center { text-align: center; }
+        .status { margin: 1em 0; font-size: 1.1em; }
+        .status span { font-weight: bold; }
+        a.button-link {
+            display: inline-block;
+            margin-top: 1.5em;
+            padding: 0.7em 1.5em;
+            background: #007bff;
+            color: #fff;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 1em;
+            transition: background 0.2s;
+        }
+        a.button-link:hover { background: #0056b3; }
+        #clear-account-container {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+            width: 32px;
+            height: 32px;
+        }
+        #clear-account-btn {
+            opacity: 0.3;
+            transition: opacity 0.2s;
+            background: #ff4444;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            padding: 0.2em 0.5em;
+            width: 32px;
+            height: 32px;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+        #clear-account-btn:hover {
+            background: #e03e3e;
+        }
+    </style>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<div id="container">
+<div id="greeting" style="font-size:1.15em;font-weight:bold;margin-bottom:1.2em;display:none;"></div>
+<h2>Your Account</h2>
+<div class="hidden" id="account-info">
+<div class="status" id="login-status"></div>
+<div class="status" id="account-role-status"></div>
+<div class="status" id="newsletter-status"></div>
+<a class="button-link" href="/CODE/user/index.html">Go to Cookie Saver &amp; Exporter</a>
+<button id="logout-btn" style="background:#f4f4f4;color:#007bff;border:1px solid #007bff;border-radius:6px;margin-top:1em;">Log Out</button>
+</div>
+<div class="hidden" id="signin-section">
+<form id="signin-form">
+<input id="signin-username" placeholder="Username" required="" type="text"/>
+<input id="signin-password" placeholder="Password" required="" type="password"/>
+<button type="submit">Sign In</button>
+</form>
+<div class="center">
+<span>Don't have an account?</span>
+<button class="switch-link" id="show-signup">Sign Up</button>
+</div>
+<div class="center">
+<span>Forgot your username or password?</span>
+<button class="switch-link" id="show-recover">Recover Account</button>
+</div>
+<div id="message"></div>
+</div>
+<div class="hidden" id="signup-section">
+<form id="signup-form">
+<input id="signup-username" placeholder="Username" required="" type="text"/>
+<input id="signup-password" placeholder="Password" required="" type="password"/>
+<input id="signup-name" placeholder="Your Name" required="" type="text"/>
+<input id="signup-email" placeholder="Your Email" required="" type="email"/>
+<button type="submit">Sign Up</button>
+</form>
+<div class="center">
+<span>Already have an account?</span>
+<button class="switch-link" id="show-signin">Sign In</button>
+</div>
+<div class="center">
+<span>Forgot your username or password?</span>
+<button class="switch-link" id="show-recover2">Recover Account</button>
+</div>
+<div id="message-signup"></div>
+</div>
+<div class="hidden" id="recover-section">
+<h4>Recover Username/Password</h4>
+<input id="recover-email" placeholder="Your Email" type="email"/>
+<input id="recover-name" placeholder="Your Name" type="text"/>
+<button id="recover-btn" type="button">Recover</button>
+<div class="center">
+<button class="switch-link" id="back-to-signup" type="button">Back to Sign Up</button>
+<button class="switch-link" id="back-to-signin" type="button">Back to Sign In</button>
+</div>
+<div id="message-recover"></div>
+</div>
+<div class="hidden" id="verify-section">
+<h4>Verify Your Account</h4>
+<p>A verification code was sent to your email. Enter it below to activate your account.<br/><span style="color:#888;font-size:0.95em;">(Check your spam folder if you don't see it.)</span></p>
+<input id="verify-code" maxlength="8" placeholder="Verification Code" type="text"/>
+<button id="verify-btn" type="button">Verify</button>
+<div id="verify-resend-container" style="margin-top:1em;"></div>
+<div id="message-verify"></div>
+</div>
+</div>
+<div id="clear-account-container" style="position:absolute;top:20px;right:30px;z-index:10;opacity:0;pointer-events:none;">
+<button id="clear-account-btn" style="opacity:0.3;transition:opacity 0.2s;">Clear Account</button>
+</div>
+<script>
+    function checkCookie() {
+        const cookies = document.cookie.split("; ");
+        const accessCookie = cookies.find(row => row.startsWith("access="));
+
+        if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+            window.location.href = "/index.html"; // Redirect if no valid cookie
+        }
+    }
+
+    window.onload = function () {
+        checkCookie(); // Verify cookie before loading the page
+        // --- Restore verify screen if ?verify=username or localStorage pendingVerifyUser exists ---
+        const params = new URLSearchParams(window.location.search);
+        let verifyUser = params.get('verify');
+        if (!verifyUser && localStorage.getItem('_pendingVerifyUser')) {
+            verifyUser = localStorage.getItem('_pendingVerifyUser');
+        }
+        if (verifyUser) {
+            window._pendingVerifyUser = verifyUser;
+            showVerify();
+        }
+    };
+</script>
+<script>
+        let BACKEND_URL = '';
+        fetch('/backend.json')
+            .then(res => res.json())
+            .then(cfg => {
+                BACKEND_URL = cfg.url.replace(/\/$/, '');
+                main();
+            });
+
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for(let i=0;i < ca.length;i++) {
+                let c = ca[i];
+                while (c.charAt(0)==' ') c = c.substring(1,c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+            }
+            return null;
+        }
+
+        function getGreeting(name) {
+            const hour = new Date().getHours();
+            let greet = "Hello";
+            if (hour >= 5 && hour < 12) greet = "Good morning";
+            else if (hour >= 12 && hour < 18) greet = "Good afternoon";
+            else if (hour >= 18 && hour < 22) greet = "Good evening";
+            else greet = "Hello";
+            return `${greet}, ${name}`;
+        }
+
+        function fetchUserRole(username) {
+            fetch('/cookie-role?username=' + encodeURIComponent(username), {
+                method: 'GET',
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                let role = (data && data.role) ? data.role : 'Active user';
+                document.getElementById('account-role-status').innerHTML = 'Account status: <span style="color:#007bff;">' + role + '</span>';
+            })
+            .catch(() => {
+                document.getElementById('account-role-status').innerHTML = 'Account status: <span style="color:#007bff;">Active user</span>';
+            });
+        }
+
+        function fetchUserName(username, cb) {
+            const name = getCookie('cookie_saver_name');
+            if (name) {
+                cb(name);
+                return;
+            }
+            fetch('/cookie-profile?username=' + encodeURIComponent(username), {
+                method: 'GET',
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.name) cb(data.name);
+                else cb(username);
+            })
+            .catch(() => cb(username));
+        }
+
+        function fetchUserIP(cb) {
+            fetch('/my-ip', {
+                method: 'GET',
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.ip) cb(data.ip);
+                else cb(null);
+            })
+            .catch(() => cb(null));
+        }
+
+        function showAccountInfo(username) {
+            document.getElementById('account-info').classList.remove('hidden');
+            document.getElementById('signin-section').classList.add('hidden');
+            document.getElementById('signup-section').classList.add('hidden');
+            document.getElementById('recover-section').classList.add('hidden');
+            document.getElementById('login-status').innerHTML = 'Logged in as <span>' + username + '</span>';
+            fetchUserRole(username);
+            fetchUserName(username, function(name) {
+                const greetingDiv = document.getElementById('greeting');
+                greetingDiv.textContent = getGreeting(name);
+                greetingDiv.style.display = '';
+            });
+            const newsletter = getCookie('newsletter_hide');
+            const newsletterName = getCookie('newsletter_name');
+            const newsletterEmail = getCookie('newsletter_email');
+            if (newsletter === '1' && newsletterName && newsletterEmail) {
+                document.getElementById('newsletter-status').innerHTML =
+                    `You are <span style="color:green;">subscribed</span> to the newsletter as <b>${newsletterName}</b> (<span style="color:#555;">${newsletterEmail}</span>).
+                    <button id="newsletter-unsub-btn" style="margin-left:1em;background:#ff4444;color:#fff;border:none;border-radius:4px;padding:0.3em 0.8em;cursor:pointer;">Unsubscribe</button>`;
+                setTimeout(() => {
+                    const unsubBtn = document.getElementById('newsletter-unsub-btn');
+                    if (unsubBtn) {
+                        unsubBtn.onclick = function() {
+                            fetch(BACKEND_URL + '/newsletter-unsub', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                                body: JSON.stringify({ name: newsletterName, email: newsletterEmail, timestamp: new Date().toISOString() })
+                            }).then(() => {
+                                document.getElementById('newsletter-status').innerHTML = 'You have been unsubscribed from the newsletter.';
+                                document.cookie = 'newsletter_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                                document.cookie = 'newsletter_email=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                                document.cookie = 'newsletter_hide=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                            }).catch(() => {
+                                document.getElementById('newsletter-status').innerHTML = 'Error unsubscribing. Please try again.';
+                            });
+                        };
+                    }
+                }, 100);
+            } else {
+                document.getElementById('newsletter-status').innerHTML = 'You are <span style="color:#f44;">not subscribed</span> to the newsletter.';
+            }
+        }
+
+        function showSignin() {
+            document.getElementById('account-info').classList.add('hidden');
+            document.getElementById('signin-section').classList.remove('hidden');
+            document.getElementById('signup-section').classList.add('hidden');
+            document.getElementById('recover-section').classList.add('hidden');
+        }
+        function showSignup() {
+            document.getElementById('account-info').classList.add('hidden');
+            document.getElementById('signin-section').classList.add('hidden');
+            document.getElementById('signup-section').classList.remove('hidden');
+            document.getElementById('recover-section').classList.add('hidden');
+        }
+        function showRecover() {
+            document.getElementById('account-info').classList.add('hidden');
+            document.getElementById('signin-section').classList.add('hidden');
+            document.getElementById('signup-section').classList.add('hidden');
+            document.getElementById('recover-section').classList.remove('hidden');
+        }
+        let verifyResendTimer = null;
+        let verifyResendCountdown = 120;
+        // --- When showing verify, store pending user in localStorage and update URL ---
+        function showVerify() {
+            document.getElementById('account-info').classList.add('hidden');
+            document.getElementById('signin-section').classList.add('hidden');
+            document.getElementById('signup-section').classList.add('hidden');
+            document.getElementById('recover-section').classList.add('hidden');
+            document.getElementById('verify-section').classList.remove('hidden');
+            if (window._pendingVerifyUser) {
+                localStorage.setItem('_pendingVerifyUser', window._pendingVerifyUser);
+                const url = new URL(window.location.href);
+                url.searchParams.set('verify', window._pendingVerifyUser);
+                window.history.replaceState({}, '', url);
+            }
+            // Start resend timer
+            verifyResendCountdown = 120;
+            updateVerifyResendUI();
+            if (verifyResendTimer) clearInterval(verifyResendTimer);
+            verifyResendTimer = setInterval(() => {
+                verifyResendCountdown--;
+                updateVerifyResendUI();
+                if (verifyResendTimer <= 0) {
+                    clearInterval(verifyResendTimer);
+                }
+            }, 1000);
+        }
+        function updateVerifyResendUI() {
+            const container = document.getElementById('verify-resend-container');
+            if (verifyResendCountdown > 0) {
+                container.innerHTML = `<span style='color:#888;'>You can resend the code in ${verifyResendCountdown}s</span>`;
+            } else {
+                container.innerHTML = `<button id='resend-verify-btn' style='background:#1976d2;color:#fff;border:none;border-radius:4px;padding:0.3em 1em;cursor:pointer;'>Resend Code</button>`;
+                document.getElementById('resend-verify-btn').onclick = function() {
+                    resendVerificationCode();
+                };
+            }
+        }
+        function resendVerificationCode() {
+            const username = window._pendingVerifyUser;
+            if (!username) return;
+            // You may need to store the email in a global var as well
+            fetch(BACKEND_URL + '/resend-verification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username })
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('message-verify').textContent = data.success ? 'Verification code resent! Check your email (and spam folder).' : (data.error || 'Failed to resend code.');
+                document.getElementById('message-verify').style.color = data.success ? 'green' : 'red';
+                verifyResendCountdown = 120;
+                updateVerifyResendUI();
+                if (verifyResendTimer) clearInterval(verifyResendTimer);
+                verifyResendTimer = setInterval(() => {
+                    verifyResendCountdown--;
+                    updateVerifyResendUI();
+                    if (verifyResendCountdown <= 0) {
+                        clearInterval(verifyResendTimer);
+                    }
+                }, 1000);
+            })
+            .catch(() => {
+                document.getElementById('message-verify').textContent = 'Failed to resend code.';
+                document.getElementById('message-verify').style.color = 'red';
+            });
+        }
+
+        function main() {
+            const username = getCookie('cookie_saver_username');
+            const signedup = getCookie('cookie_saver_signedup');
+            // If already signed in, don't show sign-in
+            if (username && signedup === '1') {
+                showAccountInfo(username);
+                addToAllUsernames(username);
+            } else {
+                showSignin();
+            }
+
+            document.getElementById('show-signup').onclick = showSignup;
+            document.getElementById('show-signin').onclick = showSignin;
+            document.getElementById('show-recover').onclick = showRecover;
+            document.getElementById('show-recover2').onclick = showRecover;
+            document.getElementById('back-to-signup').onclick = showSignup;
+            document.getElementById('back-to-signin').onclick = showSignin;
+
+            document.getElementById('signin-form').onsubmit = function(e) {
+                e.preventDefault();
+                const username = document.getElementById('signin-username').value.trim();
+                const password = document.getElementById('signin-password').value.trim();
+                if (!username || !password) {
+                    document.getElementById('message').textContent = 'Please enter username and password.';
+                    document.getElementById('message').style.color = 'red';
+                    return;
+                }
+                fetchUserIP(function(ip) {
+                    fetch(BACKEND_URL + '/cookie-verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password, last_ip_used: ip, last_ip: ip })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.valid) {
+                            // Save to localStorage
+                            localStorage.setItem('cookie_saver_signedup', '1');
+                            localStorage.setItem('cookie_saver_username', username);
+                            localStorage.setItem('cookie_saver_password', password);
+                            addToAllUsernames(username);
+                            document.getElementById('message').textContent = '';
+                            showAccountInfo(username);
+                        } else if (data.error === 'Account is banned.') {
+                            localStorage.setItem('banned_permanent', '1');
+                            addToAllUsernames(username);
+                            localStorage.setItem('banned_account', username); // Track which account is banned
+                            // Ban overlay will be handled by ban-blocker.js
+                        } else {
+                            document.getElementById('message').textContent = 'Invalid username, password, or device.';
+                            document.getElementById('message').style.color = 'red';
+                        }
+                    })
+                    .catch(() => {
+                        document.getElementById('message').textContent = 'Could not sign in. Please try again.';
+                        document.getElementById('message').style.color = 'red';
+                    });
+                });
+            };
+
+            document.getElementById('signup-form').onsubmit = function(e) {
+                e.preventDefault();
+                const username = document.getElementById('signup-username').value.trim();
+                const password = document.getElementById('signup-password').value.trim();
+                const name = document.getElementById('signup-name').value.trim();
+                const email = document.getElementById('signup-email').value.trim();
+
+                // Check for restricted usernames
+                const restrictedAdminWords = ['admin', 'administrator', 'owner', 'mod', 'moderator', 'staff', 'system', 'official', 'dev', 'developer', 'support'];
+                const lowerUsername = username.toLowerCase();
+                
+                // Check for admin/restricted words
+                if (restrictedAdminWords.some(word => lowerUsername.includes(word))) {
+                    document.getElementById('message-signup').textContent = 'This username is not allowed. Please choose another one.';
+                    document.getElementById('message-signup').style.color = 'red';
+                    return;
+                }
+
+                // Get all connected accounts
+                let connected = [];
+                try { connected = JSON.parse(localStorage.getItem('all_usernames') || '[]'); } catch {}
+
+                if (!username || !password || !name || !email) {
+                    document.getElementById('message-signup').textContent = 'Please fill in all fields.';
+                    document.getElementById('message-signup').style.color = 'red';
+                    return;
+                }
+                fetchUserIP(function(ip) {
+                    fetch( '/account-signup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password, name, email, creation_ip: ip, last_ip_used: ip, connected_accounts: connected })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.verification_required) {
+                            window._pendingVerifyUser = username;
+                            localStorage.setItem('_pendingVerifyUser', username);
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('verify', username);
+                            window.history.replaceState({}, '', url);
+                            showVerify();
+                        } else if (data.success) {
+                            localStorage.setItem('cookie_saver_signedup', '1');
+                            localStorage.setItem('cookie_saver_username', username);
+                            localStorage.setItem('cookie_saver_password', password);
+                            document.getElementById('message-signup').textContent = 'Sign up successful! You can now sign in.';
+                            document.getElementById('message-signup').style.color = 'green';
+                            showSignin();
+                        } else if (data.error === 'This device is permanently banned.') {
+                            localStorage.setItem('banned_permanent', '1');
+                            alert('This device is permanently banned from creating accounts.');
+                            window.location.href = '/';
+                        } else {
+                            document.getElementById('message-signup').textContent = 'Sign up failed: ' + data.error;
+                            document.getElementById('message-signup').style.color = 'red';
+                        }
+                    })
+                    .catch(() => {
+                        document.getElementById('message-signup').textContent = 'Could not sign up. Please try again.';
+                        document.getElementById('message-signup').style.color = 'red';
+                    });
+                });
+            };
+            document.getElementById('verify-btn').onclick = function() {
+                const code = document.getElementById('verify-code').value.trim();
+                const username = window._pendingVerifyUser;
+                if (!username || !code) {
+                    document.getElementById('message-verify').textContent = 'Please enter the code.';
+                    document.getElementById('message-verify').style.color = 'red';
+                    return;
+                }
+                fetch('/verify-account', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, code })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('message-verify').textContent = 'Account verified! You can now sign in.';
+                        document.getElementById('message-verify').style.color = 'green';
+                        document.getElementById('verify-section').classList.add('hidden');
+                        const password = document.getElementById('signup-password').value.trim();
+                        localStorage.setItem('cookie_saver_signedup', '1');
+                        localStorage.setItem('cookie_saver_username', username);
+                        localStorage.setItem('cookie_saver_password', password);
+                        // Remove pending verify user from localStorage and URL
+                        localStorage.removeItem('_pendingVerifyUser');
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete('verify');
+                        window.history.replaceState({}, '', url);
+                        showAccountInfo(username);
+                    } else {
+                        document.getElementById('message-verify').textContent = data.error || 'Incorrect code.';
+                        document.getElementById('message-verify').style.color = 'red';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('message-verify').textContent = 'Could not verify code.';
+                    document.getElementById('message-verify').style.color = 'red';
+                });
+            };
+
+            document.getElementById('logout-btn').onclick = function() {
+                document.cookie = 'cookie_saver_signedup=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                document.cookie = 'cookie_saver_username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                document.cookie = 'cookie_saver_password=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                showSignin();
+            };
+
+            // Example cloud export button logic
+            document.getElementById('cloud-save-all')?.addEventListener('click', function() {
+                const username = localStorage.getItem('cookie_saver_username');
+                const password = localStorage.getItem('cookie_saver_password');
+                if (!username || !password) {
+                    alert('No username/password found in localStorage. Please sign in first.');
+                    return;
+                }
+                // Verify credentials with server before exporting
+                fetch(BACKEND_URL + '/cookie-verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.valid) {
+                        // Proceed with export to cloud (implement as needed)
+                        alert('Credentials valid. Proceed with export to cloud.');
+                        // ...
+                    } else {
+                        alert('Invalid username or password. Please sign in again.');
+                    }
+                })
+                .catch(() => {
+                    alert('Could not verify credentials.');
+                });
+            });
+            // Example cloud import button logic
+            document.getElementById('cloud-load-all')?.addEventListener('click', function() {
+                const username = localStorage.getItem('cookie_saver_username');
+                const password = localStorage.getItem('cookie_saver_password');
+                if (!username || !password) {
+                    alert('No username/password found in localStorage. Please sign in first.');
+                    return;
+                }
+                // Verify credentials with server before importing
+                fetch(BACKEND_URL + '/cookie-verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.valid) {
+                        // Proceed with import from cloud (implement as needed)
+                        alert('Credentials valid. Proceed with import from cloud.');
+                        // ...
+                    } else {
+                        alert('Invalid username or password. Please sign in again.');
+                    }
+                })
+                .catch(() => {
+                    alert('Could not verify credentials.');
+                });
+            });
+
+        // (Removed newsletter popup logic from account page)
+        }
+    </script>
+<script>
+        // Show clear button on hover of container
+        const clearBtn = document.getElementById('clear-account-btn');
+        const clearContainer = document.getElementById('clear-account-container');
+        document.body.addEventListener('mousemove', function(e) {
+            const rect = clearContainer.getBoundingClientRect();
+            if (
+                e.clientX >= rect.left && e.clientX <= rect.right &&
+                e.clientY >= rect.top && e.clientY <= rect.bottom
+            ) {
+                clearContainer.style.opacity = 1;
+                clearContainer.style.pointerEvents = 'auto';
+                clearBtn.style.opacity = 1;
+            } else {
+                clearContainer.style.opacity = 0;
+                clearContainer.style.pointerEvents = 'none';
+                clearBtn.style.opacity = 0.3;
+            }
+        });
+        clearBtn.onclick = function() {
+            if (confirm('Are you sure you want to clear all account data from this browser? This will remove your username, password, and all local account info.')) {
+                localStorage.removeItem('cookie_saver_signedup');
+                localStorage.removeItem('cookie_saver_username');
+                localStorage.removeItem('cookie_saver_password');
+                document.cookie = 'cookie_saver_signedup=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                document.cookie = 'cookie_saver_username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                document.cookie = 'cookie_saver_password=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                window.location.reload();
+            }
+        };
+    </script>
+</body>
+</html>

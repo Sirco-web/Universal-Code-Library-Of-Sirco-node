@@ -1,0 +1,74 @@
+<html>
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<title>Rooftop Snipers | </title>
+<link href="img/thumb.png" rel="icon" sizes="192x192"/>
+<link href="img/thumb.png" rel="shortcut icon" type="image/x-icon"/>
+<link href="img/thumb.png" rel="apple-touch-icon" type="image/x-icon"/>
+<meta content="yes" name="apple-mobile-web-app-capable"/>
+<meta content="black" name="apple-mobile-web-app-status-bar-style"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="#000000" data-react-helmet="true" name="theme-color"/>
+<meta content="Rooftop Snipers" name="title"/>
+<meta content="Rooftop Snipers is a pixel-style shooting game where you have to shoot famous characters off of the roof. You can play in single or two-player mode, against the Joker, Mr. T, and John Wayne. During each duel, you have to jump forwards and backwards to dodge bullets. Look out for the tomahawks and beach balls in Rooftop Snipers." name="description"/>
+<meta content="games, ad blocker, trolls, unblocked games, web games, online games, fun, tags" name="keywords"/>
+<meta content="index, follow" name="robots"/>
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
+<meta content="English" name="language"/>
+<meta content="1 days" name="revisit-after"/>
+<meta content="3kh0.co" name="author"/>
+<link href="TemplateData/style.css" rel="stylesheet"/>
+<script>
+function checkCookie() {
+    const cookies = document.cookie.split("; ");
+    const accessCookie = cookies.find(row => row.startsWith("access="));
+    if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+        window.location.href = "/index.html"; // Redirect if no valid cookie
+    }
+}
+checkCookie();
+</script>
+<script src="TemplateData/UnityProgress.js"></script>
+<script src="/js/main.js" type="application/javascript"></script>
+<script src="TemplateData/UnityLoader.js"></script>
+<script>
+            var gameInstance = UnityLoader.instantiate("gameContainer", "Build/rooftop-snipers.json", {
+                onProgress: UnityProgress,
+                Module: {
+                    onRuntimeInitialized: function () {
+                        UnityProgress(gameInstance, "complete");
+                    },
+                },
+            });
+        </script>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body style="margin: 0; overflow: hidden;">
+<div class="webgl-content">
+<div id="gameContainer" style="width: 100%; height: 100%; margin: 0;"></div>
+</div>
+</body>
+</html>

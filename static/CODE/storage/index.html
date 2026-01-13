@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<title>FTP Web Client</title>
+<link href="data:," rel="icon"/>
+<style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f3f3f3; }
+    #container { display: flex; height: 100vh; }
+    #sidebar { width: 220px; background: #23232b; color: #fff; padding: 1.5em 0.5em; box-shadow: 2px 0 8px #0002; }
+    #sidebar h2 { font-size: 1.3em; margin: 0 0 1.5em 0; letter-spacing: 1px; }
+    #sidebar .user { margin-bottom: 2em; font-size: 1.1em; }
+    #sidebar button { background: #3a3a40; color: #fff; border: none; padding: 0.5em 1.2em; border-radius: 4px; cursor: pointer; margin-top: 1em; }
+    #sidebar button:hover { background: #50505a; }
+    #main { flex: 1; display: flex; flex-direction: column; }
+    #toolbar { background: #f8f8fa; padding: 0.7em 1.2em; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; gap: 0.7em; }
+    #toolbar button { background: #e7e7ef; border: 1px solid #d0d0d7; border-radius: 4px; padding: 0.4em 1em; cursor: pointer; transition: background 0.2s; }
+    #toolbar button:hover, #toolbar button:focus { background: #d0e3ff; outline: none; }
+    #breadcrumbs { margin-left: 1em; flex: 1; font-size: 1.05em; }
+    #breadcrumbs a { color: #2d5be3; text-decoration: none; }
+    #breadcrumbs a:hover { text-decoration: underline; }
+    #file-list { flex: 1; overflow: auto; background: #fff; padding: 1em; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px #0001; }
+    .file-row { display: flex; align-items: center; padding: 6px 10px; border-radius: 4px; cursor: pointer; user-select: none; transition: background 0.15s; }
+    .file-row.selected { background: #d0e3ff; }
+    .file-row:hover { background: #f0f6ff; }
+    .file-icon { width: 26px; margin-right: 10px; text-align: center; font-size: 1.2em; }
+    .file-name { flex: 1; font-size: 1.05em; }
+    .file-actions { display: flex; gap: 0.3em; }
+    .file-actions button { background: #f3f3f3; border: 1px solid #d0d0d7; border-radius: 3px; padding: 0.2em 0.7em; font-size: 0.95em; }
+    .file-actions button:hover { background: #e0eaff; }
+    #editor, #raw-view { width: 100%; height: 220px; margin-top: 1em; font-family: 'Fira Mono', monospace; font-size: 1em; border-radius: 6px; border: 1px solid #d0d0d7; padding: 0.7em; background: #f8f8fa; }
+    #preview-tabs { margin-top: 1em; }
+    #preview-tabs button { margin-right: 0.5em; background: #e7e7ef; border: 1px solid #d0d0d7; border-radius: 4px; padding: 0.3em 1em; }
+    #preview-tabs button.active { background: #d0e3ff; }
+    #context-menu { position: absolute; display: none; background: #fff; border: 1px solid #ccc; z-index: 1000; box-shadow: 2px 2px 8px #0002; min-width: 140px; border-radius: 6px; }
+    #context-menu div { padding: 8px 18px; cursor: pointer; font-size: 1em; }
+    #context-menu div:hover { background: #e0eaff; }
+    .hidden { display: none; }
+    input[type="file"] { display: none; }
+    .rename-input { width: 80%; font-size: 1em; border: 1px solid #d0d0d7; border-radius: 3px; padding: 2px 6px; }
+    .properties-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); background: #fff; border-radius: 8px; box-shadow: 0 2px 16px #0003; padding: 2em 2.5em; z-index: 3000; min-width: 320px; }
+    .properties-dialog h4 { margin-top: 0; }
+    .properties-dialog button { margin-top: 1em; }
+    #loading-bar {
+      display: none;
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 4px;
+      z-index: 3000;
+      background: linear-gradient(90deg,#2d5be3 40%,#6ec6ff 100%);
+      animation: loadingbar 1s linear infinite;
+    }
+    @keyframes loadingbar {
+      0% { background-position: 0 0; }
+      100% { background-position: 100vw 0; }
+    }
+    #img-preview { max-width: 100%; max-height: 300px; display: block; margin: 1em auto; border-radius: 8px; box-shadow: 0 2px 8px #0002; }
+
+    /* Switch style for owner controls */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      vertical-align: middle;
+      margin-right: 10px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: .2s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px #0002;
+    }
+    input:checked + .slider {
+      background-color: #2d5be3;
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Add drag-and-drop overlay */
+    #drop-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(45,91,227,0.12);
+      z-index: 5000;
+      align-items: center;
+      justify-content: center;
+      font-size: 2em;
+      color: #2d5be3;
+      pointer-events: none;
+      user-select: none;
+    }
+    #drop-overlay.active {
+      display: flex;
+      pointer-events: all;
+    }
+    .context-menu-custom {
+      position: absolute;
+      z-index: 9999;
+      background: #fff;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+      box-shadow: 2px 2px 8px #0002;
+      min-width: 160px;
+      padding: 0;
+      font-size: 1em;
+      display: none;
+    }
+    .context-menu-custom .item {
+      padding: 10px 18px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+      background: #fff;
+      transition: background 0.15s;
+    }
+    .context-menu-custom .item:last-child { border-bottom: none; }
+    .context-menu-custom .item:hover { background: #e0eaff; }
+  </style>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<script>
+// --- Immediate ban check on page load ---
+(function() {
+  const BAN_KEY = 'user_test_025';
+  let banData = localStorage.getItem(BAN_KEY);
+  if (banData) {
+    try {
+      let ban = JSON.parse(banData);
+      if (ban && ban.username && ban.until && Date.now() < ban.until) {
+        showBanOverlay(ban);
+        // Try to check with server if ban is lifted
+        let token = localStorage.getItem('token');
+        if (token && ban.username) {
+          fetch('/api/user/ban-status', {
+            headers: { Authorization: 'Bearer ' + token }
+          }).then(r => r.json()).then(data => {
+            if (data && data.banned === false) {
+              localStorage.removeItem(BAN_KEY);
+              location.reload();
+            }
+          }).catch(()=>{});
+        }
+        return;
+      } else {
+        localStorage.removeItem(BAN_KEY);
+      }
+    } catch {
+      localStorage.removeItem(BAN_KEY);
+    }
+  }
+  function showBanOverlay(ban) {
+    let overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.background = 'rgba(0,0,0,0.85)';
+    overlay.style.zIndex = '99999';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.innerHTML = `<div id='ban-popup' style="background:#fff;padding:2em 3em;border-radius:12px;box-shadow:0 2px 16px #0006;min-width:320px;text-align:center;">
+      <h2 style='color:#d32f2f;'>You are banned</h2>
+      <p style='font-size:1.1em;'><b>Account:</b> ${ban.username}<br><b>Reason:</b> <span id='ban-reason'></span><br><b>Ban ends in:</b> <span id='ban-timer'></span></p>
+    </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('ban-reason').textContent = ban.reason || 'No reason given.';
+    function updateTimer() {
+      let msLeft = ban.until - Date.now();
+      if (msLeft <= 0) {
+        localStorage.removeItem(BAN_KEY);
+        overlay.remove();
+        location.reload();
+        return;
+      }
+      let sec = Math.floor(msLeft / 1000) % 60;
+      let min = Math.floor(msLeft / 60000) % 60;
+      let hr = Math.floor(msLeft / 3600000) % 24;
+      let day = Math.floor(msLeft / 86400000);
+      let timeStr = '';
+      if (day > 0) timeStr += day + 'd ';
+      if (hr > 0) timeStr += hr + 'h ';
+      if (min > 0) timeStr += min + 'm ';
+      if (sec > 0) timeStr += sec + 's';
+      document.getElementById('ban-timer').textContent = timeStr.trim() || 'Permanent';
+    }
+    updateTimer();
+    let interval = setInterval(updateTimer, 1000);
+    // Block all pointer and keyboard events
+    window.addEventListener('click', e => e.stopPropagation(), true);
+    window.addEventListener('keydown', e => e.stopPropagation(), true);
+    window.addEventListener('mousedown', e => e.stopPropagation(), true);
+    window.addEventListener('touchstart', e => e.stopPropagation(), true);
+    window.addEventListener('focus', e => e.stopPropagation(), true);
+    // Block all main app functions
+    window.login = window.register = window.refreshFiles = window.listFiles = window.createFile = window.createFolder = window.saveFile = window.deleteFile = window.showUsersModal = window.changeUserPassword = window.changeUserLimit = window.toggleUser = window.deleteUser = window.manualVerifyUser = window.manualApproveUser = window.togglePauseUser = function() { return false; };
+  }
+})();
+</script>
+<div id="container">
+<div id="sidebar">
+<h2>FTP Web Client</h2>
+<div class="user" id="user-info"></div>
+<button id="logout" onclick="logout()">Logout</button>
+<div class="hidden" id="owner-switches" style="margin-top:2em;">
+<h3 style="font-size:1.1em;">Owner Controls</h3>
+<label>
+<span class="switch">
+<input checked="" id="switch-allowRegister" onchange="toggleSetting('allowRegister')" type="checkbox"/>
+<span class="slider"></span>
+</span>
+          Allow Registration
+        </label><br/>
+<label>
+<span class="switch">
+<input checked="" id="switch-allowLogin" onchange="toggleSetting('allowLogin')" type="checkbox"/>
+<span class="slider"></span>
+</span>
+          Allow Login
+        </label><br/>
+<label>
+<span class="switch">
+<input checked="" id="switch-allowUpload" onchange="toggleSetting('allowUpload')" type="checkbox"/>
+<span class="slider"></span>
+</span>
+          Allow Upload
+        </label><br/>
+<label style="margin-top:1em;display:block;">
+          Upload Limit (GB, MB, KB, bytes):
+          <input id="upload-limit" onchange="setUploadLimit()" placeholder="e.g. 100MB" style="width:110px;margin-left:8px;" type="text">
+</input></label>
+<button id="manage-users-btn" onclick="showUsersModal()" style="margin-top:1em;width:100%;">Manage Users</button>
+</div>
+</div>
+<div id="main">
+<div id="toolbar">
+<button onclick="goUp()">⬆ Up</button>
+<button onclick="refreshFiles()">🔄 Refresh</button>
+<button onclick="triggerFileUpload()">⬆ Upload File(s)</button>
+<input id="upload-file-input" multiple="" onchange="uploadFiles(event)" type="file"/>
+<button onclick="triggerFolderUpload()">📁 Upload Folder</button>
+<input directory="" id="upload-folder-input" multiple="" onchange="uploadFiles(event)" type="file" webkitdirectory=""/>
+<button onclick="createFolder()">📁 New Folder</button>
+<button onclick="createFile()">📄 New File</button>
+<div id="breadcrumbs"></div>
+</div>
+<div id="user-quota" style="margin:0.5em 1em 0.5em 1em;font-size:0.98em;color:#444;">
+<!-- Storage bar will be rendered here -->
+<button id="quota-details-btn" style="margin-left:10px;font-size:0.95em;vertical-align:middle;">Details</button>
+</div>
+<div id="file-list"></div>
+<div class="hidden" id="preview-tabs">
+<button id="tab-normal" onclick="showTab('normal')">Normal View</button>
+<button id="tab-raw" onclick="showTab('raw')">Raw Data</button>
+<button id="tab-image" onclick="showTab('image')">Image</button>
+<button id="tab-pdf" onclick="showTab('pdf')">PDF</button>
+<button onclick="downloadSelected()">⬇ Download</button>
+<button onclick="deleteFile()">🗑 Delete</button>
+<button onclick="saveFile()">💾 Save</button>
+</div>
+<textarea class="hidden" id="editor"></textarea>
+<textarea class="hidden" id="raw-view" readonly=""></textarea>
+<img class="hidden" id="img-preview"/>
+<iframe class="hidden" id="pdf-preview" style="width:100%;height:400px;border-radius:8px;border:1px solid #d0d0d7;margin-top:1em;"></iframe>
+</div>
+</div>
+<div id="context-menu"></div>
+<div class="hidden properties-dialog" id="properties-dialog"></div>
+<div id="auth" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#0008;display:flex;align-items:center;justify-content:center;z-index:2000;">
+<div style="background:#fff;padding:2em 3em;border-radius:8px;box-shadow:0 2px 16px #0003;min-width:300px;">
+<h3>Login</h3>
+<input id="login-username" placeholder="Username"/><br/><br/>
+<input id="login-password" placeholder="Password" type="password"/><br/><br/>
+<button onclick="login()">Login</button>
+<hr/>
+<h4>Register</h4>
+<input id="register-username" placeholder="New Username"/><br/><br/>
+<input id="register-password" placeholder="New Password" type="password"/><br/><br/>
+<input id="register-email" placeholder="Email" type="email"/><br/><br/>
+<button onclick="register()">Register</button>
+<div id="register-message" style="margin-top:1em;color:#2d5be3;"></div>
+</div>
+</div>
+<div id="loading-bar" style="display:none;position:fixed;top:0;left:0;width:100vw;height:4px;z-index:3000;background:linear-gradient(90deg,#2d5be3 40%,#6ec6ff 100%);animation:loadingbar 1s linear infinite;"></div>
+<div class="hidden" id="upload-progress-bar" style="position:fixed;bottom:0;left:0;width:100vw;height:6px;z-index:4000;background:#e0eaff;">
+<div id="upload-progress-inner" style="height:100%;width:0%;background:#2d5be3;transition:width 0.2s;"></div>
+</div>
+<div class="hidden" id="users-modal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#0008;z-index:4000;display:none;align-items:center;justify-content:center;">
+<div style="background:#fff;padding:2em 2em;min-width:400px;border-radius:8px;max-height:80vh;overflow:auto;">
+<h3>All Users</h3>
+<div id="users-list"></div>
+<button onclick="closeUsersModal()" style="margin-top:1em;">Close</button>
+</div>
+</div>
+<!-- Add drag-and-drop overlay -->
+<div id="drop-overlay">Drop files to upload</div>
+<div class="context-menu-custom" id="custom-context-menu"></div>
+<!-- Custom modal dialog -->
+<div class="hidden" id="custom-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:#0007;z-index:5000;align-items:center;justify-content:center;">
+<div id="custom-modal-content" style="background:#fff;padding:2em 2.5em;border-radius:8px;box-shadow:0 2px 16px #0003;min-width:300px;max-width:90vw;max-height:90vh;overflow:auto;text-align:center;"></div>
+</div>
+<script>
+    // --- Ban check: run as first script ---
+    (function() {
+      const BAN_KEY = 'user_test_025';
+      let banData = localStorage.getItem(BAN_KEY);
+      if (banData) {
+        try {
+          let ban = JSON.parse(banData);
+          if (ban && ban.username && ban.until && Date.now() < ban.until) {
+            showDynamicBanOverlay(ban.username, ban.reason, ban.until);
+            // Try to check with server if unbanned
+            checkBanStatusWithServer(ban.username);
+            return;
+          } else {
+            localStorage.removeItem(BAN_KEY);
+          }
+        } catch {
+          localStorage.removeItem(BAN_KEY);
+        }
+      }
+      function showDynamicBanOverlay(username, reason, until) {
+        // First check with server for latest ban status
+        fetch(apiUrl('/api/ban/' + encodeURIComponent(username)))
+          .then(r => r.json())
+          .then(data => {
+            if (!data.banned) {
+              localStorage.removeItem('user_test_025');
+              location.reload();
+              return;
+            }
+            // Use latest ban info from server
+            reason = data.banReason || reason || 'No reason given';
+            until = Number(data.bannedUntil) || until;
+            if (!until || until <= Date.now()) {
+              localStorage.removeItem('user_test_025');
+              location.reload();
+              return;
+            }
+
+            let overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100vw';
+            overlay.style.height = '100vh';
+            overlay.style.background = 'rgba(0,0,0,0.85)';
+            overlay.style.zIndex = '99999';
+            overlay.style.display = 'flex';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.innerHTML = `<div id='ban-popup' style="background:#fff;padding:2em 3em;border-radius:12px;box-shadow:0 2px 16px #0006;min-width:320px;text-align:center;">
+              <h2 style='color:#d32f2f;'>You are banned</h2>
+              <p style='font-size:1.1em;'><b>Account:</b> <span id='ban-username'></span><br><b>Reason:</b> <span id='ban-reason'></span><br><b>Ban ends in:</b> <span id='ban-timer'></span></p>
+            </div>`;
+            document.body.appendChild(overlay);
+            document.getElementById('ban-username').textContent = username || '';
+            document.getElementById('ban-reason').textContent = reason;
+
+            function updateTimer() {
+              let msLeft = until - Date.now();
+              if (msLeft <= 0) {
+                localStorage.removeItem('user_test_025');
+                overlay.remove();
+                location.reload();
+                return;
+              }
+              let sec = Math.floor(msLeft / 1000) % 60;
+              let min = Math.floor(msLeft / 60000) % 60;
+              let hr = Math.floor(msLeft / 3600000) % 24;
+              let day = Math.floor(msLeft / 86400000);
+              let timeStr = '';
+              if (day > 0) timeStr += day + 'd ';
+              if (hr > 0) timeStr += hr + 'h ';
+              if (min > 0) timeStr += min + 'm ';
+              if (sec > 0) timeStr += sec + 's';
+              document.getElementById('ban-timer').textContent = timeStr.trim() || 'Permanent';
+            }
+            updateTimer();
+            let interval = setInterval(updateTimer, 1000);
+
+            // Block all pointer and keyboard events
+            window.addEventListener('click', e => e.stopPropagation(), true);
+            window.addEventListener('keydown', e => e.stopPropagation(), true);
+            window.addEventListener('mousedown', e => e.stopPropagation(), true);
+            window.addEventListener('touchstart', e => e.stopPropagation(), true);
+            window.addEventListener('focus', e => e.stopPropagation(), true);
+            // Block all main app functions
+            window.login = window.register = window.refreshFiles = window.listFiles = window.createFile = window.createFolder = window.saveFile = window.deleteFile = window.showUsersModal = window.changeUserPassword = window.changeUserLimit = window.toggleUser = window.deleteUser = window.manualVerifyUser = window.manualApproveUser = window.togglePauseUser = function() { return false; };
+          })
+          .catch(() => {
+            // On error, proceed with stored ban info
+            let overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100vw';
+            overlay.style.height = '100vh';
+            overlay.style.background = 'rgba(0,0,0,0.85)';
+            overlay.style.zIndex = '99999';
+            overlay.style.display = 'flex';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.innerHTML = `<div id='ban-popup' style="background:#fff;padding:2em 3em;border-radius:12px;box-shadow:0 2px 16px #0006;min-width:320px;text-align:center;">
+              <h2 style='color:#d32f2f;'>You are banned</h2>
+              <p style='font-size:1.1em;'><b>Account:</b> <span id='ban-username'></span><br><b>Reason:</b> <span id='ban-reason'></span><br><b>Ban ends in:</b> <span id='ban-timer'></span></p>
+            </div>`;
+            document.body.appendChild(overlay);
+            document.getElementById('ban-username').textContent = username || '';
+            document.getElementById('ban-reason').textContent = reason;
+
+            function updateTimer() {
+              let msLeft = until - Date.now();
+              if (msLeft <= 0) {
+                localStorage.removeItem('user_test_025');
+                overlay.remove();
+                location.reload();
+                return;
+              }
+              let sec = Math.floor(msLeft / 1000) % 60;
+              let min = Math.floor(msLeft / 60000) % 60;
+              let hr = Math.floor(msLeft / 3600000) % 24;
+              let day = Math.floor(msLeft / 86400000);
+              let timeStr = '';
+              if (day > 0) timeStr += day + 'd ';
+              if (hr > 0) timeStr += hr + 'h ';
+              if (min > 0) timeStr += min + 'm ';
+              if (sec > 0) timeStr += sec + 's';
+              document.getElementById('ban-timer').textContent = timeStr.trim() || 'Permanent';
+            }
+            updateTimer();
+            let interval = setInterval(updateTimer, 1000);
+
+            // Block all pointer and keyboard events
+            window.addEventListener('click', e => e.stopPropagation(), true);
+            window.addEventListener('keydown', e => e.stopPropagation(), true);
+            window.addEventListener('mousedown', e => e.stopPropagation(), true);
+            window.addEventListener('touchstart', e => e.stopPropagation(), true);
+            window.addEventListener('focus', e => e.stopPropagation(), true);
+            // Block all main app functions
+            window.login = window.register = window.refreshFiles = window.listFiles = window.createFile = window.createFolder = window.saveFile = window.deleteFile = window.showUsersModal = window.changeUserPassword = window.changeUserLimit = window.toggleUser = window.deleteUser = window.manualVerifyUser = window.manualApproveUser = window.togglePauseUser = function() { return false; };
+          });
+      }
+    })();
+
+    // Fix typo: 'ture' -> 'true'
+    const staticMode = true; // Always use backend's own URL
+
+    let backendUrl = 'https://thenicerandbetterdrive.theworkpc.com:3000';
+
+    function apiUrl(path) {
+      return backendUrl + path;
+    }
+
+    let token = localStorage.getItem('token');
+    let role = localStorage.getItem('role');
+    let username = localStorage.getItem('username'); // Add username variable
+    let cwd = '';
+    let selectedFile = '';
+    let selectedIsDir = false;
+    let filesCache = [];
+    let contextMenuFile = null;
+    let renameMode = null;
+    // Multi-select state
+    let selectedFiles = new Set();
+
+    function showAuth(show) {
+      document.getElementById('auth').style.display = show ? '' : 'none';
+      if (show) hideAllAdminModals();
+    }
+    function apiUrl(path) {
+      return backendUrl + path;
+    }
+    // Utility to get username from localStorage or cookies
+    function getUsername() {
+      let u = localStorage.getItem('username');
+      if (u && u !== 'null' && u !== 'undefined') return u;
+      // Try cookies
+      let m = document.cookie.match(/(?:^|;\s*)username=([^;]+)/);
+      if (m && m[1]) return decodeURIComponent(m[1]);
+      // Try to get from login input as last resort
+      let input = document.getElementById('login-username');
+      if (input && input.value) return input.value;
+      return '';
+    }
+
+    function login() {
+      fetch(apiUrl('/api/login'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('login-username').value,
+          password: document.getElementById('login-password').value
+        })
+      }).then(r => r.json()).then(async d => {
+        if (d.token) {
+          token = d.token;
+          role = d.role;
+          username = d.username || document.getElementById('login-username').value;
+          localStorage.setItem('token', token);
+          localStorage.setItem('role', role);
+          localStorage.setItem('username', username);
+          document.cookie = "username=" + encodeURIComponent(username) + "; path=/";
+          document.cookie = "token=" + encodeURIComponent(token) + "; path=/";
+          afterLogin();
+        } else {
+          // If banned, set local ban flag with username, timestamp and reason
+          if (d.banned) {
+            let until = Date.now() + 100*365*24*3600*1000; // default perm
+            let reason = 'No reason given.';
+            let user = document.getElementById('login-username').value;
+            let m = d.error && d.error.match(/for ([\dhms ]+)\. Reason: (.*)$/);
+            if (m) {
+              let t = m[1];
+              let ms = 0;
+              if (t.includes('d')) ms += parseInt(t) * 24 * 3600 * 1000;
+              else if (t.includes('h')) ms += parseInt(t) * 3600 * 1000;
+              else if (t.includes('m')) ms += parseInt(t) * 60 * 1000;
+              else if (t.includes('s')) ms += parseInt(t) * 1000;
+              until = Date.now() + ms;
+              reason = m[2];
+            }
+            localStorage.setItem('user_test_025', JSON.stringify({ username: user, until, reason }));
+            location.reload();
+            return;
+          }
+          await customAlert(d.error || 'Login failed');
+          if (d.error && d.error.toLowerCase().includes('verify')) {
+            document.getElementById('register-message').innerText = 'Please check your email for a verification link.';
+          }
+        }
+      });
+    }
+
+    function register() {
+      const username = document.getElementById('register-username').value;
+      const password = document.getElementById('register-password').value;
+      const email = document.getElementById('register-email').value;
+      if (!username || !password || !email) {
+        customAlert('Please fill in all fields.');
+        return;
+      }
+      fetch(apiUrl('/api/register'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          password,
+          email
+        })
+      }).then(r => r.json()).then(async d => {
+        if (d.success) {
+          // Redirect to verify page (no code in URL)
+          window.location.href = `/?verify-account=${encodeURIComponent(username)}`;
+        } else {
+          await customAlert(d.error || 'Register failed');
+        }
+      });
+    }
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('username');
+      // Remove username cookie
+      document.cookie = "username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      token = null;
+      role = null;
+      username = null;
+      showAuth(true);
+      document.getElementById('owner-switches').classList.add('hidden');
+    }
+    function refreshFiles() { listFiles(); }
+    function listFiles() {
+      fetch(apiUrl('/api/files?path=' + encodeURIComponent(cwd)), {
+        headers: { Authorization: 'Bearer ' + token }
+      }).then(r => r.json()).then(files => {
+        filesCache = files;
+        renderFileList(files);
+        renderBreadcrumbs();
+        hidePreview();
+      });
+    }
+    // Update renderFileList to support multi-select
+    function renderFileList(files) {
+      const list = files.map(f =>
+        `<div class="file-row${selectedFiles.has(f.name)?' selected':''}" 
+          oncontextmenu="showContextMenu(event, '${f.name}', ${f.isDir})" 
+          ondblclick="${f.isDir?`enterDir('${f.name}')`:`openFile('${f.name}')`}" 
+          onclick="selectFile('${f.name}',${f.isDir},event)">
+          <span class="file-icon">${f.isDir?'📁':'📄'}</span>
+          <span class="file-name">${renameMode===f.name?`<input class='rename-input' id='rename-input' value='${f.name}' onkeydown='renameKey(event,"${f.name}",${f.isDir})'>`:`${f.name}`}</span>
+          <span class="file-actions">
+            <button onclick="event.stopPropagation();${f.isDir?`enterDir('${f.name}')`:`openFile('${f.name}')`}">${f.isDir?'Open':'View'}</button>
+            ${!f.isDir?`<button onclick="event.stopPropagation();downloadFile('${f.name}')">⬇</button>`:''}
+            <button onclick="event.stopPropagation();startRename('${f.name}')">✏️</button>
+            <button onclick="event.stopPropagation();showProperties('${f.name}',${f.isDir})">ℹ️</button>
+          </span>
+        </div>`
+      ).join('');
+      document.getElementById('file-list').innerHTML = list;
+      if(renameMode) setTimeout(()=>{document.getElementById('rename-input').focus();},0);
+    }
+
+    // Multi-select logic
+    function selectFile(name, isDir, event) {
+      if (event && event.ctrlKey) {
+        // Toggle selection
+        if (selectedFiles.has(name)) selectedFiles.delete(name);
+        else selectedFiles.add(name);
+      } else if (event && event.shiftKey && filesCache.length > 0) {
+        // Range select
+        const names = filesCache.map(f => f.name);
+        const last = [...selectedFiles].pop();
+        const idx1 = names.indexOf(last || name);
+        const idx2 = names.indexOf(name);
+        if (idx1 !== -1 && idx2 !== -1) {
+          const [start, end] = [Math.min(idx1, idx2), Math.max(idx1, idx2)];
+          for (let i = start; i <= end; ++i) selectedFiles.add(names[i]);
+        } else {
+          selectedFiles.add(name);
+        }
+      } else {
+        // Single select
+        selectedFiles = new Set([name]);
+      }
+      selectedFile = name;
+      selectedIsDir = isDir;
+      renderFileList(filesCache);
+      if (!isDir && selectedFiles.size === 1) openFile(name);
+      else if (isDir && selectedFiles.size === 1) hidePreview();
+    }
+
+    function renderBreadcrumbs() {
+      const parts = cwd.split('/').filter(Boolean);
+      let html = '<b>Root</b>';
+      let path = '';
+      for (let i=0; i<parts.length; ++i) {
+        path += (path?'/':'') + parts[i];
+        html += ` / <a href=\"#\" onclick=\"gotoPath('${path}')\">${parts[i]}</a>`;
+      }
+      document.getElementById('breadcrumbs').innerHTML = html;
+    }
+    function gotoPath(path) {
+      cwd = path;
+      listFiles();
+    }
+    function openFile(name) {
+      selectedFile = name;
+      showLoading(true);
+      fetch(apiUrl('/api/file?path=' + encodeURIComponent(cwd ? cwd + '/' + name : name)), {
+        headers: { Authorization: 'Bearer ' + token }
+      }).then(r => r.json()).then(d => {
+        showPreview(d.content, name);
+        showLoading(false);
+      }).catch(()=>showLoading(false));
+    }
+    function showPreview(content, name) {
+      document.getElementById('preview-tabs').classList.remove('hidden');
+      // File extension
+      const ext = name ? name.split('.').pop().toLowerCase() : '';
+      // Text file types
+      const textTypes = ["txt","json","js","md","css","html","csv","log","xml","yml","yaml","py","c","cpp","h","java","sh","ts","tsx","jsx","php","rb","go","rs","ini","conf"];
+      // Image file types
+      const imgTypes = [
+        "jpg","jpeg","png","gif","bmp","webp","svg","ico","tiff","tif","jfif","pjpeg","pjp","apng","avif","heic","heif"
+      ];
+      // PDF
+      if (ext === 'pdf') {
+        showTab('pdf');
+        let pdf = document.getElementById('pdf-preview');
+        // Convert base64 to blob URL
+        const byteArray = Uint8Array.from(atob(btoa(unescape(encodeURIComponent(content)))), c => c.charCodeAt(0));
+        const blob = new Blob([byteArray], {type: 'application/pdf'});
+        pdf.src = URL.createObjectURL(blob);
+        pdf.classList.remove('hidden');
+        document.getElementById('editor').classList.add('hidden');
+        document.getElementById('raw-view').classList.add('hidden');
+        document.getElementById('img-preview').classList.add('hidden');
+        return;
+      }
+      // Image
+      if (imgTypes.includes(ext)) {
+        showTab('image');
+        let img = document.getElementById('img-preview');
+        // Build the file path for /api/storage/<username>/<cwd>/<name>
+        let user = getUsername();
+        let filePath = '';
+        if (cwd) {
+          filePath = user + '/' + cwd + '/' + name;
+        } else {
+          filePath = user + '/' + name;
+        }
+        // Use /api/storage/ instead of /storage/
+        img.src = '/api/storage/' + filePath.split('/').map(encodeURIComponent).join('/');
+        img.classList.remove('hidden');
+        document.getElementById('editor').classList.add('hidden');
+        document.getElementById('raw-view').classList.add('hidden');
+        document.getElementById('pdf-preview').classList.add('hidden');
+        return;
+      }
+      // Text
+      if (textTypes.includes(ext)) {
+        showTab('normal');
+        document.getElementById('editor').value = content;
+        document.getElementById('raw-view').value = btoa(unescape(encodeURIComponent(content)));
+        document.getElementById('editor').classList.remove('hidden');
+        document.getElementById('raw-view').classList.add('hidden');
+        document.getElementById('img-preview').classList.add('hidden');
+        document.getElementById('pdf-preview').classList.add('hidden');
+        return;
+      }
+      // Default: show raw
+      showTab('raw');
+      // Show progress bar while loading raw data
+      showRawProgressBar();
+      // Try to show as base64
+      let raw;
+      setTimeout(() => {
+        try {
+          raw = btoa(unescape(encodeURIComponent(content)));
+        } catch {
+          raw = content;
+        }
+        document.getElementById('raw-view').value = raw;
+        hideRawProgressBar();
+      }, 300); // Simulate a short delay for UX
+      document.getElementById('editor').classList.add('hidden');
+      document.getElementById('img-preview').classList.add('hidden');
+      document.getElementById('pdf-preview').classList.add('hidden');
+    }
+    function showTab(tab) {
+      document.getElementById('tab-normal').classList.toggle('active', tab==='normal');
+      document.getElementById('tab-raw').classList.toggle('active', tab==='raw');
+      document.getElementById('tab-image').classList.toggle('active', tab==='image');
+      document.getElementById('tab-pdf').classList.toggle('active', tab==='pdf');
+      document.getElementById('editor').classList.toggle('hidden', tab!=='normal');
+      document.getElementById('raw-view').classList.toggle('hidden', tab!=='raw');
+      document.getElementById('img-preview').classList.toggle('hidden', tab!=='image');
+      document.getElementById('pdf-preview').classList.toggle('hidden', tab!=='pdf');
+    }
+    function hidePreview() {
+      document.getElementById('preview-tabs').classList.add('hidden');
+      document.getElementById('editor').classList.add('hidden');
+      document.getElementById('raw-view').classList.add('hidden');
+      document.getElementById('img-preview').classList.add('hidden');
+      document.getElementById('pdf-preview').classList.add('hidden');
+    }
+    async function saveFile() {
+      if (!selectedFile) return await customAlert('No file selected');
+      showLoading(true);
+      fetch(apiUrl('/api/file'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          path: cwd ? cwd + '/' + selectedFile : selectedFile,
+          content: document.getElementById('editor').value
+        })
+      }).then(r => r.json()).then(async d => {
+        showLoading(false);
+        if (d.success) await customAlert('Saved!');
+        else await customAlert(d.error || 'Save failed');
+        listFiles();
+      }).catch(()=>showLoading(false));
+    }
+    async function deleteFile() {
+      if (!selectedFile) return await customAlert('No file selected');
+      showLoading(true);
+      fetch(apiUrl('/api/file'), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          path: cwd ? cwd + '/' + selectedFile : selectedFile
+        })
+      }).then(r => r.json()).then(async d => {
+        showLoading(false);
+        if (d.success) await customAlert('Deleted!');
+        else await customAlert(d.error || 'Delete failed');
+        selectedFile = '';
+        hidePreview();
+        listFiles();
+      }).catch(()=>showLoading(false));
+    }
+    async function createFile() {
+      const name = await customPrompt('New file name:');
+      if (!name) return;
+      showLoading(true);
+      fetch(apiUrl('/api/file'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          path: cwd ? cwd + '/' + name : name,
+          content: ''
+        })
+      }).then(()=>{showLoading(false);listFiles();}).catch(()=>showLoading(false));
+    }
+    async function createFolder() {
+      const name = await customPrompt('New folder name:');
+      if (!name) return;
+      showLoading(true);
+      fetch(apiUrl('/api/file'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          path: cwd ? cwd + '/' + name : name,
+          content: null
+        })
+      }).then(()=>{showLoading(false);listFiles();}).catch(()=>showLoading(false));
+    }
+    async function setUploadLimit() {
+      if (!(await confirmOwner())) return await customAlert('Not authorized as owner.');
+      let val = document.getElementById('upload-limit').value;
+      let origVal = val;
+      let mb = 0;
+      if (typeof val === 'string') {
+        val = val.trim().toLowerCase();
+        if (val.endsWith('gb')) mb = parseFloat(val) * 1024;
+        else if (val.endsWith('mb')) mb = parseFloat(val);
+        else if (val.endsWith('kb')) mb = parseFloat(val) / 1024;
+        else if (val.endsWith('bytes')) mb = parseFloat(val) / (1024 * 1024);
+        else mb = parseFloat(val);
+      } else {
+        mb = Number(val);
+      }
+      if (isNaN(mb) || mb <= 0) return await customAlert('Invalid value for upload limit: ' + origVal);
+      showLoading(true);
+      fetch(apiUrl('/api/admin/settings'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          key: 'uploadLimit',
+          value: val
+        })
+      }).then(r=>r.json()).then(async d=>{
+        showLoading(false);
+        if (!d.success) await customAlert('Failed to update upload limit: ' + (d.error||''));
+      });
+    }
+    async function toggleSetting(key) {
+      if (!(await confirmOwner())) return await customAlert('Not authorized as owner.');
+      const val = document.getElementById('switch-' + key).checked;
+      const password = await customPrompt('Enter owner password to change this setting:');
+      if (!password) { if (role === 'owner') await loadOwnerSettings(); return; }
+      const hash = await sha256(password);
+      showLoading(true);
+      fetch(apiUrl('/api/admin/settings'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          key,
+          value: val,
+          ownerHash: hash
+        })
+      }).then(r=>r.json()).then(async d=>{
+        showLoading(false);
+        if (!d.success) {
+          await customAlert('Failed to update setting: ' + (d.error||''));
+          if (role === 'owner') loadOwnerSettings();
+        }
+      });
+    }
+    // Users modal logic
+    async function showUsersModal() {
+      if (!(await confirmOwner())) return alert('Not authorized as owner.');
+      showLoading(true);
+      fetch(apiUrl('/api/admin/users'), {
+        headers: { Authorization: 'Bearer ' + token }
+      }).then(r=>r.json()).then(users=>{
+        showLoading(false);
+        let html = `<table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Password</th>
+            <th>Status</th>
+            <th>Verified</th>
+            <th>Approval</th>
+            <th>Paused</th>
+            <th>Verification Code</th>
+            <th>Ban Until</th>
+            <th>Ban Reason</th>
+            <th>Storage Limit</th>
+            <th>Actions</th>
+          </tr>`;
+        users.forEach(u=>{
+          html += `<tr>
+            <td>${u.username}</td>
+            <td>${u.role || ''}</td>
+            <td>
+              <input type="text" value="${u.password || ''}" id="pw-${u.username}" style="width:90px;">
+              <button onclick="changeUserPassword('${u.username}')">Set</button>
+            </td>
+            <td>${u.disabled ? '<span style="color:red;">Disabled</span>' : '<span style="color:green;">Active</span>'}</td>
+            <td>${u.verified ? '<span style="color:green;">Yes</span>' : '<span style="color:red;">No</span>'}
+              <button onclick="manualVerifyUser('${u.username}',${u.verified})">${u.verified ? 'Unverify' : 'Verify'}</button>
+            </td>
+            <td>${u.approval ? '<span style="color:green;">Yes</span>' : '<span style="color:red;">No</span>'}
+              <button onclick="manualApproveUser('${u.username}',${u.approval})">${u.approval ? 'Unapprove' : 'Approve'}</button>
+            </td>
+            <td>${u.paused ? '<span style="color:orange;">Paused</span>' : '<span style="color:green;">No</span>'}
+              <button onclick="togglePauseUser('${u.username}',${u.paused})">${u.paused ? 'Unpause' : 'Pause'}</button>
+            </td>
+            <td>${u.verificationCode ? `<span style='color:#2d5be3;'>${u.verificationCode}</span>` : ''}</td>
+            <td>${u.bannedUntil ? new Date(Number(u.bannedUntil)).toLocaleString() : ''}</td>
+            <td>${u.banReason || ''}</td>
+            <td>
+              <input type="text" value="${u.limitGB !== null && u.limitGB !== undefined ? u.limitGB : ''}" id="limit-${u.username}" style="width:60px;">
+              <button onclick="changeUserLimit('${u.username}')">Set</button>
+            </td>
+            <td>
+              <button onclick="toggleUser('${u.username}',${u.disabled})">${u.disabled ? 'Enable' : 'Disable'}</button>
+              <button onclick="deleteUser('${u.username}')">Delete</button>
+              ${u.bannedUntil && Number(u.bannedUntil) > Date.now() ? `<button onclick="unbanUser('${u.username}')">Unban</button>` : `<button onclick="banUserPrompt('${u.username}')">Ban</button>`}
+            </td>
+          </tr>`;
+        });
+        html += `</table>`;
+        document.getElementById('users-list').innerHTML = html;
+        // Show modal
+        const modal = document.getElementById('users-modal');
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+      }).catch(()=>showLoading(false));
+    }
+    function closeUsersModal() {
+      const modal = document.getElementById('users-modal');
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }
+    async function changeUserPassword(username) {
+      if (!(await confirmOwner())) return await customAlert('Not authorized as owner.');
+      const newpw = document.getElementById('pw-' + username).value;
+      if (!newpw) return await customAlert('Password required');
+      showLoading(true);
+      fetch(apiUrl('/api/admin/user-password'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ username, password: newpw })
+      }).then(r=>r.json()).then(async d=>{
+        showLoading(false);
+        if (!d.success) await customAlert('Failed: ' + (d.error||''));
+        else await customAlert('Password changed!');
+      }).catch(()=>showLoading(false));
+    }
+    async function changeUserLimit(username) {
+      if (!(await confirmOwner())) return await customAlert('Not authorized as owner.');
+      const val = document.getElementById('limit-' + username).value;
+      if (!val) return await customAlert('Limit required');
+      showLoading(true);
+      fetch(apiUrl('/api/admin/user-limit'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ username, limitGB: parseUserLimitToGB(val) })
+      }).then(r=>r.json()).then(async d=>{
+        showLoading(false);
+        if (!d.success) await customAlert('Failed: ' + (d.error||''));
+        else showUsersModal();
+      }).catch(()=>showLoading(false));
+    }
+    async function toggleUser(username, disabled) {
+      if (!(await confirmOwner())) return await customAlert('Not authorized as owner.');
+      showLoading(true);
+      fetch(apiUrl('/api/admin/user-disable'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ username, disable: !disabled })
+      }).then(r=>r.json()).then(async d=>{
+        showLoading(false);
+        if (!d.success) await customAlert('Failed: ' + (d.error||''));
+        else showUsersModal();
+      }).catch(()=>showLoading(false));
+    }
+    // Add manual verify/approve/pause functions
+    window.manualVerifyUser = async function(username, verified) {
+      if (!(await confirmOwner())) return await customAlert('Not authorized as owner.');
+      showLoading(true);
+      await fetch(apiUrl('/api/admin/user-verify'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ username, verified: !verified })
+      });
+      showLoading(false);
+      showUsersModal();
+    };
+    window.manualApproveUser = async function(username, approval) {
+      if (!(await confirmOwner())) return await customAlert('Not authorized as owner.');
+      showLoading(true);
+      await fetch(apiUrl('/api/admin/user-approve'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ username, approval: !approval })
+      });
+      showLoading(false);
+      showUsersModal();
+    };
+    window.togglePauseUser = async function(username, paused) {
+      if (!(await confirmOwner())) return await customAlert('Not authorized as owner.');
+      showLoading(true);
+      await fetch(apiUrl('/api/admin/user-pause'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ username, paused: !paused })
+      });
+      showLoading(false);
+      showUsersModal();
+    };
+
+    // --- Verification UI logic ---
+    window.addEventListener('DOMContentLoaded', async function() {
+      const params = new URLSearchParams(window.location.search);
+      const verifyUser = params.get('verify-account');
+      if (verifyUser) {
+        showAuth(true);
+        document.getElementById('auth').innerHTML = `<div style='background:#fff;padding:2em 3em;border-radius:8px;box-shadow:0 2px 16px #0003;min-width:300px;text-align:center;'>
+          <h3>Verify Account</h3>
+          <div>We have sent a verification code to your email for <b>${verifyUser}</b>.</div>
+          <form id='verify-form' style='margin-top:1.5em;'>
+            <input id='verify-code' placeholder='Enter verification code' maxlength='6' style='font-size:1.1em;padding:0.5em;width:180px;text-align:center;letter-spacing:2px;' autocomplete='one-time-code'><br><br>
+            <button type='submit' style='padding:0.5em 2em;'>Verify</button>
+          </form>
+          <div id='verify-status' style='margin-top:1em;'></div>
+          <div id='resend-section' style='margin-top:1.5em;'>
+            <button id='resend-btn' style='padding:0.4em 1.5em;background:#ccc;color:#888;cursor:not-allowed;' disabled>Resend Email</button>
+            <span id='resend-timer' style='margin-left:1em;color:#2d5be3;'> (5s)</span>
+            <span id='resend-msg' style='margin-left:1em;color:#2d5be3;'></span>
+          </div>
+        </div>`;
+        let resendSeconds = 120;
+        document.getElementById('resend-timer').innerText = ` (${resendSeconds}s)`;
+        let resendInterval = setInterval(() => {
+          resendSeconds--;
+          document.getElementById('resend-timer').innerText = ` (${resendSeconds}s)`;
+          if (resendSeconds <= 0) {
+            clearInterval(resendInterval);
+            const btn = document.getElementById('resend-btn');
+            btn.disabled = false;
+            btn.style.background = '#2d5be3';
+            btn.style.color = '#fff';
+            btn.style.cursor = 'pointer';
+            document.getElementById('resend-timer').innerText = '';
+          }
+        }, 1000);
+        document.getElementById('verify-form').onsubmit = async function(e) {
+          e.preventDefault();
+          const code = document.getElementById('verify-code').value.trim();
+          if (!code) return;
+          document.getElementById('verify-status').innerText = 'Verifying...';
+          const resp = await fetch(apiUrl('/api/verify-account'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: verifyUser, code })
+          });
+          const data = await resp.json();
+          if (data.success) {
+            document.getElementById('verify-status').innerHTML = `<span style='color:green;'>${data.message || 'Account verified!'}</span><br><br><button onclick='window.location.href="/"'>Go to Login</button>`;
+          } else {
+            document.getElementById('verify-status').innerHTML = `<span style='color:red;'>${data.error || 'Verification failed.'}</span>`;
+          }
+        };
+        document.getElementById('resend-btn').onclick = async function() {
+          if (this.disabled) return;
+          this.disabled = true;
+          this.style.background = '#ccc';
+          this.style.color = '#888';
+          this.style.cursor = 'not-allowed';
+          resendSeconds = 120;
+          document.getElementById('resend-timer').innerText = ` (${resendSeconds}s)`;
+          this.innerHTML = 'Resend Email (<span id="resend-timer">120</span>s)';
+          document.getElementById('resend-msg').innerText = 'Resending...';
+          // Restart timer
+          resendInterval = setInterval(() => {
+            resendSeconds--;
+            document.getElementById('resend-timer').innerText = ` (${resendSeconds}s)`;
+            if (resendSeconds <= 0) {
+              clearInterval(resendInterval);
+              const btn = document.getElementById('resend-btn');
+              btn.disabled = false;
+              btn.style.background = '#2d5be3';
+              btn.style.color = '#fff';
+              btn.style.cursor = 'pointer';
+              btn.innerHTML = 'Resend Email';
+            }
+          }, 1000);
+          const resp = await fetch(apiUrl('/api/resend-verification'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: verifyUser })
+          });
+          const data = await resp.json();
+          if (data.success) {
+            document.getElementById('resend-msg').innerText = 'Verification email resent!';
+          } else {
+            document.getElementById('resend-msg').innerText = data.error || 'Failed to resend.';
+          }
+        };
+      }
+    });
+
+    // --- Ban check with server (enforce server-side ban) ---
+    async function checkServerBan() {
+      if (!token) return;
+      try {
+        const resp = await fetch(apiUrl('/api/user/ban-status'), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const data = await resp.json();
+        if (data.banned) {
+          // Set local ban with timestamp and reason
+          localStorage.setItem('user_test_025', JSON.stringify({ until: Number(data.bannedUntil), reason: data.banReason || '' }));
+          location.reload();
+          return;
+        }
+      } catch (e) {}
+    }
+    function afterLogin() {
+      showAuth(false);
+      document.getElementById('user-info').innerText = 'Logged in as ' + (getUsername() || role) + ' (' + role + ')';
+      refreshFiles();
+      fetchUserQuota();
+      startQuotaPolling();
+      checkServerBan();
+      if (role === 'owner') {
+        document.getElementById('owner-switches').classList.remove('hidden');
+        setOwnerSettingsUI();
+      } else {
+        document.getElementById('owner-switches').classList.add('hidden');
+      }
+    }
+
+    // On load
+    if (token) {
+      afterLogin();
+    } else {
+      showAuth(true);
+      document.getElementById('owner-switches').classList.add('hidden');
+      stopQuotaPolling();
+      showUserQuota(0, 0); // Show empty bar on logout
+    }
+
+    // Also refresh quota after file operations
+    function refreshFiles() { listFiles(); fetchUserQuota(); }
+
+    // Add a no-op for hideAllAdminModals to prevent errors if not defined
+    function hideAllAdminModals() {
+      // No-op: implement if you have admin modals to hide
+    }
+
+    // Drag and drop upload
+    const dropOverlay = document.getElementById('drop-overlay');
+    document.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      dropOverlay.classList.add('active');
+    });
+    document.addEventListener('dragleave', function(e) {
+      if (e.target === dropOverlay || e.pageX <= 0 || e.pageY <= 0) {
+        dropOverlay.classList.remove('active');
+      }
+    });
+    document.addEventListener('drop', function(e) {
+      e.preventDefault();
+      dropOverlay.classList.remove('active');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        uploadFiles({ target: { files: e.dataTransfer.files } });
+      }
+    });
+
+    // Custom right-click context menu for file list
+    const customMenu = document.getElementById('custom-context-menu');
+    document.getElementById('file-list').addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      let target = e.target.closest('.file-row');
+      if (!target) return;
+      const name = target.querySelector('.file-name').innerText;
+      const isDir = target.querySelector('.file-icon').innerText === '📁';
+      showCustomContextMenu(e.pageX, e.pageY, name, isDir);
+    });
+
+    function showCustomContextMenu(x, y, name, isDir) {
+      let html = '';
+      if (isDir) {
+        html += `<div class="item" onclick="enterDir('${name}')">Open</div>`;
+      } else {
+        html += `<div class="item" onclick="openFile('${name}')">View</div>`;
+        html += `<div class="item" onclick="downloadFile('${name}')">Download</div>`;
+      }
+      html += `<div class="item" onclick="startRename('${name}')">Rename</div>`;
+      html += `<div class="item" onclick="showProperties('${name}',${isDir})">Properties</div>`;
+      if (selectedFiles.size > 1) {
+        html += `<div class="item" onclick="deleteSelectedFiles()">Delete Selected (${selectedFiles.size})</div>`;
+      } else {
+        html += `<div class="item" onclick="deleteFile()">Delete</div>`;
+      }
+      customMenu.innerHTML = html;
+      customMenu.style.display = 'block';
+      customMenu.style.left = x + 'px';
+      customMenu.style.top = y + 'px';
+      setTimeout(() => {
+        document.addEventListener('click', hideCustomContextMenu, { once: true });
+      }, 0);
+    }
+    function hideCustomContextMenu() {
+      customMenu.style.display = 'none';
+    }
+
+    // Keyboard shortcuts for file actions (like Windows Explorer)
+    document.addEventListener('keydown', function(e) {
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+      if (e.key === 'Delete' && selectedFiles.size > 0) {
+        deleteSelectedFiles();
+        e.preventDefault();
+      }
+      if (e.key === 'F2' && selectedFiles.size === 1) {
+        startRename([...selectedFiles][0]);
+        e.preventDefault();
+      }
+      if (e.ctrlKey && e.key.toLowerCase() === 'a') {
+        // Select all files
+        selectedFiles = new Set(filesCache.map(f => f.name));
+        renderFileList(filesCache);
+        e.preventDefault();
+      }
+      if (e.key === 'Enter' && selectedFiles.size === 1) {
+        const name = [...selectedFiles][0];
+        const file = filesCache.find(f => f.name === name);
+        if (file) {
+          if (file.isDir) enterDir(name);
+          else openFile(name);
+          e.preventDefault();
+        }
+      }
+    });
+
+    // Delete multiple files
+    async function deleteSelectedFiles() {
+      if (selectedFiles.size === 0) return;
+      if (!(await customConfirm(`Delete ${selectedFiles.size} file(s)?`))) return;
+      showLoading(true);
+      let filesToDelete = [...selectedFiles];
+      let done = 0;
+      let failed = 0;
+      function finish() {
+        showLoading(false);
+        selectedFiles.clear();
+        selectedFile = '';
+        hidePreview();
+        listFiles();
+        if (failed > 0) customAlert(`${failed} file(s) failed to delete.`);
+      }
+      filesToDelete.forEach(name => {
+        fetch(apiUrl('/api/file'), {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({
+            path: cwd ? cwd + '/' + name : name
+          })
+        }).then(r => r.json()).then(d => {
+          if (!d.success) failed++;
+          done++;
+          if (done === filesToDelete.length) finish();
+        }).catch(() => {
+          failed++; done++;
+          if (done === filesToDelete.length) finish();
+        });
+      });
+    }
+
+    // Add this near the top of your <script> tag, before any function uses showLoading
+    function showLoading(show) {
+      const bar = document.getElementById('loading-bar');
+      if (bar) bar.style.display = show ? '' : 'none';
+    }
+
+    // Add a no-op for stopQuotaPolling to prevent errors if not defined
+    function stopQuotaPolling() {
+      // No-op: implement if you want to stop quota polling
+    }
+
+    // Add a no-op for startQuotaPolling to prevent errors if not defined
+    function startQuotaPolling() {
+      // No-op: implement if you want to poll quota periodically
+    }
+
+    // Add a no-op for confirmOwner to prevent errors if not defined
+    async function confirmOwner() {
+      // Always return true for now (no-op)
+      return true;
+    }
+
+    // Add a no-op for setOwnerSettingsUI to prevent errors if not defined
+    function setOwnerSettingsUI() {}
+
+    // Ban/unban user functions
+    window.banUserPrompt = async function(username) {
+      let duration = await customPrompt('Ban duration (e.g. 10m, 2h, 1d, 1mo, perm):', '1d');
+      if (!duration) return;
+      let reason = await customPrompt('Ban reason:', '');
+      if (reason === null) return;
+      let ms = 0;
+      if (duration === 'perm' || duration === 'permanent') ms = 100 * 365 * 24 * 3600 * 1000; // 100 years
+      else {
+        let m = duration.match(/^(\d+)([smhdw]|mo)$/i);
+        if (!m) { await customAlert('Invalid duration. Use s, m, h, d, w, mo, or perm.'); return; }
+        let n = parseInt(m[1]);
+        let unit = m[2].toLowerCase();
+        if (unit === 's') ms = n * 1000;
+        else if (unit === 'm') ms = n * 60 * 1000;
+        else if (unit === 'h') ms = n * 3600 * 1000;
+        else if (unit === 'd') ms = n * 24 * 3600 * 1000;
+        else if (unit === 'w') ms = n * 7 * 24 * 3600 * 1000;
+        else if (unit === 'mo') ms = n * 30 * 24 * 3600 * 1000;
+      }
+      let bannedUntil = Date.now() + ms;
+      showLoading(true);
+      await fetch(apiUrl('/api/admin/user-ban'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ username, bannedUntil, banReason: reason })
+      });
+      showLoading(false);
+      showUsersModal();
+    };
+
+    // Minimal showUserQuota (no-op)
+    function showUserQuota() {}
+
+    // Minimal customAlert (modal overlay)
+    function customAlert(message) {
+      if (/\bban(ned|s|ning)?\b/i.test(message)) {
+        // Show a non-dismissible overlay for ban messages
+        let overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.background = 'rgba(0,0,0,0.85)';
+        overlay.style.zIndex = '99999';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.innerHTML = `<div style=\"background:#fff;padding:2em 3em;border-radius:12px;box-shadow:0 2px 16px #0006;min-width:320px;text-align:center;\">
+          <h2 style='color:#d32f2f;'>You are banned</h2>
+          <p style='font-size:1.1em;'>${message}</p>
+        </div>`;
+        document.body.appendChild(overlay);
+        return;
+      }
+      // Normal alert with OK button
+      let overlay = document.createElement('div');
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.width = '100vw';
+      overlay.style.height = '100vh';
+      overlay.style.background = 'rgba(0,0,0,0.85)';
+      overlay.style.zIndex = '99999';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      overlay.innerHTML = `<div style=\"background:#fff;padding:2em 3em;border-radius:12px;box-shadow:0 2px 16px #0006;min-width:320px;text-align:center;\">
+        <h2 style='color:#2d5be3;'>Notice</h2>
+        <p style='font-size:1.1em;'>${message}</p>
+        <button onclick=\"this.parentNode.parentNode.remove()\" style=\"margin-top:1.5em;padding:0.6em 2em;\">OK</button>
+      </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    // Helper: Get user quota info from server (use new public endpoint)
+    function fetchUserQuota() {
+      const user = getUsername();
+      if (!user) {
+        showUserQuota(0, 0);
+        return;
+      }
+      fetch(apiUrl('/api/limit/' + encodeURIComponent(user)) + '?_=' + Date.now())
+        .then(resp => resp.json())
+        .then(data => {
+          let used = Number(data.usedGB) || 0;
+          let limit = Number(data.limitGB) || 0;
+          showUserQuota(used, limit);
+        })
+        .catch(() => showUserQuota(0, 0));
+    }
+  </script>
+</body>
+</html>

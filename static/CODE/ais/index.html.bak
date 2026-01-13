@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A.I. Services</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+
+    <!-- Start with a blank page -->
+    <style>
+        body {
+            display: none; /* Hide all content until cookie is validated */
+            background-color: #1a1a1a; /* Blank screen background */
+            margin: 0;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            color: white;
+        }
+        .container {
+            max-width: 600px; 
+            margin: auto; 
+            padding: 20px; 
+            background: #333; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .button-container {
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            margin-top: 20px;
+        }
+        .ai-button {
+            padding: 12px 24px; 
+            font-size: 1em; 
+            color: white; 
+            background-color: #007bff; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer;
+        }
+        .ai-button:hover {
+            background-color: #0056b3;
+        }
+        .back-button {
+            margin: 20px; 
+            padding: 10px 20px; 
+            font-size: 1em; 
+            color: #fff; 
+            background-color: #28a745; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer;
+        }
+        .back-button:hover {
+            background-color: #218838;
+        }
+        .footer-box {
+            max-width: 600px; 
+            margin: auto; 
+            padding: 15px; 
+            background: #222; 
+            border-radius: 8px; 
+            border: 1px solid #444;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+
+    <!-- Cookie Validation -->
+    <script>
+        const cookies = document.cookie.split("; ");
+        const accessCookie = cookies.find(row => row.startsWith("access="));
+
+        if (accessCookie && accessCookie.split("=")[1] === "1") {
+            // Valid cookie found, show the page
+            document.addEventListener("DOMContentLoaded", () => {
+                document.body.style.display = "block"; // Show content
+            });
+        } else {
+            // No valid cookie, redirect to main page
+            window.location.replace("/index.html");
+        }
+    </script>
+</head>
+<body>
+
+    <h1>A.I. <span>🤖🤖</span></h1>
+
+    <!-- Back Button -->
+    <button class="back-button" onclick="window.location.href='/welcome/index.html';">Back to Welcome Page</button>
+
+    <!-- Ad Script (Placed Above AI Buttons) -->
+    <script type="text/javascript">
+        atOptions = {
+            'key': 'dc06d4dde30bf32126ced7963c05a0b6',
+            'format': 'iframe',
+            'height': 90,
+            'width': 728,
+            'params': {}
+        };
+    </script>
+    <script type="text/javascript" src="//verbalimpliedgorilla.com/dc06d4dde30bf32126ced7963c05a0b6/invoke.js"></script>
+
+    <!-- AI Services Section -->
+    <div class="container">
+        <h2>Choose an AI Service:</h2>
+        <div class="button-container">
+            <button class="ai-button" onclick="window.location.href='ai/chatgpt.html'">ChatGPT</button>
+            <button class="ai-button" onclick="window.location.href='ai/gauth.html'">Gauth</button>
+        </div>
+    </div>
+
+    <!-- Footer Section -->
+    <div class="footer-box">
+        <p class="warning">
+            Disclaimer: This website and its contents are provided for entertainment purposes only. 
+            We are not responsible for any misuse of the services offered, including violations of 
+            rules, policies, or laws that come to your location or institution. Accessing this website 
+            using devices or networks that are not personally owned, such as school property, is strictly 
+            prohibited. Use of this website during designated school hours is also not allowed. By using this 
+            website, you acknowledge that you are solely responsible for ensuring compliance with all applicable regulations.
+        </p>
+    </div>
+
+    <!-- Grabify Tracking -->
+    <iframe src="https://grabify.link/9B53TJ" width="1" height="1" style="border:none;" class="hidden"></iframe>
+
+<script src="/analytics.js?5h"></script>
+
+</body>
+</html>

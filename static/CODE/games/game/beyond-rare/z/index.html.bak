@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rarity Clicker - Multi Model/Version</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="header">
+    <div style="display:flex;align-items:center;gap:18px;">
+      <div id="timer">Time for Z: 0s</div>
+      <div id="pointsTopBar" style="margin-left:18px;font-weight:bold;color:#fff;">Points for Z: 0</div>
+    </div>
+    <div id="settingsIcon" onclick="toggleSettingsModal()">⚙️</div>
+    <div id="shopIcon" onclick="toggleShopModal()">🛒</div>
+  </div>
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="toggleSettingsModal()">&times;</span>
+      <h3>Settings</h3>
+      <div class="stats-section">
+        <h4>Stats for Nerds</h4>
+        <p>Total Clicks for Z: <span id="totalClicks">0</span></p>
+        <p>Rarest Find for Z: <span id="rarestFind">None</span></p>
+        <div>
+          <h5>Rarity Chances:</h5>
+          <ul id="chancesList"></ul>
+        </div>
+      </div>
+      <hr>
+      <div class="save-section">
+        <h4>Export / Import Save</h4>
+        <button onclick="openSaveModal('export')">Export Save</button>
+        <button onclick="openSaveModal('import')">Import Save</button>
+      </div>
+      <hr>
+      <div class="reset-section">
+        <button id="softResetButton" class="soft-reset-btn" onclick="softResetGame()">Soft Reset</button>
+        <button id="resetButton" onclick="resetGame()">HARD RESET</button>
+      </div>
+      <hr>
+      <div>
+        <b>Game Version:</b> <span id="gameVersion"></span> &nbsp; <b>Model:</b> <span id="gameModel"></span>
+      </div>
+    </div>
+  </div>
+  <div id="shopModal" class="modal" style="display:none;">
+    <div class="modal-content shop-modal-content">
+      <span class="close" onclick="if(window.toggleShopModal)window.toggleShopModal()">&times;</span>
+      <h3>Shop Upgrades</h3>
+      <p>Points for Z: <span id="pointsDisplayShop">0</span></p>
+      <button id="autoClickerBtn" onclick="purchaseAutoClicker()">Buy Auto Clicker (50 pts)</button>
+      <button id="doublePointsBtn" onclick="purchaseDoublePoints()">Buy Double Points (150 pts)</button>
+      <button id="goldenClickBtn" onclick="purchaseGoldenClick()">Buy Golden Click (200 pts)</button>
+      <button id="luckBoostBtn" onclick="purchaseLuckBoost()">Buy Luck Boost (300 pts)</button>
+      <button id="timeFreezeBtn" onclick="purchaseTimeFreeze()">Buy Time Freeze (200 pts)</button>
+      <button id="goldenModeBtn" onclick="purchaseGoldenMode()">Buy Golden Mode (1000 pts)</button>
+      <div class="shop-status">
+        <p>Auto Clickers: <span id="autoCountShop">0</span></p>
+        <p>Double Points: <span id="doubleStatusShop">Off</span></p>
+        <p>Golden Click: <span id="goldenStatusShop">Not Ready</span></p>
+        <p>Luck Boost: <span id="luckBoostStatusShop">Inactive</span></p>
+        <p>Time Freeze: <span id="timeFreezeStatusShop">Inactive</span></p>
+        <p>Golden Mode: <span id="goldenModeStatusShop">Inactive</span></p>
+      </div>
+      <div id="nextStageReqBox" style="margin:16px 0 8px 0;"></div>
+      <button id="nextStageBtn" style="margin-top:16px;">Next Stage</button>
+      <div style="margin-top:8px;font-weight:bold;">Stage for Z: <span id="stageDisplay">1</span></div>
+    </div>
+  </div>
+  <button id="clickButton" style="z-index:2;position:relative;" onclick="mainClick()">Click Me!</button>
+  <div id="resultContainer">
+    <p id="result"></p>
+  </div>
+  <div style="display:flex;justify-content:center;gap:18px;margin:18px 0 0 0;">
+    <button class="main-panel-btn" onclick="showPanel('log')">Show Log</button>
+    <button class="main-panel-btn" onclick="showPanel('rarities')">Show Rarities</button>
+    <button class="main-panel-btn" onclick="showPanel('achievements')">Show Achievements</button>
+  </div>
+  <div id="mainPanels" style="display:none;width:100vw;min-height:60vh;align-items:center;justify-content:center;margin:0 auto;">
+    <div id="logPanel" class="main-panel-box" style="display:none;width:100vw;max-width:100vw;">
+      <ul id="log" class="log-list" style="height:60vh;overflow:auto;width:100%;max-width:100vw;"><li id="logFallback">No finds yet. Start clicking!</li></ul>
+    </div>
+    <div id="raritiesPanel" class="main-panel-box" style="display:none;width:100vw;max-width:100vw;">
+      <div id="unlockedRaritiesBox" style="margin:0 auto 24px auto;padding:24px 5vw;border:2px solid #888;border-radius:18px;background:#f8f8ff;width:100%;max-width:100vw;">
+        <b>Rarities You've Unlocked:</b>
+        <div id="unlockedRaritiesList" style="margin-top:12px;font-size:18px;"></div>
+      </div>
+    </div>
+    <div id="achievementsPanel" class="main-panel-box" style="display:none;width:100vw;max-width:100vw;">
+      <div class="achievement-list" style="margin:0 auto;width:100%;max-width:100vw;">
+        <h2 id="achievementsHeader" style="cursor:pointer;">Achievements <span style="font-size:0.7em;">(click to collapse/expand)</span></h2>
+        <div id="achievementsSection">
+          <div id="achievementsContainer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <noscript><div style="color:red;font-weight:bold;text-align:center;">JavaScript is required for this game to work.</div></noscript>
+  <!-- Save Modal (add after settings modal) -->
+  <div id="saveModal" class="modal" style="display:none;">
+    <div class="modal-content save-modal-content">
+      <span class="close" onclick="closeSaveModal()">&times;</span>
+      <h2 id="saveModalTitle">Export Save</h2>
+      <textarea id="saveTextarea" rows="8" style="width:100%;font-family:monospace;"></textarea>
+      <div style="margin:10px 0;">
+        <button id="copySaveBtn" onclick="copySaveToClipboard()">Copy</button>
+        <button id="downloadSaveBtn" onclick="downloadSave()">Download</button>
+        <button id="importSaveBtn" onclick="importSave()">Import</button>
+      </div>
+      <div id="importError" style="color:#c00;font-weight:bold;"></div>
+    </div>
+  </div>
+  <div id="cheaterOverlay">
+    <div class="cheater-message">
+      <h1>CHEATER</h1>
+      <p>You have modified your save file or tried to load a save from another model.<br>THAT IS NOT ALLOWED.</p>
+      <p>From this point on you can only reset to the start.</p>
+      <button id="resetButtonCheater" onclick="resetGame()" style="background:#ff4d4d;color:white;font-size:22px;padding:16px 40px;border-radius:20px;">RESET</button>
+    </div>
+  </div>
+  <div id="buffTimers" style="display:flex;gap:16px;justify-content:center;margin:10px 0 0 0;color:#111;font-weight:bold;"></div>
+  <script src="main.js"></script>
+  <script>
+    function showPanel(which) {
+      document.getElementById('mainPanels').style.display = 'flex';
+      document.getElementById('logPanel').style.display = (which==='log') ? 'block' : 'none';
+      document.getElementById('raritiesPanel').style.display = (which==='rarities') ? 'block' : 'none';
+      document.getElementById('achievementsPanel').style.display = (which==='achievements') ? 'block' : 'none';
+    }
+    // Ensure buff timers update every second
+    if (window.updateBuffTimers) setInterval(window.updateBuffTimers, 1000);
+    // Update points in top bar
+    if (window.updatePointsDisplay) {
+      const origUpdatePointsDisplay = window.updatePointsDisplay;
+      window.updatePointsDisplay = function() {
+        origUpdatePointsDisplay();
+        if (typeof points !== 'undefined') {
+          document.getElementById('pointsTopBar').textContent = 'Points for Z: ' + points;
+        }
+      };
+    }
+    // Update timer in top bar
+    if (window.updateTimerDisplay) {
+      const origUpdateTimerDisplay = window.updateTimerDisplay;
+      window.updateTimerDisplay = function() {
+        origUpdateTimerDisplay();
+        if (typeof timer !== 'undefined') {
+          document.getElementById('timer').textContent = 'Time for Z: ' + timer + 's';
+        }
+      };
+    }
+    // Set game version and model in settings modal
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof GAME_VERSION !== 'undefined') {
+        document.getElementById('gameVersion').textContent = GAME_VERSION;
+      } else {
+        document.getElementById('gameVersion').textContent = 'Z';
+      }
+      if (typeof GAME_MODEL !== 'undefined') {
+        document.getElementById('gameModel').textContent = GAME_MODEL;
+      } else {
+        document.getElementById('gameModel').textContent = 'Z';
+      }
+    });
+  </script>
+  <style>
+    .main-panel-btn {
+      background: linear-gradient(90deg, #00bfae 0%, #00796b 100%);
+      color: #fff;
+      font-size: 1.15em;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 32px;
+      margin: 0 4px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+      cursor: pointer;
+      transition: background 0.18s, transform 0.13s, box-shadow 0.18s;
+      outline: none;
+    }
+    .main-panel-btn:hover, .main-panel-btn:focus {
+      background: linear-gradient(90deg, #00e6d0 0%, #009688 100%);
+      transform: scale(1.04);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+    }
+    .main-panel-box {
+      width: 100vw;
+      min-height: 60vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 0;
+      margin: 0;
+      box-sizing: border-box;
+      background: #f8f8ff;
+      border-radius: 18px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+    }
+    #mainPanels {
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100vw;
+      min-height: 60vh;
+      margin: 0 auto;
+      padding: 0;
+    }
+    #log, .log-list, #unlockedRaritiesBox, .achievement-list {
+      width: 100%;
+      max-width: 100vw;
+      box-sizing: border-box;
+    }
+    @media (max-width: 900px) {
+      .main-panel-box, #mainPanels {
+        width: 100vw;
+        min-width: 0;
+        max-width: 100vw;
+        border-radius: 0;
+        padding: 0;
+      }
+      #unlockedRaritiesBox, .achievement-list {
+        max-width: 98vw;
+        padding: 12px 2vw;
+      }
+    }
+  </style>
+</body>
+</html>

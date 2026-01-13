@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Share Access</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #f4f6f9;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px;
+    }
+    .card {
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+      max-width: 600px;
+      width: 100%;
+    }
+    .success {
+      background: #e6f9ec;
+      color: #2e7d32;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .error {
+      background: #fdecea;
+      color: #c62828;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .controls {
+      margin: 20px 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    select, input {
+      padding: 10px;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    button {
+      padding: 12px 20px;
+      font-size: 1em;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #shareLink {
+      margin-top: 20px;
+      padding: 12px;
+      background: #f1f1f1;
+      border-radius: 6px;
+      font-family: monospace;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div id="status"></div>
+
+    <div class="controls">
+      <label for="duration">Duration:</label>
+      <select id="duration">
+        <option value="1h">1 hour</option>
+        <option value="6h">6 hours</option>
+        <option value="12h">12 hours</option>
+        <option value="24h">1 day</option>
+      </select>
+      <label for="customHours">Custom (hours):</label>
+      <input type="number" id="customHours" min="1" max="24" placeholder="e.g. 3">
+      <button id="shareBtn">Generate Share Link</button>
+    </div>
+
+    <div id="shareLink"></div>
+  </div>
+
+  <script>
+    function hasAccessCookie() {
+      const raw = document.cookie.split("; ").find(c => c.startsWith("access="));
+      if (!raw) return false;
+      const val = raw.split("=")[1];
+      return val === "1";
+    }
+
+    function base64(str) { return btoa(unescape(encodeURIComponent(str))); }
+    function hex(str) { return Array.from(str).map(c => c.charCodeAt(0).toString(16).padStart(2,"0")).join(""); }
+    function encodeChain(str) {
+      let result = str;
+      const steps = [base64, hex, base64, hex, base64, hex];
+      for (const step of steps) result = step(result);
+      return hex(result); // final wrap
+    }
+    function checksum(str) {
+      let sum = 0;
+      for (let i=0;i<str.length;i++) sum = (sum + str.charCodeAt(i)*(i+1)) % 100000;
+      return sum.toString().padStart(5,"0");
+    }
+
+    function updateStatus() {
+      const statusEl = document.getElementById("status");
+      if (hasAccessCookie()) {
+        statusEl.innerHTML = `<div class="success">✅ You can share access</div>`;
+      } else {
+        statusEl.innerHTML = `<div class="error">No valid access cookie found. Clicking Share will redirect to /404.html</div>`;
+      }
+    }
+
+    function generateShareLink() {
+      if (!hasAccessCookie()) {
+        window.location.href = "/404.html";
+        return;
+      }
+
+      let duration = document.getElementById("duration").value;
+      const custom = parseInt(document.getElementById("customHours").value, 10);
+      if (!isNaN(custom) && custom > 0 && custom <= 24) {
+        duration = custom + "h";
+      }
+
+      const now = new Date();
+      let expiry = new Date(now);
+      const hours = parseInt(duration);
+      expiry.setHours(expiry.getHours() + hours);
+
+      const iso = expiry.toISOString();
+      const raw = `${iso}:${duration}`;
+      const code = `${raw}:${checksum(raw)}`;
+      const encoded = encodeChain(code);
+
+      const url = `https://aurorastorage.giize.com/activation/receive.html?a=${encoded}`;
+      document.getElementById("shareLink").textContent = url;
+    }
+
+    document.getElementById("shareBtn").addEventListener("click", generateShareLink);
+    updateStatus();
+  </script>
+</body>
+</html>

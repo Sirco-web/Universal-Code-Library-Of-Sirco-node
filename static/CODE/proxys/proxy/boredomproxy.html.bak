@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proxy</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+    
+    <style>
+        body {
+            display: none; /* Hide all content until cookie is validated */
+            background-color: #f4f4f9; /* Blank screen color */
+            margin: 0;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        iframe {
+            width: 100%;
+            height: 100vh;
+            border: none;
+        }
+    </style>
+
+    <script>
+        function checkCookie() {
+            const cookies = document.cookie.split("; ");
+            const accessCookie = cookies.find(row => row.startsWith("access="));
+
+            if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+                window.location.href = "/index.html"; // Redirect if no valid cookie
+            } else {
+                document.body.style.display = "block"; // Show page after validation
+            }
+        }
+
+        window.onload = checkCookie; // Run cookie check on load
+    </script>
+</head>
+<body>
+    <iframe src="https://aldi-in-a-new-dress.global.ssl.fastly.net/"></iframe>
+</body>
+</html>

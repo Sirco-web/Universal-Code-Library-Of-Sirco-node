@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport"/>
+<meta content="ie=edge" http-equiv="X-UA-Compatible"/>
+<title>Air Pen</title>
+<link href="normalize.css" rel="stylesheet" type="text/css"/>
+<style>
+		html {
+			-webkit-box-sizing: border-box;
+			box-sizing: border-box;
+			-ms-touch-action: none;
+			touch-action: none;
+		}
+
+		body {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			background-color: grey;
+			display: flex;
+			justify-content: center;
+		}
+
+		.o-select-none {
+			user-select: none;
+			-webkit-user-select: none;
+			-moz-user-select: none;
+			-ms-user-select: none;
+		}
+
+		.o-canvas-wrapper {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+		}
+
+		#o-canvas {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			cursor: crosshair;
+			background-color: white;
+		}
+
+		.o-buttons-wrapper {
+			display: flex;
+			justify-content: space-between;
+			width: 100%;
+			position: absolute;
+			bottom: 0;
+			height: 40px;
+		}
+
+		.o-button {
+			width: 100px;
+			height: 100%;
+		}
+	</style>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<div class="o-canvas-wrapper">
+<canvas class="o-select-none" id="o-canvas">Your browser needs to be updated!</canvas>
+</div>
+<div class="o-buttons-wrapper">
+<button class="o-button" id="o-clear-button">Clear</button>
+<button class="o-button" id="o-grid-button">Grid</button>
+<button class="o-button" id="o-save-button">Save</button>
+</div>
+<script>
+function checkCookie() {
+    const cookies = document.cookie.split("; ");
+    const accessCookie = cookies.find(row => row.startsWith("access="));
+    if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+        window.location.href = "/index.html"; // Redirect if no valid cookie
+    }
+}
+checkCookie();
+</script>
+<script>
+	const CANVAS_SCALE = 2;
+	const canvas = document.querySelector('#o-canvas');
+	const clearButton = document.getElementById("o-clear-button");
+	const gridButton = document.getElementById("o-grid-button");
+	const saveButton = document.getElementById("o-save-button");
+
+	canvas.width = window.innerWidth * CANVAS_SCALE;
+	canvas.height = window.innerHeight * CANVAS_SCALE;
+	canvas.addEventListener('mousedown', start_drawing);
+	canvas.addEventListener('touchstart', start_drawing);
+	canvas.addEventListener('mousemove', draw);
+	canvas.addEventListener('touchmove', draw);
+	canvas.addEventListener('mouseup', stop_drawing);
+	canvas.addEventListener('mouseout', stop_drawing);
+	canvas.addEventListener('touchend', stop_drawing);
+	clearButton.addEventListener('click', clear_drawing);
+	gridButton.addEventListener('click', add_grid);
+	saveButton.addEventListener('click', save_drawing);
+	document.addEventListener('keydown', process_drawing);
+
+	const context = canvas.getContext('2d');
+	context.strokeStyle = 'black';
+	context.lineJoin = 'round';
+	context.lineCap = 'round';
+	context.lineWidth = 2 * CANVAS_SCALE;
+
+	// retrieve saved canvas from local storage
+	if (localStorage.getItem('saved-canvas')) {
+		savedCanvas = new Image();
+		savedCanvas.addEventListener("load", function () {
+			context.drawImage(savedCanvas, 0, 0);
+		});
+		savedCanvas.src = localStorage.getItem('saved-canvas');
+	}
+
+	class Pen {
+		/**
+		 * @return {null}
+		 */
+		constructor() {
+			if (pen) {
+				return pen;
+			}
+			this.isOn = false;
+			this.x = 0;
+			this.y = 0;
+			this.hasGrid = false;
+		}
+
+		turn_on() {
+			this.isOn = true;
+		}
+
+		turn_off() {
+			this.isOn = false;
+		}
+
+		record_position(x, y) {
+			this.x = x;
+			this.y = y;
+		}
+
+		set_position(e) {
+			const x = e.pageX * CANVAS_SCALE;
+			const y = e.pageY * CANVAS_SCALE;
+			const force = (e.touches && e.touches[0] && e.touches[0]["force"]) || 0.1;
+			context.lineWidth = (Math.exp(1.2 * force) + 3) * CANVAS_SCALE;
+			this.record_position(x, y);
+		}
+
+		start_drawing(e) {
+			this.turn_on();
+			context.beginPath();
+			this.set_position(e);
+			context.moveTo(this.x, this.y);
+		}
+
+		draw(e) {
+			context.beginPath();
+			context.moveTo(this.x, this.y);
+			this.set_position(e);
+			context.lineTo(this.x, this.y);
+			context.stroke();
+		}
+
+		stop_drawing() {
+			this.turn_off();
+		}
+	}
+
+	let pen = null;
+	pen = new Pen();
+
+	function start_drawing(e) {
+		e.preventDefault();
+		pen.start_drawing(e);
+	}
+
+	function draw(e) {
+		e.preventDefault();
+		if (!pen.isOn) return;
+		pen.draw(e);
+	}
+
+	function stop_drawing(e) {
+		e.preventDefault();
+		pen.stop_drawing();
+	}
+
+	function clear_drawing() {
+		context.clearRect(0, 0, canvas.width, canvas.height);
+		pen.hasGrid = false;
+	}
+
+	function add_grid() {
+		if (pen.hasGrid) return;
+		context.strokeStyle = "#ccc";
+		context.lineWidth = CANVAS_SCALE;
+		for (let x = 0; x < canvas.width; x += 100 * CANVAS_SCALE) {
+			context.moveTo(x, 0);
+			context.lineTo(x, canvas.height);
+		}
+		for (let y = 0; y < canvas.height; y += 100 * CANVAS_SCALE) {
+			context.moveTo(0, y);
+			context.lineTo(canvas.width, y);
+		}
+		context.stroke();
+		pen.hasGrid = true;
+
+		context.strokeStyle = "black";
+		context.lineWidth = 2 * CANVAS_SCALE;
+	}
+
+	function save_drawing() {
+		localStorage.setItem('saved-canvas', canvas.toDataURL('image/png'));
+		window.location = canvas.toDataURL('image/png');
+	}
+
+	function process_drawing(event) {
+		if ((event.ctrlKey || event.metaKey) && event.key === "s") {
+			event.preventDefault();
+			save_drawing();
+		}
+	}
+
+</script>
+</body>
+</html>

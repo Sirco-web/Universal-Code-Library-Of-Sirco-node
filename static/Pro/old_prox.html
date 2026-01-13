@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<title>Aurora Gateway</title>
+<style>
+    /* Main page styling */
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: #eee;
+      position: relative;
+    }
+    #main-container {
+      background: rgba(0, 0, 0, 0.65);
+      border-radius: 10px;
+      padding: 2rem;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+      text-align: center;
+    }
+    h1 {
+      font-size: 2rem;
+      margin: 0 0 1.5rem;
+      letter-spacing: 1px;
+    }
+    input, select, button {
+      padding: 0.75rem;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: none;
+      margin: 0.5rem 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button {
+      background: #2a5298;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #1e3c72;
+    }
+    option.online {
+      color: #0f0;
+      font-weight: bold;
+    }
+    option.offline {
+      color: #f00;
+      font-weight: bold;
+    }
+    p.info {
+      font-size: 0.9rem;
+      margin-top: 1rem;
+      color: #ccc;
+    }
+    /* Settings icon */
+    #settingsIcon {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+      width: 30px;
+      height: 30px;
+      background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="%23eee" viewBox="0 0 24 24"><path d="M19.14,12.94c0-.33.03-.66.05-.98l2.11-1.65a.5.5,0,0,0,.12-.66l-2-3.46a.5.5,0,0,0-.61-.22l-2.49,1a7.07,7.07,0,0,0-1.7-.98l-.38-2.65A.5.5,0,0,0,13.77,3H10.23a.5.5,0,0,0-.5.43L9.35,6.08a7.07,7.07,0,0,0-1.7.98l-2.49-1a.5.5,0,0,0-.61.22l-2,3.46a.5.5,0,0,0,.12.66l2.11,1.65c.02.32.05.65.05.98s-.03.66-.05.98L2.93,15.55a.5.5,0,0,0-.12.66l2,3.46a.5.5,0,0,0,.61.22l2.49-1a7.07,7.07,0,0,0,1.7.98l.38,2.65a.5.5,0,0,0,.5.43h3.54a.5.5,0,0,0,.5-.43l.38-2.65a7.07,7.07,0,0,0,1.7-.98l2.49,1a.5.5,0,0,0,.61-.22l2-3.46a.5.5,0,0,0-.12-.66l-2.11-1.65c.02-.32.05-.65.05-.98ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>') no-repeat center center;
+      background-size: contain;
+      z-index: 1000;
+    }
+    /* Settings Modal */
+    #settingsModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+    #settingsModalContent {
+      background: #fff;
+      color: #333;
+      padding: 1.5rem;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 400px;
+      position: relative;
+      text-align: left;
+    }
+    #settingsModalContent h2 {
+      margin-top: 0;
+      text-align: center;
+    }
+    #settingsModalContent label {
+      display: block;
+      margin: 0.5rem 0 0.25rem;
+      font-size: 0.9rem;
+    }
+    #settingsModalContent input[type="text"] {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    #settingsModalClose {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+    #settingsModalContent button {
+      width: 100%;
+      margin-top: 10px;
+    }
+  </style>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<!-- Settings Icon -->
+<div id="settingsIcon" title="Settings"></div>
+<!-- Main Landing Interface -->
+<div id="main-container">
+<div id="interface">
+<h1>Aurora Gateway</h1>
+<div>
+<select id="proxySelect">
+<option value="1">CorsProxy.io</option>
+<option value="2">CORS Anywhere</option>
+<option value="3">ThingProxy</option>
+<option value="4">AllOrigins</option>
+</select>
+</div>
+<input id="urlInput" placeholder="Enter site URL (e.g. https://crazygames.com)" type="text"/>
+<button onclick="loadSite()">Load Site</button>
+<p class="info">(Or use URL parameters: <code>?proxy=1&amp;url=https://crazygames.com</code>)</p>
+</div>
+</div>
+<!-- Settings Modal -->
+<div id="settingsModal">
+<div id="settingsModalContent">
+<span id="settingsModalClose">×</span>
+<h2>Settings</h2>
+<label for="debugMode">Debug Mode:</label>
+<input id="debugMode" type="checkbox"/>
+<label for="extraOptions">Extra Options:</label>
+<input id="extraOptions" placeholder="e.g., foo=bar" type="text"/>
+<button id="saveSettingsBtn">Save Settings</button>
+</div>
+</div>
+<script src="old_index.js"></script>
+</body>
+</html>

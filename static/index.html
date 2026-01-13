@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Universe - Online Coding Playground</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="analytics.js" defer></script>
+    <style>
+        .editor-container {
+            max-width: 900px;
+            margin: 30px auto;
+            background: #012040;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px #0008;
+            padding: 24px 16px 32px 16px;
+        }
+        .file-tabs {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 8px;
+            overflow-x: auto;
+        }
+        .file-tab {
+            background: #0056b3;
+            color: #fff;
+            border: none;
+            border-radius: 6px 6px 0 0;
+            padding: 8px 16px;
+            font-size: 1rem;
+            cursor: pointer;
+            outline: none;
+            margin-right: 2px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            max-width: 180px;
+        }
+        .file-tab.active, .file-tab:hover {
+            background: #007bff;
+        }
+        .file-tab .rename-btn, .file-tab .close-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            margin-left: 6px;
+            cursor: pointer;
+            font-size: 1.1em;
+        }
+        .add-file-btn {
+            background: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 14px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        .add-file-btn:hover { background: #218838; }
+        .editor-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        .toolbar-btn {
+            background: #0056b3;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .toolbar-btn:hover { background: #007bff; }
+        .editors {
+            background: #00172b;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 8px #0004;
+            padding: 0;
+        }
+        .code-editor {
+            width: 100%;
+            min-height: 220px;
+            font-family: 'Fira Mono', 'Consolas', monospace;
+            font-size: 1rem;
+            background: #00172b;
+            color: #fff;
+            border: none;
+            border-radius: 0 0 8px 8px;
+            padding: 16px;
+            resize: vertical;
+            outline: none;
+            display: block;
+        }
+        .code-editor.hidden { display: none; }
+        .run-btn {
+            margin: 18px 0 0 0;
+            background: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 28px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .run-btn:hover { background: #218838; }
+        .preview-section {
+            margin-top: 32px;
+            background: #002b4d;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        #preview-frame {
+            width: 100%;
+            min-height: 260px;
+            border: 1px solid #003366;
+            border-radius: 6px;
+            background: #fff;
+        }
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .modal.hidden { display: none; }
+        .modal-content {
+            background: #fff;
+            color: #222;
+            border-radius: 12px;
+            padding: 32px 28px 24px 28px;
+            min-width: 320px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px #0006;
+            position: relative;
+        }
+        .modal-content h3 { margin-top: 0; }
+        .close-modal {
+            position: absolute;
+            top: 12px;
+            right: 18px;
+            font-size: 1.6rem;
+            color: #007bff;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .modal-content ul {
+            text-align: left;
+            margin: 0 0 18px 0;
+        }
+        .modal-content li {
+            margin-bottom: 4px;
+        }
+        .fullscreen {
+            position: fixed !important;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 3000;
+            background: #00172b !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            display: flex;
+            flex-direction: column;
+        }
+        .fullscreen #preview-frame, .fullscreen .code-editor {
+            min-height: 80vh !important;
+            height: 100% !important;
+        }
+    </style>
+
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4660041917882468" crossorigin="anonymous"></script>
+
+</head>
+<body>
+    <header>
+        <h1>Code Universe</h1>
+        <p>Experiment with HTML, CSS, and JavaScript in one place!</p>
+    </header>
+    <main class="editor-container" id="editor-container">
+        <div class="file-tabs" id="file-tabs">
+            <!-- Tabs will be rendered here -->
+        </div>
+        <button class="add-file-btn" id="add-file-btn">+ Add File</button>
+        <div class="editor-toolbar">
+            <label for="main-html-select" style="color:#fff;font-size:1rem;">Main HTML: </label>
+            <select id="main-html-select" class="toolbar-btn" style="min-width:120px;"></select>
+            <button class="toolbar-btn" id="save-btn">💾 Save</button>
+            <button class="toolbar-btn" id="load-btn">📂 Load</button>
+            <button class="toolbar-btn" id="export-btn">⬇️ Export ZIP</button>
+            <button class="toolbar-btn" id="fullscreen-editor-btn">⛶ Editor Fullscreen</button>
+            <button class="toolbar-btn" id="fullscreen-preview-btn">⛶ Preview Fullscreen</button>
+            <button class="toolbar-btn" id="tips-btn">💡 Tips</button>
+        </div>
+        <div class="editors" id="editors">
+            <!-- Editors will be rendered here -->
+        </div>
+        <button id="run-btn" class="run-btn">Run ▶️</button>
+        <section class="preview-section" id="preview-section">
+            <h2>Live Preview</h2>
+            <iframe id="preview-frame"></iframe>
+        </section>
+    </main>
+    <div id="tips-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>HTML Tips</h3>
+            <ul>
+                <li>&lt;h1&gt; to &lt;h6&gt;: Headings</li>
+                <li>&lt;p&gt;: Paragraph</li>
+                <li>&lt;a href=""&gt;: Link</li>
+                <li>&lt;img src="" alt=""&gt;: Image (always use alt!)</li>
+                <li>&lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;: Lists</li>
+                <li>&lt;div&gt;: Generic container</li>
+                <li>&lt;span&gt;: Inline container</li>
+                <li>&lt;input&gt;, &lt;form&gt;, &lt;button&gt;: Forms</li>
+                <li>&lt;table&gt;, &lt;tr&gt;, &lt;td&gt;, &lt;th&gt;: Tables</li>
+                <li>&lt;meta charset="UTF-8"&gt; for special characters</li>
+                <li>Use semantic tags: &lt;header&gt;, &lt;nav&gt;, &lt;main&gt;, &lt;footer&gt;, &lt;section&gt;, &lt;article&gt;</li>
+                <li>Use <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Element" target="_blank">MDN HTML Reference</a></li>
+            </ul>
+            <h3>CSS Tips</h3>
+            <ul>
+                <li>Selectors: body, .class, #id, [attr=value]</li>
+                <li>Properties: color, background, margin, padding, border, font-size</li>
+                <li>Box model: width, height, margin, border, padding, content</li>
+                <li>Flexbox: display: flex; justify-content; align-items</li>
+                <li>Grid: display: grid; grid-template-columns</li>
+                <li>Pseudo-classes: :hover, :active, :focus</li>
+                <li>Responsive: @media (max-width: 600px) { ... }</li>
+                <li>Animations: @keyframes, animation, transition</li>
+                <li>Use <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Reference" target="_blank">MDN CSS Reference</a></li>
+            </ul>
+            <h3>JavaScript Tips</h3>
+            <ul>
+                <li>console.log('Hello!'); for debugging</li>
+                <li>document.getElementById('id'), document.querySelector('.class')</li>
+                <li>let, const, var for variables</li>
+                <li>function myFunc() { /*...*/ }</li>
+                <li>Arrow functions: const f = () =&gt; {}</li>
+                <li>Events: element.addEventListener('click', fn)</li>
+                <li>Loops: for, while, forEach</li>
+                <li>JSON: JSON.stringify(obj), JSON.parse(str)</li>
+                <li>Template literals: `Hello ${name}`</li>
+                <li>Use <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference" target="_blank">MDN JS Reference</a></li>
+            </ul>
+            <h3>General Web Dev Tips</h3>
+            <ul>
+                <li>Indent your code for readability</li>
+                <li>Use comments: // for JS, /* ... */ for CSS, &lt;!-- ... --&gt; for HTML</li>
+                <li>Test in multiple browsers</li>
+                <li>Use <a href="https://validator.w3.org/" target="_blank">HTML Validator</a></li>
+                <li>Use <a href="https://caniuse.com/" target="_blank">Can I use</a> for browser support</li>
+                <li>Check <a href="https://fonts.google.com/" target="_blank">Google Fonts</a> for web fonts</li>
+                <li>Use <a href="https://unsplash.com/" target="_blank">Unsplash</a> for free images</li>
+                <li>Learn more at <a href="https://developer.mozilla.org/" target="_blank">MDN Web Docs</a></li>
+            </ul>
+        </div>
+    </div>
+    <div id="file-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>Add New File</h3>
+            <form id="file-form">
+                <label>File Name: <input type="text" id="new-file-name" required placeholder="e.g. style"></label><br><br>
+                <label>Type:
+                    <select id="new-file-type">
+                        <option value="html">HTML</option>
+                        <option value="css">CSS</option>
+                        <option value="js">JavaScript</option>
+                        <option value="upload">Upload File</option>
+                    </select>
+                </label>
+                <input type="file" id="upload-file-input" style="display:none;" />
+                <br><br>
+                <button type="submit" class="toolbar-btn">Add File</button>
+            </form>
+        </div>
+    </div>
+    <script src="main.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+    // --- File/Tab State ---
+    let files = [
+        { name: 'index.html', type: 'html', content: '', id: Date.now() }
+    ];
+    let activeFileId = files[0].id;
+    let mainHtmlFileName = 'index.html';
+
+    function renderTabs() {
+        const tabs = document.getElementById('file-tabs');
+        tabs.innerHTML = '';
+        files.forEach(file => {
+            const tab = document.createElement('button');
+            tab.className = 'file-tab' + (file.id === activeFileId ? ' active' : '');
+            tab.textContent = file.name;
+            tab.onclick = () => { activeFileId = file.id; renderEditors(); renderTabs(); };
+            // Rename button
+            const renameBtn = document.createElement('button');
+            renameBtn.className = 'rename-btn';
+            renameBtn.title = 'Rename';
+            renameBtn.innerHTML = '✏️';
+            renameBtn.onclick = (e) => {
+                e.stopPropagation();
+                const newName = prompt('Rename file:', file.name);
+                if (newName && !files.some(f => f.name === newName)) {
+                    file.name = newName;
+                    renderTabs();
+                }
+            };
+            tab.appendChild(renameBtn);
+            // Close button (don't allow closing last file)
+            if (files.length > 1) {
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'close-btn';
+                closeBtn.title = 'Close';
+                closeBtn.innerHTML = '✖';
+                closeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    files = files.filter(f => f.id !== file.id);
+                    if (activeFileId === file.id) activeFileId = files[0].id;
+                    renderTabs();
+                    renderEditors();
+                };
+                tab.appendChild(closeBtn);
+            }
+            tabs.appendChild(tab);
+        });
+    }
+
+    function renderEditors() {
+        const editors = document.getElementById('editors');
+        editors.innerHTML = '';
+        const file = files.find(f => f.id === activeFileId);
+        if (!file) return;
+        let editor;
+        if (file.type === 'html' || file.type === 'css' || file.type === 'js') {
+            editor = document.createElement('textarea');
+            editor.className = 'code-editor';
+            editor.value = file.content;
+            editor.placeholder = `Write ${file.type.toUpperCase()} here...`;
+            editor.oninput = () => { file.content = editor.value; };
+        } else {
+            editor = document.createElement('div');
+            editor.textContent = 'Unsupported file type.';
+        }
+        editors.appendChild(editor);
+    }
+
+    function renderMainHtmlSelect() {
+        const select = document.getElementById('main-html-select');
+        select.innerHTML = '';
+        files.filter(f => f.type === 'html').forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.name;
+            opt.textContent = f.name;
+            if (f.name === mainHtmlFileName) opt.selected = true;
+            select.appendChild(opt);
+        });
+        select.onchange = function() {
+            mainHtmlFileName = this.value;
+        };
+    }
+
+    // Add file modal logic
+    document.getElementById('add-file-btn').onclick = () => {
+        document.getElementById('file-modal').classList.remove('hidden');
+        document.getElementById('new-file-type').value = 'html';
+        document.getElementById('new-file-name').value = '';
+        document.getElementById('upload-file-input').style.display = 'none';
+    };
+    document.getElementById('new-file-type').onchange = function() {
+        document.getElementById('upload-file-input').style.display = this.value === 'upload' ? '' : 'none';
+    };
+    document.getElementById('file-form').onsubmit = function(e) {
+        e.preventDefault();
+        const name = document.getElementById('new-file-name').value.trim();
+        const type = document.getElementById('new-file-type').value;
+        if (!name) return;
+        if (files.some(f => f.name === name)) { alert('File name already exists!'); return; }
+        if (type === 'upload') {
+            const fileInput = document.getElementById('upload-file-input');
+            if (!fileInput.files[0]) { alert('Please select a file to upload.'); return; }
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                files.push({ name, type: 'upload', content: evt.target.result, id: Date.now() + Math.random() });
+                activeFileId = files[files.length-1].id;
+                renderTabs();
+                renderEditors();
+                renderMainHtmlSelect();
+                document.getElementById('file-modal').classList.add('hidden');
+            };
+            reader.readAsText(fileInput.files[0]);
+            return;
+        }
+        files.push({ name: name + (type === 'html' ? '.html' : type === 'css' ? '.css' : '.js'), type, content: '', id: Date.now() + Math.random() });
+        activeFileId = files[files.length-1].id;
+        renderTabs();
+        renderEditors();
+        renderMainHtmlSelect();
+        document.getElementById('file-modal').classList.add('hidden');
+    };
+    document.querySelectorAll('#file-modal .close-modal').forEach(btn => btn.onclick = () => document.getElementById('file-modal').classList.add('hidden'));
+
+    // Save/load/export logic
+    document.getElementById('save-btn').onclick = function() {
+        localStorage.setItem('code-universe-files', JSON.stringify(files));
+        alert('Project saved!');
+    };
+    document.getElementById('load-btn').onclick = function() {
+        const data = localStorage.getItem('code-universe-files');
+        if (data) {
+            files = JSON.parse(data);
+            activeFileId = files[0].id;
+            renderTabs();
+            renderEditors();
+            alert('Project loaded!');
+        } else {
+            alert('No saved project found.');
+        }
+    };
+    document.getElementById('export-btn').onclick = function() {
+        const zip = new JSZip();
+        files.forEach(f => zip.file(f.name, f.content));
+        zip.generateAsync({type:"blob"}).then(function(content) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(content);
+            a.download = 'code-universe.zip';
+            a.click();
+        });
+    };
+
+    // Fullscreen logic
+    function toggleFullscreen(elemId) {
+        const elem = document.getElementById(elemId);
+        elem.classList.toggle('fullscreen');
+        if (elem.classList.contains('fullscreen')) {
+            if (elem.requestFullscreen) elem.requestFullscreen();
+        } else {
+            if (document.fullscreenElement) document.exitFullscreen();
+        }
+    }
+    // Listen for exiting fullscreen and remove .fullscreen class
+    ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(eventType => {
+        document.addEventListener(eventType, () => {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
+                document.querySelectorAll('.fullscreen').forEach(el => el.classList.remove('fullscreen'));
+            }
+        });
+    });
+    document.getElementById('fullscreen-editor-btn').onclick = () => toggleFullscreen('editors');
+    document.getElementById('fullscreen-preview-btn').onclick = () => toggleFullscreen('preview-section');
+
+    // Tips modal
+    document.getElementById('tips-btn').addEventListener('click', function() {
+        document.getElementById('tips-modal').classList.remove('hidden');
+    });
+    document.querySelectorAll('.close-modal').forEach(btn => btn.addEventListener('click', function() {
+        btn.closest('.modal').classList.add('hidden');
+    }));
+    document.getElementById('tips-modal').addEventListener('click', function(e) {
+        if (e.target === this) this.classList.add('hidden');
+    });
+
+    // Run code (live preview)
+    document.getElementById('run-btn').addEventListener('click', function() {
+        const iframe = document.getElementById('preview-frame');
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write('<!DOCTYPE html><html><head><base href="/project/">');
+        // Add CSS
+        doc.write('<style>');
+        files.forEach(f => { if (f.type === 'css') doc.write(f.content + '\n'); });
+        doc.write('</style></head><body>');
+        // Add HTML content
+        const mainHtmlFile = files.find(f => f.name === mainHtmlFileName && f.type === 'html');
+        if (mainHtmlFile) { doc.write(mainHtmlFile.content); }
+        // Add navigation handler
+        doc.write(`<script>(function(){document.addEventListener('click',function(e){const t=e.target.closest('a,button');if(!t)return;let h=t.getAttribute('href');if(!h&&t.tagName==='BUTTON'){const o=t.getAttribute('onclick');if(o){const m=o.match(/window\\.location\\.href=['\"]([^'\"]+)['\"]/);if(m)h=m[1];}}if(h&&h.endsWith('.html')){e.preventDefault();window.parent.postMessage({type:'navigateToFile',fileName:h},'*');}});})();<\/script>`);
+        // Add user JavaScript
+        doc.write('<script>');
+        files.forEach(f => { if (f.type === 'js') doc.write(f.content + '\n'); });
+        doc.write('<\/script>');
+        doc.write('</body></html>');
+        doc.close();
+    });
+
+    // Handle navigation between HTML files in iframe
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'navigateToFile') {
+            const fileName = event.data.fileName;
+            const targetFile = files.find(f => f.name === fileName);
+            if (targetFile && targetFile.type === 'html') {
+                mainHtmlFileName = fileName;
+                renderMainHtmlSelect();
+                document.getElementById('run-btn').click();
+            }
+        }
+    });
+
+    // Initial render
+    renderTabs();
+    renderEditors();
+    renderMainHtmlSelect();
+    </script>
+</body>
+</html>

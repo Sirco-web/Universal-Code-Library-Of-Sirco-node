@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Community Game Challenge 2025 — Code Universe</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+    <style>
+        body {
+            margin: 0;
+            font-family: Georgia, serif;
+            background-color: #fafafa;
+            color: #222;
+            line-height: 1.6;
+        }
+        header {
+            background: linear-gradient(to right, #3a7bd5, #3a6073);
+            color: #fff;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        header h1 {
+            font-size: 2.3em;
+            margin-bottom: 0.2em;
+        }
+        header p {
+            font-size: 1.1em;
+            max-width: 750px;
+            margin: auto;
+            opacity: 0.9;
+        }
+        main {
+            max-width: 900px;
+            margin: auto;
+            padding: 30px 20px;
+        }
+        section {
+            margin-bottom: 40px;
+        }
+        h2 {
+            margin-top: 0;
+            font-size: 1.6em;
+            color: #333;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        table th, table td {
+            padding: 8px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+        table th {
+            background-color: #f0f0f0;
+            width: 30%;
+        }
+        .cta {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .cta a {
+            display: inline-block;
+            background: #3a7bd5;
+            color: #fff;
+            text-decoration: none;
+            padding: 12px 24px;
+            font-size: 1.1em;
+            border-radius: 6px;
+            transition: background 0.3s ease;
+        }
+        .cta a:hover {
+            background: #305a91;
+        }
+        .note {
+            background-color: #f9f9e8;
+            padding: 10px;
+            margin: 15px 0;
+            font-style: italic;
+            border-left: 4px solid #ccc;
+        }
+        .legal {
+            font-size: 0.85em;
+            color: #555;
+            margin-top: 50px;
+            border-top: 1px solid #ccc;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header" role="banner">
+        <h1>Community Game Challenge 2025</h1>
+        <p>A celebration of ingenuity, technical skill, and playful imagination — unite creators from across the globe to build interactive magic.</p>
+    </header>
+
+<main>
+    <section>
+        <h2>An Invitation to Visionaries</h2>
+        <p>
+            To every dreamer, builder, and pixel‑level perfectionist:  
+            This is more than a competition — it is a call to craft an experience that will outlive its own code. Whether your medium is the vibrant stage of <strong>Scratch</strong> or the infinite canvas of <strong>HTML5</strong>, you are invited to make your mark.
+        </p>
+    </section>
+
+    <section>
+        <h2>Competition Details</h2>
+        <table>
+            <tr>
+                <th>Theme</th>
+                <td>Original interactive games in Scratch or HTML5, or conversions to HTML5.</td>
+            </tr>
+            <tr>
+                <th>Prize</th>
+                <td><strong>$30 USD</strong> for the top selection, only if at least 25 valid entries are received.</td>
+            </tr>
+            <tr>
+                <th>Entry Period</th>
+                <td>9/1/2025 – 9/25/2025</td>
+            </tr>
+            <tr>
+                <th>Judging Criteria</th>
+                <td>Creativity, usability, replay value, and execution.</td>
+            </tr>
+            <tr>
+                <th>Submission Link</th>
+                <td><a href="https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__VD4IRRUNk9NVkI5QUhLM01ONFQ1SFY3ODExWVhPTy4u" target="_blank">Submit Your Entry</a></td>
+            </tr>
+        </table>
+    </section>
+
+    <section>
+        <h2>Design Guidance</h2>
+        <p class="note">Not a checklist, but prompts to guide and inspire.</p>
+        <ul>
+            <li>Surprise your player with an unexpected mechanic or twist.</li>
+            <li>Design for replay: what makes someone return?</li>
+            <li>Balance simplicity and depth — easy to start, hard to master.</li>
+            <li>Infuse personality through art, sound, or dialogue.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Rules & Eligibility</h2>
+        <ol>
+            <li>Entries must be original and created during the contest period.</li>
+            <li>Only Scratch or HTML5 projects are accepted.</li>
+            <li>No offensive, hateful, or discriminatory content targeting any person or group.</li>
+            <li>We reserve the right to disqualify any entry for any reason, at our sole discretion.</li>
+            <li>We may cancel or stop the contest at any time and withhold prize money.</li>
+            <li>By submitting, you transfer full ownership of your game to the contest organizers. You may not host, share, or distribute it elsewhere.</li>
+            <li>We may use, modify, distribute, and display your game in any way, without limitation.</li>
+            <li>Any borrowed assets must have proper permissions and credits.</li>
+            <li>One entry per participant.</li>
+        </ol>
+    </section>
+
+    <section class="cta">
+        <h2>Your Turn</h2>
+        <p>
+            The stage is set, the challenge awaits.  
+            Whether you are a seasoned architect of virtual worlds or a newcomer with one bold idea,  
+            your work belongs here — and we are ready to see it.
+        </p>
+        <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAO__VD4IRRUNk9NVkI5QUhLM01ONFQ1SFY3ODExWVhPTy4u" target="_blank">Enter the Challenge</a>
+    </section>
+        <div class="legal">
+        <strong>Terms & Conditions (Binding Agreement):</strong>  
+        By initiating, completing, or otherwise engaging in the act of submission to the Community Game Challenge 2025 (hereinafter “the Event”), each participant (hereinafter “Entrant”) irrevocably and unconditionally agrees, without limitation or qualification, to be bound by the entirety of these provisions, which shall be construed broadly to the maximum extent permissible under applicable law, including but not limited to: the Organizer’s unilateral, discretionary, and non‑reviewable authority to (a) accept, reject, disqualify, or otherwise dispose of any Entry for any reason or no reason whatsoever; (b) suspend, terminate, amend, or otherwise modify the Event, including cancellation without award of any prize, at any time, without notice; (c) acquire, by virtue of submission, full, exclusive, perpetual, worldwide, royalty‑free, and transferable ownership of all intellectual property rights, moral rights, and any and all other proprietary interests in and to the Entry, including all constituent elements, derivative works, and adaptations thereof, with Entrant expressly waiving any and all rights of attribution, integrity, or other rights in connection therewith; (d) exploit, reproduce, distribute, publicly display, perform, sublicense, modify, adapt, or otherwise use the Entry in any medium, manner, or form, whether now known or hereafter devised, for any purpose whatsoever, commercial or otherwise, without compensation or further obligation to Entrant; and (e) prohibit Entrant from hosting, publishing, distributing, or otherwise making available the Entry, or any portion thereof, on any platform, medium, or service other than as expressly authorized by Organizer. Entrant further acknowledges and agrees that participation is voluntary, that no warranties or guarantees of any kind are made regarding the Event, and that Organizer’s decisions are final, binding, and not subject to appeal or review in any forum.
+    </div>
+</main>
+
+    <footer>
+        <div style="max-width:var(--maxwidth);margin:0 auto;padding:0 20px;text-align:left;">
+            <p style="margin:0;color:var(--muted);font-size:0.95rem;">Disclaimer: This website and its contents are provided for entertainment purposes only. We are not responsible for any misuse of the services offered, including violations of rules, policies, or laws in your location or institution. Accessing this site using unauthorized devices or networks is prohibited. By using this site, you accept full responsibility for compliance.</p>
+        </div>
+    </footer>
+</body>
+</html>
+

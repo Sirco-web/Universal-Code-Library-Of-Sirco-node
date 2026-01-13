@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><script>(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Website Update</title>
+<link href="https://raw.githubusercontent.com/Learn-by-video/assets/refs/heads/main/Favcon/l-b-v.jpg" rel="icon" type="image/png"/>
+<style>
+        html, body {
+            overflow-x: hidden;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #003366;
+            color: white;
+            text-align: center;
+        }
+        header, footer {
+            background: #003366;
+            padding: 20px;
+        }
+        header h1 {
+            font-size: 28px;
+            margin: 0;
+        }
+        .message-container {
+            padding: 40px;
+            font-size: 22px;
+            font-weight: bold;
+        }
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 20px;
+        }
+        .nav-links a {
+            background: white;
+            color: #003366;
+            padding: 15px 25px;
+            font-size: 18px;
+            font-weight: bold;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .nav-links a:hover {
+            background: #ddd;
+        }
+    </style>
+<script>function checkCookie() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookie();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookie();
+scheduleNextCheck();</script></head>
+<body>
+<header>
+<h1>Website Update</h1>
+</header>
+<div class="message-container">
+<p>This website is now available at:</p>
+<p><strong><a href="https://lbv.giize.com" style="color:white; text-decoration: underline;">https://lbv.giize.com</a></strong></p>
+</div>
+<footer>
+<p>© 2025 Learn-By-Video. All rights reserved.</p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Owner Dashboard - Code Universe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        .header {
+            background: rgba(255,255,255,0.05);
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .header h1 {
+            font-size: 1.5em;
+        }
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+            color: #fff;
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+            color: #fff;
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .main-content {
+            display: flex;
+            min-height: calc(100vh - 80px);
+        }
+        .sidebar {
+            width: 250px;
+            background: rgba(255,255,255,0.03);
+            padding: 20px;
+            border-right: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar-item {
+            padding: 12px 15px;
+            margin-bottom: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sidebar-item:hover, .sidebar-item.active {
+            background: rgba(74,144,217,0.2);
+        }
+        .sidebar-item.active {
+            border-left: 3px solid #4a90d9;
+        }
+        .content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+        .panel {
+            display: none;
+        }
+        .panel.active {
+            display: block;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card h3 {
+            margin-bottom: 15px;
+            color: #4a90d9;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            font-size: 14px;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #4a90d9;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #4a90d9;
+        }
+        .stat-label {
+            color: #aaa;
+            margin-top: 5px;
+        }
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .log-table th, .log-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .log-table th {
+            background: rgba(255,255,255,0.05);
+            color: #4a90d9;
+        }
+        .log-table tr:hover {
+            background: rgba(255,255,255,0.03);
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-warning {
+            background: rgba(255,193,7,0.2);
+            color: #ffc107;
+        }
+        .badge-danger {
+            background: rgba(255,107,107,0.2);
+            color: #ff6b6b;
+        }
+        .badge-success {
+            background: rgba(16,185,129,0.2);
+            color: #10b981;
+        }
+        .badge-info {
+            background: rgba(74,144,217,0.2);
+            color: #4a90d9;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #aaa;
+        }
+        .user-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .user-actions button {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .refresh-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .refresh-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .warning-row {
+            background: rgba(255,107,107,0.1) !important;
+        }
+        .json-viewer {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ Owner Dashboard</h1>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="refreshAll()">🔄 Refresh All</button>
+            <button class="btn btn-danger" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="sidebar">
+            <div class="sidebar-item active" onclick="showPanel('overview')">📊 Overview</div>
+            <div class="sidebar-item" onclick="showPanel('settings')">⚙️ Settings</div>
+            <div class="sidebar-item" onclick="showPanel('users')">👥 Users</div>
+            <div class="sidebar-item" onclick="showPanel('bans')">🚫 Bans</div>
+            <div class="sidebar-item" onclick="showPanel('events')">📋 Event Log</div>
+            <div class="sidebar-item" onclick="showPanel('warnings')">⚠️ Warnings</div>
+            <div class="sidebar-item" onclick="showPanel('404s')">🔍 404 Errors</div>
+            <div class="sidebar-item" onclick="showPanel('analytics')">📈 Analytics</div>
+        </div>
+
+        <div class="content">
+            <!-- Overview Panel -->
+            <div id="panel-overview" class="panel active">
+                <h2>Overview</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="stat-users">0</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="stat-events">0</div>
+                        <div class="stat-label">Events Today</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="stat-warnings">0</div>
+                        <div class="stat-label">Warnings</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="stat-banned">0</div>
+                        <div class="stat-label">Banned</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Recent Activity</h3>
+                    <div id="recent-activity" class="loading">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Settings Panel -->
+            <div id="panel-settings" class="panel">
+                <h2>Settings</h2>
+                <div class="card">
+                    <h3>Activation Pins</h3>
+                    <div class="form-group">
+                        <label>Temporary Activation Pin (10 days)</label>
+                        <input type="text" id="temp-pin" placeholder="Enter temp pin">
+                    </div>
+                    <div class="form-group">
+                        <label>Permanent Activation Pin (forever)</label>
+                        <input type="text" id="perm-pin" placeholder="Enter perm pin">
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Dynamic Folder</h3>
+                    <div class="form-group">
+                        <label>Folder Name (currently: /CODE)</label>
+                        <input type="text" id="folder-name" placeholder="CODE">
+                        <small style="color:#aaa">Changing this will update all internal links automatically</small>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Security</h3>
+                    <div class="form-group">
+                        <label>Owner Password</label>
+                        <input type="password" id="owner-password" placeholder="Enter new password (leave blank to keep current)">
+                    </div>
+                    <div class="form-group">
+                        <label>Admin API Password</label>
+                        <input type="text" id="admin-api-password" placeholder="Admin API password">
+                    </div>
+                </div>
+                <button class="btn btn-success" onclick="saveSettings()">💾 Save Settings</button>
+            </div>
+
+            <!-- Users Panel -->
+            <div id="panel-users" class="panel">
+                <h2>Users <button class="refresh-btn" onclick="loadUsers()">🔄</button></h2>
+                <div class="card">
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Client ID</th>
+                                <th>Created</th>
+                                <th>Last Seen</th>
+                                <th>IP</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table">
+                            <tr><td colspan="6" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Bans Panel -->
+            <div id="panel-bans" class="panel">
+                <h2>Bans Management</h2>
+                <div class="card">
+                    <h3>Ban User/IP</h3>
+                    <div class="form-group">
+                        <label>IP Address</label>
+                        <input type="text" id="ban-ip" placeholder="Enter IP to ban">
+                    </div>
+                    <div class="form-group">
+                        <label>Reason</label>
+                        <input type="text" id="ban-reason" placeholder="Ban reason">
+                    </div>
+                    <button class="btn btn-danger" onclick="banIP()">🚫 Ban IP</button>
+                </div>
+                <div class="card">
+                    <h3>Banned IPs <button class="refresh-btn" onclick="loadBannedIPs()">🔄</button></h3>
+                    <div id="banned-ips-list" class="loading">Loading...</div>
+                </div>
+                <div class="card">
+                    <h3>Banned Users <button class="refresh-btn" onclick="loadBannedUsers()">🔄</button></h3>
+                    <div id="banned-users-list" class="loading">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Events Panel -->
+            <div id="panel-events" class="panel">
+                <h2>Event Log <button class="refresh-btn" onclick="loadEvents()">🔄</button></h2>
+                <div class="card">
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Type</th>
+                                <th>Details</th>
+                                <th>IP</th>
+                                <th>Location</th>
+                            </tr>
+                        </thead>
+                        <tbody id="events-table">
+                            <tr><td colspan="5" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Warnings Panel -->
+            <div id="panel-warnings" class="panel">
+                <h2>⚠️ Warnings <button class="refresh-btn" onclick="loadWarnings()">🔄</button></h2>
+                <div class="card">
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Severity</th>
+                                <th>Type</th>
+                                <th>Details</th>
+                                <th>IP</th>
+                                <th>Location</th>
+                            </tr>
+                        </thead>
+                        <tbody id="warnings-table">
+                            <tr><td colspan="6" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 404s Panel -->
+            <div id="panel-404s" class="panel">
+                <h2>🔍 404 Errors <button class="refresh-btn" onclick="load404s()">🔄</button> <button class="btn btn-danger" style="margin-left:10px;padding:5px 10px;font-size:12px" onclick="clear404s()">🗑️ Clear All</button></h2>
+                <div class="card">
+                    <div style="margin-bottom:15px;color:#888">
+                        <span id="404s-count">0</span> not found requests logged
+                    </div>
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Path</th>
+                                <th>IP</th>
+                                <th>Location</th>
+                                <th>Referer</th>
+                            </tr>
+                        </thead>
+                        <tbody id="404s-table">
+                            <tr><td colspan="5" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Analytics Panel -->
+            <div id="panel-analytics" class="panel">
+                <h2>Analytics <button class="refresh-btn" onclick="loadAnalytics()">🔄</button></h2>
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
+                        <h3>Recent Page Views</h3>
+                        <span id="analytics-count" style="color:#888;font-size:0.9em"></span>
+                    </div>
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Page</th>
+                                <th>IP</th>
+                                <th>OS/Browser</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analytics-table">
+                            <tr><td colspan="4" class="loading">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                    <div style="margin-top:15px;text-align:center">
+                        <button id="load-more-analytics" class="btn btn-primary" style="display:none" onclick="loadMoreAnalytics()">Load More</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('owner_token');
+        
+        if (!token) {
+            window.location.href = '/owner/';
+        }
+
+        async function api(endpoint, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: {
+                    'X-Owner-Token': token,
+                    'Content-Type': 'application/json'
+                }
+            };
+            if (body) options.body = JSON.stringify(body);
+            
+            const res = await fetch(`/api/owner${endpoint}`, options);
+            if (res.status === 401) {
+                localStorage.removeItem('owner_token');
+                window.location.href = '/owner/';
+                return null;
+            }
+            return res.json();
+        }
+
+        function showPanel(name) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+            document.getElementById(`panel-${name}`).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load data for panel
+            switch(name) {
+                case 'users': loadUsers(); break;
+                case 'events': loadEvents(); break;
+                case 'warnings': loadWarnings(); break;
+                case '404s': load404s(); break;
+                case 'bans': loadBannedIPs(); loadBannedUsers(); break;
+                case 'analytics': loadAnalytics(); break;
+                case 'settings': loadSettings(); break;
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('owner_token');
+            window.location.href = '/owner/';
+        }
+
+        async function refreshAll() {
+            loadOverview();
+            loadSettings();
+        }
+
+        async function loadOverview() {
+            const [users, events, warnings, bannedUsers, bannedIPs] = await Promise.all([
+                api('/users'),
+                api('/events'),
+                api('/warnings'),
+                api('/banned-users'),
+                api('/banned-ips')
+            ]);
+
+            document.getElementById('stat-users').textContent = users?.length || 0;
+            
+            const today = new Date().toDateString();
+            const todayEvents = (events || []).filter(e => new Date(e.timestamp).toDateString() === today);
+            document.getElementById('stat-events').textContent = todayEvents.length;
+            document.getElementById('stat-warnings').textContent = warnings?.length || 0;
+            document.getElementById('stat-banned').textContent = (bannedUsers?.length || 0) + (bannedIPs?.length || 0);
+
+            // Recent activity
+            const recent = (events || []).slice(0, 10);
+            document.getElementById('recent-activity').innerHTML = recent.length ? 
+                recent.map(e => `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1)">
+                    <span class="badge badge-info">${e.type}</span>
+                    ${new Date(e.timestamp).toLocaleString()} - ${e.ip || 'server'}
+                </div>`).join('') : '<p>No recent activity</p>';
+        }
+
+        async function loadSettings() {
+            const settings = await api('/settings');
+            if (settings) {
+                document.getElementById('temp-pin').value = settings.tempActivationPin || '';
+                document.getElementById('perm-pin').value = settings.permActivationPin || '';
+                document.getElementById('folder-name').value = settings.dynamicFolderName || 'CODE';
+                document.getElementById('admin-api-password').value = settings.adminApiPassword || '';
+            }
+        }
+
+        async function saveSettings() {
+            const body = {
+                tempActivationPin: document.getElementById('temp-pin').value,
+                permActivationPin: document.getElementById('perm-pin').value,
+                dynamicFolderName: document.getElementById('folder-name').value,
+                adminApiPassword: document.getElementById('admin-api-password').value,
+            };
+            
+            const newPassword = document.getElementById('owner-password').value;
+            if (newPassword) body.ownerPassword = newPassword;
+
+            const result = await api('/settings', 'POST', body);
+            if (result?.success) {
+                alert('Settings saved successfully!');
+            } else {
+                alert('Failed to save settings');
+            }
+        }
+
+        async function loadUsers() {
+            const users = await api('/users');
+            const tbody = document.getElementById('users-table');
+            
+            if (!users || users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6">No users found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td>${u.username}</td>
+                    <td><code style="font-size:11px">${u.clientId?.slice(0,8)}...</code></td>
+                    <td>${new Date(u.createdAt).toLocaleDateString()}</td>
+                    <td>${u.lastSeen ? new Date(u.lastSeen).toLocaleString() : 'Never'}</td>
+                    <td>${u.lastIP || u.creationIP || 'Unknown'}</td>
+                    <td class="user-actions">
+                        <button class="btn btn-danger" onclick="banUser('${u.clientId}', '${u.username}')">Ban</button>
+                        <button class="btn btn-primary" onclick="revokeAccess('${u.clientId}')">Revoke</button>
+                        <button class="btn" style="background:#ffc107;color:#000" onclick="forceRefresh('${u.clientId}')">Refresh</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadEvents() {
+            const events = await api('/events');
+            const tbody = document.getElementById('events-table');
+            
+            if (!events || events.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No events found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = events.slice(0, 100).map(e => `
+                <tr>
+                    <td>${new Date(e.timestamp).toLocaleString()}</td>
+                    <td><span class="badge badge-info">${e.type}</span></td>
+                    <td class="json-viewer">${JSON.stringify(e.data, null, 2)}</td>
+                    <td>${e.ip || '-'}</td>
+                    <td>${e.location?.city || '-'}, ${e.location?.country || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadWarnings() {
+            const warnings = await api('/warnings');
+            const tbody = document.getElementById('warnings-table');
+            
+            if (!warnings || warnings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6">No warnings - all good! 🎉</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = warnings.slice(0, 100).map(w => `
+                <tr class="warning-row">
+                    <td>${new Date(w.timestamp).toLocaleString()}</td>
+                    <td><span class="badge ${w.severity === 'high' ? 'badge-danger' : 'badge-warning'}">${w.severity || 'warning'}</span></td>
+                    <td><span class="badge badge-warning">${w.type}</span></td>
+                    <td>${w.data?.message || JSON.stringify(w.data)}</td>
+                    <td>${w.ip || '-'}</td>
+                    <td>${w.location?.city || '-'}, ${w.location?.country || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function load404s() {
+            const data = await api('/404s');
+            const tbody = document.getElementById('404s-table');
+            const count = document.getElementById('404s-count');
+            
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No 404 errors logged 🎉</td></tr>';
+                count.textContent = '0';
+                return;
+            }
+            
+            count.textContent = data.length;
+
+            tbody.innerHTML = data.slice(0, 100).map(e => `
+                <tr>
+                    <td>${new Date(e.timestamp).toLocaleString()}</td>
+                    <td style="color:#ff6b6b;font-family:monospace">${e.path}</td>
+                    <td>${e.ip || '-'}</td>
+                    <td>${e.location?.city || '-'}, ${e.location?.country || '-'}</td>
+                    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.referer || ''}">${e.referer || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function clear404s() {
+            if (confirm('Clear all 404 logs?')) {
+                await api('/404s/clear', 'POST');
+                load404s();
+            }
+        }
+
+        async function loadBannedIPs() {
+            const ips = await api('/banned-ips');
+            const container = document.getElementById('banned-ips-list');
+            
+            if (!ips || ips.length === 0) {
+                container.innerHTML = '<p>No banned IPs</p>';
+                return;
+            }
+
+            container.innerHTML = ips.map(ip => `
+                <div style="display:flex;justify-content:space-between;padding:8px;background:rgba(255,107,107,0.1);margin-bottom:5px;border-radius:5px">
+                    <span>${ip}</span>
+                    <button class="btn btn-success" style="padding:3px 8px" onclick="unbanIP('${ip}')">Unban</button>
+                </div>
+            `).join('');
+        }
+
+        async function loadBannedUsers() {
+            const users = await api('/banned-users');
+            const container = document.getElementById('banned-users-list');
+            
+            if (!users || users.length === 0) {
+                container.innerHTML = '<p>No banned users</p>';
+                return;
+            }
+
+            container.innerHTML = users.map(u => `
+                <div style="display:flex;justify-content:space-between;padding:8px;background:rgba(255,107,107,0.1);margin-bottom:5px;border-radius:5px">
+                    <span>${u.username || u.clientId} - ${u.reason || 'No reason'}</span>
+                    <button class="btn btn-success" style="padding:3px 8px" onclick="unbanUser('${u.clientId}')">Unban</button>
+                </div>
+            `).join('');
+        }
+
+        let analyticsOffset = 0;
+        let analyticsTotal = 0;
+
+        async function loadAnalytics() {
+            analyticsOffset = 0;
+            const tbody = document.getElementById('analytics-table');
+            tbody.innerHTML = '<tr><td colspan="4" class="loading">Loading...</td></tr>';
+            
+            const result = await api('/analytics?limit=50&offset=0');
+            
+            if (!result || !result.data || result.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">No analytics data</td></tr>';
+                document.getElementById('analytics-count').textContent = '';
+                document.getElementById('load-more-analytics').style.display = 'none';
+                return;
+            }
+
+            analyticsTotal = result.total;
+            analyticsOffset = result.data.length;
+            
+            document.getElementById('analytics-count').textContent = `Showing ${result.data.length} of ${result.total}`;
+            
+            tbody.innerHTML = result.data.map(a => `
+                <tr>
+                    <td>${new Date(a.timestamp).toLocaleString()}</td>
+                    <td>${a.page || a.url || '-'}</td>
+                    <td>${a.ip || '-'}</td>
+                    <td>${a.os || ''} / ${a.browser || a.userAgent?.slice(0,30) || '-'}</td>
+                </tr>
+            `).join('');
+            
+            document.getElementById('load-more-analytics').style.display = 
+                result.data.length < result.total ? 'inline-block' : 'none';
+        }
+
+        async function loadMoreAnalytics() {
+            const btn = document.getElementById('load-more-analytics');
+            btn.textContent = 'Loading...';
+            btn.disabled = true;
+            
+            const result = await api(`/analytics?limit=50&offset=${analyticsOffset}`);
+            
+            if (result && result.data && result.data.length > 0) {
+                analyticsOffset += result.data.length;
+                
+                const tbody = document.getElementById('analytics-table');
+                tbody.innerHTML += result.data.map(a => `
+                    <tr>
+                        <td>${new Date(a.timestamp).toLocaleString()}</td>
+                        <td>${a.page || a.url || '-'}</td>
+                        <td>${a.ip || '-'}</td>
+                        <td>${a.os || ''} / ${a.browser || a.userAgent?.slice(0,30) || '-'}</td>
+                    </tr>
+                `).join('');
+                
+                document.getElementById('analytics-count').textContent = `Showing ${analyticsOffset} of ${analyticsTotal}`;
+            }
+            
+            btn.textContent = 'Load More';
+            btn.disabled = false;
+            btn.style.display = analyticsOffset < analyticsTotal ? 'inline-block' : 'none';
+        }
+
+        async function banUser(clientId, username) {
+            const reason = prompt(`Enter reason for banning ${username}:`);
+            if (!reason) return;
+            
+            await api('/ban-user', 'POST', { clientId, username, reason });
+            alert('User banned');
+            loadUsers();
+            loadBannedUsers();
+        }
+
+        async function unbanUser(clientId) {
+            await api('/unban-user', 'POST', { clientId });
+            alert('User unbanned');
+            loadBannedUsers();
+        }
+
+        async function banIP() {
+            const ip = document.getElementById('ban-ip').value;
+            const reason = document.getElementById('ban-reason').value;
+            
+            if (!ip) {
+                alert('Please enter an IP address');
+                return;
+            }
+
+            await api('/ban-ip', 'POST', { ip, reason });
+            alert('IP banned');
+            document.getElementById('ban-ip').value = '';
+            document.getElementById('ban-reason').value = '';
+            loadBannedIPs();
+        }
+
+        async function unbanIP(ip) {
+            await api('/unban-ip', 'POST', { ip });
+            alert('IP unbanned');
+            loadBannedIPs();
+        }
+
+        async function revokeAccess(clientId) {
+            if (!confirm('Revoke access for this user?')) return;
+            await api('/revoke-access', 'POST', { clientId });
+            alert('Access revoked');
+        }
+
+        async function forceRefresh(clientId) {
+            await api('/force-refresh', 'POST', { clientId });
+            alert('User will be forced to refresh on next visit');
+        }
+
+        // Initial load
+        loadOverview();
+    </script>
+</body>
+</html>

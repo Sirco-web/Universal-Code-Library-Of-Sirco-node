@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+(function () {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+})();
+</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Better Chat</title>
+<link href="styles.css" rel="stylesheet"/>
+<!-- tiny inline favicon to prevent /favicon.ico 404 -->
+<link href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23202223'/%3E%3Ctext x='50%' y='50%' fill='%23fff' font-size='9' text-anchor='middle' dominant-baseline='central'%3EG%3C/text%3E%3C/svg%3E" rel="icon"/>
+<!-- Add marked.js for markdown rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- Add DOMPurify for sanitizing rendered HTML -->
+<script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+<script async crossorigin="anonymous" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4660041917882468"></script>
+<script>
+function checkCookie() {
+    const cookies = document.cookie.split("; ");
+    const accessCookie = cookies.find(row => row.startsWith("access="));
+    if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+        window.location.href = "/index.html"; // Redirect if no valid cookie
+    }
+}
+checkCookie();
+</script>
+<script>
+function checkCookieRepeated() {
+  const cookies = document.cookie.split("; ").map(c => c.trim());
+  const accessCookie = cookies.find(c => c.startsWith("access="));
+  const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+  if (accessValue !== "1") {
+    window.location.replace("/404.html");
+  }
+}
+
+function scheduleNextCheck() {
+  const next = Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000;
+  setTimeout(() => {
+    checkCookieRepeated();
+    scheduleNextCheck();
+  }, next);
+}
+
+checkCookieRepeated();
+scheduleNextCheck();
+</script>
+</head>
+<body>
+<!-- Message counter at top center -->
+<div class="message-counter" style="left:50%;transform:translateX(-50%);top:10px;">
+		Messages today: <span id="message-count">0</span>/25
+</div>
+<div class="main-layout" style="height:100vh;">
+<aside class="sidebar">
+<div class="sidebar-header">
+<h2>Better Chat</h2>
+<button class="new-chat" id="new-chat-btn">+ New Chat</button>
+</div>
+<div class="chat-list" id="chat-list"></div>
+<div class="sidebar-footer">
+<div class="model-selector">
+<label for="model-select">Model:</label>
+<select id="model-select">
+<option value="openai/gpt-oss-20b">openai/gpt-oss-20b</option>
+<option value="openai/gpt-oss-120b">openai/gpt-oss-120b</option>
+<option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
+<option selected value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
+<option value="deepseek-r1-distill-llama-70b">deepseek-r1-distill-llama-70b</option>
+<option value="meta-llama/llama-4-maverick-17b-128e-instruct">meta-llama/llama-4-maverick-17b-128e-instruct</option>
+<option value="meta-llama/llama-4-scout-17b-16e-instruct">meta-llama/llama-4-scout-17b-16e-instruct</option>
+<option value="moonshotai/kimi-k2-instruct">moonshotai/kimi-k2-instruct</option>
+<option value="qwen/qwen3-32b">qwen/qwen3-32b</option>
+<option value="compound-beta">compound-beta</option>
+<option value="compound-beta-mini">compound-beta-mini</option>
+</select>
+</div>
+<!-- API keys are now server-side -->
+</div>
+</aside>
+<main class="chat-main" style="flex:1; width:100vw; max-width:100vw; position:relative; overflow:hidden;">
+<!-- Chat Panel only -->
+<div id="panel-chat" style="height:100%; display:flex; flex-direction:column;">
+<div class="chat-header">
+<!-- editable chat title -->
+<span contenteditable="true" id="chat-title" spellcheck="false" title="Click to edit chat name"></span>
+<button id="delete-chat-btn" title="Delete chat">🗑</button>
+</div>
+<!-- chat-messages is scrollable; site itself won't scroll -->
+<div class="chat-messages" id="chat-messages" style="overflow-y:auto; flex:1; width:100%; padding-bottom:6rem; box-sizing:border-box; max-width:100vw; overflow-x:hidden;"></div>
+<!-- Input area anchored at bottom of chat area -->
+<div class="input-area" style="position: fixed; bottom:0; left: var(--sidebar-width); right:0; padding: 1.5rem 2rem; background: var(--panel-bg);">
+<textarea id="user-input" placeholder="Send a message..."></textarea>
+<button id="send-button">Send</button>
+</div>
+</div>
+</main>
+</div>
+<!-- modal -->
+<div class="modal" id="modal">
+<div class="modal-content">
+<p>Delete this chat?</p>
+<button id="confirm-delete">Delete</button>
+<button id="cancel-delete">Cancel</button>
+</div>
+</div>
+
+<script defer src="script.js"></script>
+</body>
+</html>

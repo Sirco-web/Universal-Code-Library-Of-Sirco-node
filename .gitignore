@@ -1,0 +1,4 @@
+node_modules
+
+# Downloaded games (built with scripts/build-games.sh)
+static/CODE/games/ext/

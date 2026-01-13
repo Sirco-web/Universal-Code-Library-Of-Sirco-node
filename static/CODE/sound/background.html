@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Background Selector</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0f0f12;
+      --panel:#16171c;
+      --panel-2:#1e2026;
+      --accent:#7c5cff;
+      --accent-2:#00d0ff;
+      --text:#e7e9ee;
+      --muted:#a8adbb;
+      --ok:#35d07f;
+      --warn:#ffb020;
+      --danger:#ff5470;
+      --ring:#3a3f52;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+      background:linear-gradient(180deg,#0f0f12 0%, #12141a 100%);
+      color:var(--text);
+    }
+
+    /* Layout */
+    .wrap{
+      max-width:1100px;
+      margin:0 auto;
+      padding:20px 16px 48px;
+    }
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:16px;
+    }
+    .title{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    .title h1{
+      margin:0;
+      font-size:20px;
+      letter-spacing:0.2px;
+      font-weight:700;
+    }
+    .hint{color:var(--muted); font-size:12px}
+
+    /* Preview + Actions */
+    .top-bar{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      align-items:center;
+      gap:16px;
+      margin-bottom:20px;
+    }
+    .preview{
+      position:relative;
+      height:220px;
+      border-radius:12px;
+      background:var(--panel);
+      border:1px solid var(--ring);
+      overflow:hidden;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .preview .label{
+      position:absolute;
+      left:12px;
+      bottom:10px;
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:8px;
+      background:rgba(0,0,0,.45);
+      border:1px solid rgba(255,255,255,.08);
+      color:#fff;
+      backdrop-filter: blur(6px);
+      text-transform:capitalize;
+    }
+    .preview .question{
+      font-size:96px;
+      font-weight:900;
+      color:rgba(255,255,255,.9);
+      text-shadow:0 6px 22px rgba(0,0,0,.45);
+      user-select:none;
+      line-height:1;
+      opacity:0;
+      transform:scale(0.9);
+      transition:opacity .15s ease, transform .15s ease;
+    }
+    .preview.random .question{
+      opacity:1;
+      transform:scale(1);
+    }
+    .preview::after{
+      /* subtle inset vignette for readability */
+      content:"";
+      position:absolute; inset:0;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), inset 0 -60px 120px rgba(0,0,0,.28);
+      pointer-events:none;
+    }
+
+    .actions{
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;
+    }
+    button{
+      appearance:none; border:0; cursor:pointer;
+      border-radius:10px; padding:10px 14px; font-weight:600;
+      color:#0c0d10; background:#fff;
+      transition:transform .05s ease, box-shadow .15s ease, background .2s ease, color .2s ease;
+      box-shadow: 0 4px 14px rgba(0,0,0,.25);
+    }
+    button:active{ transform:translateY(1px) }
+    button.primary{ background:linear-gradient(135deg, var(--accent), var(--accent-2)); color:white }
+    button.secondary{ background:var(--panel-2); color:var(--text) }
+    button.warn{ background:var(--warn); color:#1a1300 }
+    button:disabled{ opacity:.55; cursor:not-allowed; transform:none; box-shadow:none }
+
+    /* Sections */
+    .section{
+      margin-top:24px;
+      background:var(--panel);
+      border:1px solid var(--ring);
+      border-radius:14px;
+      padding:14px;
+    }
+    .section h2{
+      margin:4px 6px 12px;
+      font-size:14px; font-weight:800; letter-spacing:.2px; color:#fff;
+    }
+    .section .sub{ color:var(--muted); font-size:12px; margin:0 6px 10px }
+
+    .grid{
+      display:grid;
+      gap:10px;
+    }
+    @media(min-width:720px){
+      .grid.colors{ grid-template-columns: repeat(12, 1fr) }
+      .grid.images{ grid-template-columns: repeat(6, 1fr) }
+    }
+    @media(max-width:719px){
+      .grid.colors{ grid-template-columns: repeat(6, 1fr) }
+      .grid.images{ grid-template-columns: repeat(3, 1fr) }
+    }
+
+    /* Color tiles */
+    .swatch{
+      position:relative;
+      height:64px; border-radius:10px; overflow:hidden;
+      border:1px solid rgba(255,255,255,.06);
+      display:flex; align-items:flex-end; justify-content:flex-start;
+      padding:6px;
+      color:#fff;
+      text-shadow:0 1px 4px rgba(0,0,0,.45);
+      transition: transform .08s ease, box-shadow .15s ease, border-color .15s ease, outline .15s ease;
+      user-select:none;
+    }
+    .swatch:hover{ transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,0,0,.3) }
+    .swatch .name{
+      font-size:11px; font-weight:700; text-transform:capitalize;
+      background:rgba(0,0,0,.35); padding:4px 6px; border-radius:6px;
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .swatch.selected{ outline:2px solid var(--ok); border-color: rgba(53,208,127,.5) }
+
+    /* Image tiles */
+    .tile{
+      position:relative;
+      height:100px; border-radius:10px; overflow:hidden;
+      background:var(--panel-2);
+      border:1px solid rgba(255,255,255,.06);
+      transition: transform .08s ease, box-shadow .15s ease, border-color .15s ease, outline .15s ease;
+    }
+    .tile:hover{ transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,0,0,.3) }
+    .tile img{
+      width:100%; height:100%; object-fit:cover; display:block;
+      filter:saturate(1.05) contrast(1.05);
+    }
+    .tile .badge{
+      position:absolute; left:6px; bottom:6px;
+      font-size:11px; font-weight:700; text-transform:capitalize;
+      background:rgba(0,0,0,.45); color:#fff;
+      border:1px solid rgba(255,255,255,.08);
+      padding:4px 6px; border-radius:6px;
+    }
+    .tile.seasonal .badge{ background: linear-gradient(135deg, #ff7b54, #ffd166) }
+    .tile.selected{ outline:2px solid var(--ok); border-color: rgba(53,208,127,.5) }
+
+    /* Footer mini help */
+    .footer{
+      margin-top:20px; color:var(--muted); font-size:12px; text-align:center;
+    }
+    .kbd{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+      background:#0d0f14; color:#e6e9f2; border:1px solid #2b2f3a; border-bottom-width:3px;
+      padding:1px 6px; border-radius:6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 2l2.39 4.84 5.34.78-3.86 3.76.91 5.32L12 14.77 6.22 16.7l.91-5.32L3.27 7.62l5.34-.78L12 2z" fill="url(#g)"/>
+          <defs><linearGradient id="g" x1="0" x2="24" y1="0" y2="24"><stop stop-color="#7c5cff"/><stop offset="1" stop-color="#00d0ff"/></linearGradient></defs>
+        </svg>
+        <div>
+          <h1>Background selector</h1>
+          <div class="hint">Pick a vibe. Apply it. Return to your soundboard.</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="randomBtn" class="secondary" title="Pick a random background">Random</button>
+        <button id="applyBtn" class="primary" disabled>Apply and return</button>
+      </div>
+    </header>
+
+    <div class="top-bar">
+      <div id="preview" class="preview">
+        <div id="question" class="question">?</div>
+        <div id="previewLabel" class="label">Nothing selected</div>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2>Solid colors</h2>
+      <p class="sub">Simple, bold backgrounds.</p>
+      <div id="solidGrid" class="grid colors"></div>
+    </section>
+
+    <section class="section">
+      <h2>Combo colors</h2>
+      <p class="sub">Two-tone gradients for extra flavor.</p>
+      <div id="comboGrid" class="grid colors"></div>
+    </section>
+
+    <section class="section">
+      <h2>Image backgrounds</h2>
+      <p class="sub">Sweet images.</p>
+      <div id="imageGrid" class="grid images"></div>
+    </section>
+
+    <div class="footer">
+      Tip: Click a tile to preview. Use <span class="kbd">Random</span> for chaos, then <span class="kbd">Apply and return</span>.
+    </div>
+  </div>
+
+  <script>
+    // ---- Data ---------------------------------------------------------------
+    const solids = [
+      { name:'red', css:'red' },
+      { name:'blue', css:'blue' },
+      { name:'yellow', css:'gold' },
+      { name:'green', css:'seagreen' },
+      { name:'orange', css:'orange' },
+      { name:'purple', css:'rebeccapurple' }
+    ];
+
+    const combos = [
+      { name:'red-blue', css:'linear-gradient(135deg, red, blue)' },
+      { name:'blue-yellow', css:'linear-gradient(135deg, blue, gold)' },
+      { name:'red-yellow', css:'linear-gradient(135deg, red, gold)' },
+      { name:'green-orange', css:'linear-gradient(135deg, seagreen, orange)' },
+      { name:'orange-purple', css:'linear-gradient(135deg, orange, rebeccapurple)' },
+      { name:'green-purple', css:'linear-gradient(135deg, seagreen, rebeccapurple)' }
+    ];
+
+    // Default (non-seasonal) image backgrounds
+    const images = [
+      'city','meltdown','skibidi toilet','ocean','factory','rainbow',
+      'puppies','kitties','clouds','football','baseball','america','jesus','satan','babies','ur mom','chong'
+    ];
+
+    // Seasonal backgrounds: only include when current date is within [start, end]
+    // Filenames must exactly match name + '.jpg'
+    const seasonalBackgrounds = [
+      { name:'christmas',      start:'12-01', end:'12-31' },
+      { name:'santa',          start:'12-20', end:'12-25' },
+      { name:'2026',           start:'12-31', end:'01-10' },
+      { name:'winter',         start:'12-01', end:'02-28' },
+      { name:'pink',           start:'02-01', end:'02-28' },
+      { name:'hearts',         start:'02-10', end:'02-15' },
+      { name:'spring',         start:'03-01', end:'05-31' },
+      { name:'lucky',          start:'03-01', end:'03-31' },
+      { name:'extra lucky',    start:'03-17', end:'03-17' },
+      { name:'easter',         start:'04-01', end:'04-10' },
+      { name:'summer',         start:'06-01', end:'08-31' },
+      { name:'schools out',    start:'05-20', end:'06-10' },
+      { name:'independence',   start:'07-01', end:'07-10' },
+      { name:'back to school', start:'08-01', end:'08-31' },
+      { name:'fall',           start:'09-01', end:'11-30' },
+      { name:'halloween',      start:'10-01', end:'11-01' },
+      { name:'spooky',         start:'10-15', end:'11-01' },
+      { name:'turkey',         start:'11-01', end:'12-01' }
+    ];
+
+    // helper to check if today is in [start, end] (MM-DD)
+    function isDateInRange(start, end) {
+      const today = new Date();
+      const year = today.getFullYear();
+      const [sm, sd] = start.split('-').map(Number);
+      const [em, ed] = end.split('-').map(Number);
+      let from = new Date(year, sm - 1, sd);
+      let to   = new Date(year, em - 1, ed);
+      // wrap across new year
+      if (from > to) {
+        to.setFullYear(year + 1);
+      }
+      return today >= from && today <= to;
+    }
+
+    // add active seasonals into images array
+    const activeSeasonals = seasonalBackgrounds
+      .filter(bg => isDateInRange(bg.start, bg.end))
+      .map(bg => bg.name);
+    images.push(...activeSeasonals);
+
+    // mark all seasonals for badge styling
+    const seasonalSet = new Set(seasonalBackgrounds.map(bg => bg.name));
+
+    // ---- State --------------------------------------------------------------
+    let selected = null;
+
+    // ---- DOM refs -----------------------------------------------------------
+    const preview = document.getElementById('preview');
+    const previewLabel = document.getElementById('previewLabel');
+    const question = document.getElementById('question');
+    const applyBtn = document.getElementById('applyBtn');
+    const randomBtn = document.getElementById('randomBtn');
+    const solidGrid = document.getElementById('solidGrid');
+    const comboGrid = document.getElementById('comboGrid');
+    const imageGrid = document.getElementById('imageGrid');
+
+    // ---- Helpers ------------------------------------------------------------
+    function clearSelectionsIn(container){
+      container.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+    }
+    function enableApply(enable=true){ applyBtn.disabled = !enable; }
+
+    function setPreviewToColor(css, label){
+      preview.style.background = css;
+      preview.style.backgroundSize = 'cover';
+      preview.classList.remove('random');
+      question.style.opacity = 0;
+      previewLabel.textContent = label ?? 'Selected color';
+    }
+
+    function setPreviewToImage(src, label){
+      preview.style.background = `url("${src}") center/cover no-repeat, #111`;
+      preview.classList.remove('random');
+      question.style.opacity = 0;
+      previewLabel.textContent = label ?? 'Selected image';
+    }
+
+    function setPreviewToRandom(){
+      preview.style.background = 'radial-gradient(120px 80px at 30% 20%, #2a2e3a, #141722)';
+      preview.classList.add('random');
+      previewLabel.textContent = 'Random';
+    }
+
+    function encodeFileName(name){
+      return encodeURI(name + '.jpg');
+    }
+
+    function getAllOptions(){
+      const colorOptions = [
+        ...solids.map(c => ({type:'color', name:c.name, value:c.css})),
+        ...combos.map(c => ({type:'color', name:c.name, value:c.css}))
+      ];
+      const imageOptions = images.map(n => ({type:'image', name:n, value:encodeFileName(n)}));
+      return [...colorOptions, ...imageOptions];
+    }
+
+    function pickRandom(){
+      const all = getAllOptions();
+      return all[Math.floor(Math.random() * all.length)];
+    }
+
+    function persistAndReturn(selection){
+      try{
+        localStorage.setItem('soundboardBackground', JSON.stringify(selection));
+      }catch(e){}
+      window.location.href = 'index.html';
+    }
+
+    // ---- Build UI: colors ---------------------------------------------------
+    function makeSwatch(item){
+      const el = document.createElement('button');
+      el.className = 'swatch';
+      el.style.background = item.css;
+      el.title = item.name;
+      el.innerHTML = `<span class="name">${item.name}</span>`;
+      el.addEventListener('click', () => {
+        clearSelectionsIn(solidGrid);
+        clearSelectionsIn(comboGrid);
+        imageGrid.querySelectorAll('.selected').forEach(n => n.classList.remove('selected'));
+        el.classList.add('selected');
+
+        selected = { type:'color', name:item.name, value:item.css };
+        setPreviewToColor(item.css, item.name);
+        enableApply(true);
+      });
+      return el;
+    }
+
+    solids.forEach(c => solidGrid.appendChild(makeSwatch(c)));
+    combos.forEach(c => comboGrid.appendChild(makeSwatch(c)));
+
+    // ---- Build UI: images ---------------------------------------------------
+    images.forEach(name => {
+      const src = encodeFileName(name);
+      const el = document.createElement('button');
+      el.className = 'tile' + (seasonalSet.has(name) ? ' seasonal' : '');
+      el.title = name;
+      el.innerHTML = `
+        <img src="${src}" alt="${name} background" />
+        <span class="badge">${name}</span>
+      `;
+      el.addEventListener('click', () => {
+        solidGrid.querySelectorAll('.selected').forEach(n => n.classList.remove('selected'));
+        comboGrid.querySelectorAll('.selected').forEach(n => n.classList.remove('selected'));
+        imageGrid.querySelectorAll('.selected').forEach(n => n.classList.remove('selected'));
+        el.classList.add('selected');
+
+        selected = { type:'image', name, value:src };
+        setPreviewToImage(src, name);
+        enableApply(true);
+      });
+      imageGrid.appendChild(el);
+    });
+
+    // ---- Actions ------------------------------------------------------------
+    randomBtn.addEventListener('click', () => {
+      solidGrid.querySelectorAll('.selected').forEach(n => n.classList.remove('selected'));
+      comboGrid.querySelectorAll('.selected').forEach(n => n.classList.remove('selected'));
+      imageGrid.querySelectorAll('.selected').forEach(n => n.classList.remove('selected'));
+
+      selected = { type:'random' };
+      setPreviewToRandom();
+      enableApply(true);
+    });
+
+    applyBtn.addEventListener('click', () => {
+      if(!selected){ return; }
+      if(selected.type === 'random'){
+        const rand = pickRandom();
+        persistAndReturn(rand);
+      } else {
+        persistAndReturn(selected);
+      }
+    });
+
+    // Optional: hydrate last selection
+    (function hydrateFromLast(){
+      try{
+        const last = JSON.parse(localStorage.getItem('soundboardBackground') || 'null');
+        if(!last) return;
+        if(last.type === 'color'){
+          setPreviewToColor(last.value, last.name + ' (last applied)');
+        }else if(last.type === 'image'){
+          setPreviewToImage(last.value, last.name + ' (last applied)');
+        }
+      }catch(_){}
+    })();
+  </script>
+</body>
+</html>

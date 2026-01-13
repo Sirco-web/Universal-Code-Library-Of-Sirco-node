@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Super shhh</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { margin:0; font-family:sans-serif; background:#0f1115; color:#e6e9ef; display:flex; align-items:center; justify-content:center; height:100vh; }
+    #loading { font-size:1.5em; }
+    iframe { width:100%; height:100vh; border:none; display:none; }
+  </style>
+</head>
+<body>
+  <div id="loading">🚀 Starting our engines…</div>
+  <iframe id="chatFrame"></iframe>
+
+  <script>
+    function confuseInspectors() {
+      const junk = ["alpha","beta","gamma","delta"];
+      return junk.map(x => x.split("").reverse().join("")).join("-");
+    }
+    const unused = confuseInspectors();
+
+    const ui = "68747470733a2f2f636861742e6c62762e6769697a652e636f6d";
+    function hexToString(hex) {
+      let str = '';
+      for (let i = 0; i < hex.length; i += 2) {
+        str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+      }
+      return str;
+    }
+
+    const url = hexToString(ui);
+    const frame = document.getElementById("chatFrame");
+    frame.src = url;
+
+    frame.onload = () => {
+      document.getElementById("loading").style.display = "none";
+      frame.style.display = "block";
+    };
+
+    document.addEventListener("contextmenu", e => {
+      if (e.target.tagName === "IFRAME") {
+        e.preventDefault();
+        alert("Right‑click disabled");
+      }
+    });
+  </script>
+</body>
+</html>

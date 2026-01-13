@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Key Remover</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+    <script>
+        const defaultKey = "'"; // Default key for removing cookies
+        let currentKey = defaultKey;
+
+        function getRemoverKeyFromCookie() {
+            const cookies = document.cookie.split("; ");
+            const keyCookie = cookies.find(row => row.startsWith("removerKey="));
+            return keyCookie ? keyCookie.split("=")[1] : defaultKey;
+        }
+
+        function checkAccess() {
+            const cookies = document.cookie.split("; ");
+            const cookie = cookies.find(row => row.startsWith("access="));
+            if (!cookie || cookie.split("=")[1] !== "1") {
+                window.location.href = "/index.html"; // Redirect if access is invalid
+            } else {
+                document.body.style.display = "block"; // Show content if access is valid
+            }
+        }
+
+        function setRemoverKey(newKey) {
+            document.cookie = `removerKey=${newKey}; path=/;`;
+            currentKey = newKey;
+            document.getElementById("currentKey").textContent = `Current remover key: ${currentKey}`;
+        }
+
+        function deleteCookieAndRedirect() {
+            document.cookie = "access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+            document.getElementById("message").textContent = "The access cookie has been deleted. Redirecting to the main page...";
+            setTimeout(() => {
+                window.location.href = "/index.html";
+            }, 2000);
+        }
+
+        function keyHandler(event) {
+            if (event.key === currentKey) {
+                deleteCookieAndRedirect();
+            }
+        }
+
+        window.onload = function() {
+            document.body.style.display = "none"; // Hide content until access is verified
+            currentKey = getRemoverKeyFromCookie();
+            checkAccess();
+            document.addEventListener("keydown", keyHandler);
+        };
+    </script>
+</head>
+<body>
+    <h1>Dynamic Key Remover Page</h1>
+    <p id="currentKey"></p> <!-- Displays the current remover key -->
+    <button onclick="setRemoverKey(prompt('Enter new remover key:'))">Change Remover Key</button>
+    <p id="message"></p>
+
+<script src="/analytics.js?5h"></script>
+
+</body>
+</html>

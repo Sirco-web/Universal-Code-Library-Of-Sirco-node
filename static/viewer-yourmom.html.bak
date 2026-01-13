@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LocalStorage Admin Panel</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f8ff; margin: 0; padding: 0; }
+    .container { max-width: 700px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 32px; }
+    h1 { text-align: center; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; }
+    th { background: #f0f0f0; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    .actions button { margin-right: 6px; }
+    .danger { background: #e53935; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+    .edit { background: #1976d2; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+    .save { background: #43a047; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+    .add-row { margin-bottom: 18px; }
+    input[type=text], textarea { width: 100%; padding: 6px; border-radius: 4px; border: 1px solid #bbb; }
+    textarea { resize: vertical; min-height: 32px; }
+    .footer { text-align: center; color: #888; margin-top: 32px; font-size: 0.95em; }
+    .success-msg { color: #43a047; font-weight: bold; margin-bottom: 12px; }
+    .error-msg { color: #e53935; font-weight: bold; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>LocalStorage Admin Panel</h1>
+    <div class="add-row">
+      <input type="text" id="newKey" placeholder="New key" />
+      <input type="text" id="newValue" placeholder="New value" />
+      <button class="save" onclick="addKey()">Add</button>
+    </div>
+    <div style="margin-bottom:18px;">
+      <button class="danger" onclick="deleteAll()">Delete ALL LocalStorage Data</button>
+      <span id="msg"></span>
+    </div>
+    <table id="lsTable">
+      <thead>
+        <tr><th>Key</th><th>Value</th><th>Actions</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <hr style="margin:32px 0;">
+    <h2>Cookie Admin</h2>
+    <div class="add-row">
+      <input type="text" id="newCookieKey" placeholder="New cookie name" />
+      <input type="text" id="newCookieValue" placeholder="New cookie value" />
+      <button class="save" onclick="addCookie()">Add Cookie</button>
+    </div>
+    <div style="margin-bottom:18px;">
+      <button class="danger" onclick="deleteAllCookies()">Delete ALL Cookies</button>
+      <span id="cookieMsg"></span>
+    </div>
+    <table id="cookieTable">
+      <thead>
+        <tr><th>Name</th><th>Value</th><th>Actions</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="footer">&copy; 2025 LocalStorage Admin Panel</div>
+  <script>
+    function renderTable() {
+      const tbody = document.querySelector('#lsTable tbody');
+      tbody.innerHTML = '';
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const value = localStorage.getItem(key);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${key}</td>
+          <td><textarea id="val-${i}" readonly>${value}</textarea></td>
+          <td class="actions">
+            <button class="edit" onclick="editKey('${key}', ${i})">Edit</button>
+            <button class="danger" onclick="deleteKey('${key}')">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+    function deleteAll() {
+      if (confirm('Are you sure you want to delete ALL localStorage data?')) {
+        localStorage.clear();
+        renderTable();
+        showMsg('All data deleted.', true);
+      }
+    }
+    function deleteKey(key) {
+      if (confirm('Delete key: ' + key + '?')) {
+        localStorage.removeItem(key);
+        renderTable();
+        showMsg('Key deleted: ' + key, true);
+      }
+    }
+    function editKey(key, idx) {
+      const textarea = document.getElementById('val-' + idx);
+      textarea.readOnly = false;
+      textarea.focus();
+      textarea.style.background = '#fffde7';
+      textarea.onblur = function() {
+        localStorage.setItem(key, textarea.value);
+        textarea.readOnly = true;
+        textarea.style.background = '';
+        showMsg('Value updated for: ' + key, true);
+      };
+    }
+    function addKey() {
+      const key = document.getElementById('newKey').value.trim();
+      const value = document.getElementById('newValue').value;
+      if (!key) { showMsg('Key required.', false); return; }
+      localStorage.setItem(key, value);
+      document.getElementById('newKey').value = '';
+      document.getElementById('newValue').value = '';
+      renderTable();
+      showMsg('Key added: ' + key, true);
+    }
+    function showMsg(msg, success) {
+      const el = document.getElementById('msg');
+      el.textContent = msg;
+      el.className = success ? 'success-msg' : 'error-msg';
+      setTimeout(() => { el.textContent = ''; }, 2000);
+    }
+    // --- Cookie Admin ---
+    function renderCookieTable() {
+      const tbody = document.querySelector('#cookieTable tbody');
+      tbody.innerHTML = '';
+      const cookies = document.cookie.split(';').filter(Boolean);
+      cookies.forEach((cookie, i) => {
+        const [name, ...valParts] = cookie.split('=');
+        const value = decodeURIComponent(valParts.join('='));
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${name.trim()}</td>
+          <td><textarea id="cookie-val-${i}" readonly>${value}</textarea></td>
+          <td class="actions">
+            <button class="edit" onclick="editCookie('${name.trim()}', ${i})">Edit</button>
+            <button class="danger" onclick="deleteCookie('${name.trim()}')">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    function addCookie() {
+      const key = document.getElementById('newCookieKey').value.trim();
+      const value = document.getElementById('newCookieValue').value;
+      if (!key) { showCookieMsg('Cookie name required.', false); return; }
+      document.cookie = encodeURIComponent(key) + '=' + encodeURIComponent(value) + '; path=/';
+      document.getElementById('newCookieKey').value = '';
+      document.getElementById('newCookieValue').value = '';
+      renderCookieTable();
+      showCookieMsg('Cookie added: ' + key, true);
+    }
+    function deleteCookie(name) {
+      document.cookie = encodeURIComponent(name) + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      renderCookieTable();
+      showCookieMsg('Cookie deleted: ' + name, true);
+    }
+    function editCookie(name, idx) {
+      const textarea = document.getElementById('cookie-val-' + idx);
+      textarea.readOnly = false;
+      textarea.focus();
+      textarea.style.background = '#fffde7';
+      textarea.onblur = function() {
+        document.cookie = encodeURIComponent(name) + '=' + encodeURIComponent(textarea.value) + '; path=/';
+        textarea.readOnly = true;
+        textarea.style.background = '';
+        showCookieMsg('Cookie updated: ' + name, true);
+        renderCookieTable();
+      };
+    }
+    function deleteAllCookies() {
+      const cookies = document.cookie.split(';').filter(Boolean);
+      if (cookies.length === 0) return;
+      if (confirm('Are you sure you want to delete ALL cookies?')) {
+        cookies.forEach(cookie => {
+          const [name] = cookie.split('=');
+          document.cookie = encodeURIComponent(name.trim()) + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        });
+        renderCookieTable();
+        showCookieMsg('All cookies deleted.', true);
+      }
+    }
+    function showCookieMsg(msg, success) {
+      const el = document.getElementById('cookieMsg');
+      el.textContent = msg;
+      el.className = success ? 'success-msg' : 'error-msg';
+      setTimeout(() => { el.textContent = ''; }, 2000);
+    }
+    renderTable();
+    renderCookieTable();
+  </script>
+</body>
+</html>

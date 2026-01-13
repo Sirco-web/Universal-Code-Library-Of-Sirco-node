@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Custom Docs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#f1f3f4;--white:#fff;--border:#dadce0;--text:#202124;
+      --muted:#5f6368;--primary:#1a73e8;
+    }
+    body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .appbar{background:var(--white);border-bottom:1px solid var(--border);
+      display:flex;align-items:center;padding:8px 12px;gap:12px}
+    .brand{display:flex;align-items:center;gap:8px}
+    .logo{width:32px;height:32px;border-radius:4px;background:#4285f4}
+    .title[contenteditable]{outline:none;cursor:text}
+    .menus{margin-left:8px;display:flex;gap:12px;color:var(--muted);font-size:14px}
+    .spacer{flex:1}
+    .actions{display:flex;align-items:center;gap:8px}
+    .btn{border:1px solid var(--border);background:var(--white);
+      padding:6px 10px;border-radius:6px;font-size:13px;cursor:pointer}
+    .btn.primary{border-color:var(--primary);color:var(--primary)}
+    .dropdown,.file{font-size:13px;border:1px solid var(--border);
+      border-radius:6px;padding:6px;background:var(--white)}
+    .toolbar{background:var(--white);border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:8px;padding:6px 12px}
+    .tool{border:1px solid var(--border);background:var(--white);
+      padding:6px 8px;border-radius:6px;font-size:13px;cursor:pointer}
+    .workspace{display:flex;gap:16px;padding:16px}
+    .left-panel{width:240px;background:var(--white);border:1px solid var(--border);
+      border-radius:12px;padding:12px;height:calc(100vh - 140px);overflow:auto}
+    .panel-title{font-size:13px;color:var(--muted);margin-bottom:8px}
+    .tab-item{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;cursor:pointer}
+    .tab-item.active{background:#e8f0fe;color:var(--primary)}
+    .tab-label[contenteditable]{outline:none;flex:1}
+    .canvas-wrap{flex:1;display:flex;justify-content:center}
+    .canvas{width:800px;min-height:1000px;background:var(--white);
+      border:1px solid var(--border);border-radius:12px;
+      box-shadow:0 1px 2px rgba(0,0,0,0.06),0 2px 6px rgba(0,0,0,0.04);
+      padding:72px 96px}
+    #editor{outline:none;white-space:pre-wrap;word-break:break-word;
+      font-size:14px;line-height:1.6;min-height:800px}
+  </style>
+</head>
+<body>
+  <div class="appbar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div id="docTitle" class="title" contenteditable="true">Untitled document</div>
+    </div>
+    <div class="menus"><span>File</span><span>Edit</span><span>View</span></div>
+    <div class="spacer"></div>
+    <div class="actions">
+      <input id="fontUpload" class="file" type="file" accept=".otf" multiple />
+      <select id="fontSelect" class="dropdown"></select>
+      <button id="newDoc" class="btn">+ Tab</button>
+      <button id="shareBtn" class="btn primary">Share URL</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="tool" data-cmd="bold"><b>B</b></button>
+    <button class="tool" data-cmd="italic"><i>I</i></button>
+    <button class="tool" data-cmd="underline"><u>U</u></button>
+  </div>
+
+  <div class="workspace">
+    <div class="left-panel">
+      <div class="panel-title">Document tabs</div>
+      <div id="tabs"></div>
+    </div>
+    <div class="canvas-wrap">
+      <div class="canvas">
+        <div id="editor" contenteditable="true">Start typing here...</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // -------- Elements --------
+  const editor = document.getElementById('editor');
+  const docTitle = document.getElementById('docTitle');
+  const tabsEl = document.getElementById('tabs');
+  const fontSelect = document.getElementById('fontSelect');
+  const fontUpload = document.getElementById('fontUpload');
+  const newDocBtn = document.getElementById('newDoc');
+  const shareBtn = document.getElementById('shareBtn');
+
+  // -------- State --------
+  let docs = JSON.parse(localStorage.getItem('docs') || '[]'); // [{id,title,content,font}]
+  let currentDocId = localStorage.getItem('currentDocId') || null;
+
+  // -------- Utils --------
+  const styleEl = document.createElement('style');
+  document.head.appendChild(styleEl);
+
+  function uid() { return Math.random().toString(36).slice(2, 10); }
+
+  function saveAll() {
+    localStorage.setItem('docs', JSON.stringify(docs));
+    if (currentDocId) localStorage.setItem('currentDocId', currentDocId);
+  }
+
+  function getDocIndexById(id) { return docs.findIndex(d => d.id === id); }
+  function getCurrentDoc() {
+    const idx = getDocIndexById(currentDocId);
+    return idx >= 0 ? docs[idx] : null;
+  }
+  function ensureCurrentDoc() {
+    if (!currentDocId || getDocIndexById(currentDocId) === -1) {
+      if (docs.length) currentDocId = docs[0].id;
+      else {
+        const id = uid();
+        docs.push({ id, title: 'Untitled document', content: '', font: '' });
+        currentDocId = id;
+        saveAll();
+      }
+    }
+  }
+  function cssEscape(name) {
+    return String(name).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
+  // -------- Fonts --------
+  async function registerFont(name, dataUrl) {
+    try {
+      const ff = new FontFace(name, `url(${dataUrl}) format("opentype")`);
+      await ff.load();
+      document.fonts.add(ff);
+    } catch {}
+    try {
+      styleEl.sheet.insertRule(`
+        @font-face {
+          font-family: "${cssEscape(name)}";
+          src: url(${dataUrl}) format("opentype");
+          font-weight: normal;
+          font-style: normal;
+          font-display: swap;
+        }
+      `, styleEl.sheet.cssRules.length);
+    } catch {}
+    if (!Array.from(fontSelect.options).some(o => o.value === name)) {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      fontSelect.appendChild(opt);
+    }
+  }
+  async function loadFontsFromLocal() {
+    const fonts = JSON.parse(localStorage.getItem('fonts') || '[]');
+    for (const f of fonts) { await registerFont(f.name, f.data); }
+  }
+  function saveFontToLocal(name, dataUrl) {
+    const fonts = JSON.parse(localStorage.getItem('fonts') || '[]');
+    const idx = fonts.findIndex(f => f.name === name);
+    if (idx >= 0) fonts[idx] = { name, data: dataUrl };
+    else fonts.push({ name, data: dataUrl });
+    localStorage.setItem('fonts', JSON.stringify(fonts));
+  }
+  fontUpload.addEventListener('change', (e) => {
+    for (const file of e.target.files) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result;
+        const fontName = file.name.replace(/\.otf$/i, '');
+        saveFontToLocal(fontName, dataUrl);
+        await registerFont(fontName, dataUrl);
+        fontSelect.value = fontName;
+        applyFont(fontName);
+        saveDoc();
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+  fontSelect.addEventListener('change', () => {
+    applyFont(fontSelect.value);
+    saveDoc();
+  });
+  function applyFont(name) {
+    if (name) editor.style.fontFamily = `"${name}", system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+    else editor.style.fontFamily = `system-ui,-apple-system,Segoe UI,Roboto,Arial`;
+  }
+
+  // -------- Docs --------
+  function renderTabs() {
+    tabsEl.innerHTML = '';
+    docs.forEach((d) => {
+      const tab = document.createElement('div');
+      tab.className = 'tab-item' + (d.id === currentDocId ? ' active' : '');
+      const label = document.createElement('div');
+      label.className = 'tab-label';
+      label.contentEditable = true;
+      label.textContent = d.title;
+      label.addEventListener('input', () => {
+        d.title = label.textContent;
+        if (d.id === currentDocId) docTitle.textContent = d.title;
+        saveAll();
+      });
+      tab.addEventListener('click', () => {
+        if (currentDocId !== d.id) {
+          currentDocId = d.id;
+          saveAll();
+          loadDoc();
+        }
+      });
+      tab.appendChild(label);
+      tabsEl.appendChild(tab);
+    });
+  }
+  function newDoc() {
+    const id = uid();
+    docs.push({ id, title: 'Untitled document', content: '', font: fontSelect.value || '' });
+    currentDocId = id;
+    saveAll(); renderTabs(); loadDoc();
+  }
+  function loadDoc() {
+    ensureCurrentDoc();
+    const d = getCurrentDoc(); if (!d) return;
+    docTitle.textContent = d.title;
+    editor.innerText = d.content || '';
+    fontSelect.value = d.font || '';
+    applyFont(d.font || '');
+    renderTabs();
+  }
+  function saveDoc() {
+    const d = getCurrentDoc(); if (!d) return;
+    d.title = docTitle.textContent || 'Untitled document';
+    d.content = editor.innerText || '';
+    d.font = fontSelect.value || '';
+    saveAll();
+  }
+
+  // -------- Share Feature --------
+  function toHex(str) {
+    return Array.from(new TextEncoder().encode(str))
+      .map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+  function fromHex(hex) {
+    const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(b=>parseInt(b,16)));
+    return new TextDecoder().decode(bytes);
+  }
+  shareBtn.addEventListener('click', () => {
+    const d = getCurrentDoc(); if (!d) return;
+    const fontName = d.font || '';
+    const fonts = JSON.parse(localStorage.getItem('fonts') || '[]');
+    const fontObj = fonts.find(f => f.name === fontName);
+    const fontData = fontObj ? fontObj.data : '';
+    const encodedText = btoa(toHex(d.content || ''));
+    const share = `${encodeURIComponent(fontName)}-${encodeURIComponent(fontData)}-${encodedText}`;
+    const url = `${location.origin}${location.pathname}?share=${share}`;
+    prompt('Share this URL:', url);
+  });
+  function loadFromShare() {
+    const params = new URLSearchParams(location.search);
+    if (params.has('share')) {
+      const raw = params.get('share');
+      const [nameEnc, dataEnc, textEnc] = raw.split('-');
+      const fontName = decodeURIComponent(nameEnc||'');
+      const fontData = decodeURIComponent(dataEnc||'');
+      if (fontName && fontData) {
+        saveFontToLocal(fontName, fontData);
+        registerFont(fontName, fontData).then(()=>{
+          fontSelect.value = fontName;
+          applyFont(fontName);
+          saveDoc();
+        });
+      }
+      if (textEnc) {
+        try {
+          const decoded = fromHex(atob(textEnc));
+          editor.innerText = decoded;
+          saveDoc();
+        } catch(e){ console.warn("Decode failed", e); }
+      }
+    }
+  }
+
+  // -------- Toolbar formatting --------
+  document.querySelectorAll('.tool[data-cmd]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.execCommand(btn.dataset.cmd, false, null);
+      editor.focus();
+      saveDoc();
+    });
+  });
+
+  // -------- nocopy.js inline --------
+  const siteClipboardTag = '__custom_docs_clipboard__';
+  document.addEventListener('copy', (e) => {
+    const selection = document.getSelection();
+    if (!selection || selection.isCollapsed) return;
+    const text = selection.toString();
+    const tagged = `${siteClipboardTag}${text}`;
+    e.clipboardData.setData('text/plain', tagged);
+    e.preventDefault();
+  });
+  document.addEventListener('cut', (e) => {
+    const selection = document.getSelection();
+    if (!selection || selection.isCollapsed) return;
+    const text = selection.toString();
+    const tagged = `${siteClipboardTag}${text}`;
+    e.clipboardData.setData('text/plain', tagged);
+    e.preventDefault();
+  });
+    document.addEventListener('paste', (e) => {
+    const pasted = e.clipboardData.getData('text/plain');
+    if (!pasted.startsWith(siteClipboardTag)) {
+      alert("Copy/paste is restricted to this site only.");
+      e.preventDefault();
+      return;
+    }
+    const clean = pasted.replace(siteClipboardTag, '');
+    document.execCommand('insertText', false, clean);
+    e.preventDefault();
+    saveDoc();
+  });
+
+  // -------- Events --------
+  newDocBtn.addEventListener('click', newDoc);
+  docTitle.addEventListener('input', saveDoc);
+  editor.addEventListener('input', saveDoc);
+  window.addEventListener('beforeunload', saveDoc);
+
+  // -------- Init --------
+  (async function init() {
+    await loadFontsFromLocal();
+    ensureCurrentDoc();
+    renderTabs();
+    loadDoc();
+    loadFromShare();
+    const d = getCurrentDoc();
+    if (d && d.font) {
+      fontSelect.value = d.font;
+      applyFont(d.font);
+    }
+  })();
+</script>
+
+</body>
+</html>

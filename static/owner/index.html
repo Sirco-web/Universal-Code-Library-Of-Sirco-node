@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Owner Panel - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+        .login-container {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .login-container h1 {
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        .login-container p {
+            color: #aaa;
+            margin-bottom: 30px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-group label {
+            display: block;
+            text-align: left;
+            margin-bottom: 8px;
+            color: #ccc;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: #4a90d9;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(74,144,217,0.4);
+        }
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .error-msg {
+            background: rgba(255,107,107,0.2);
+            color: #ff6b6b;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .lock-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="lock-icon">🔐</div>
+        <h1>Owner Panel</h1>
+        <p>Enter your owner password to access the dashboard</p>
+        
+        <div class="error-msg" id="error-msg"></div>
+        
+        <form id="login-form">
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter owner password" required autofocus>
+            </div>
+            <button type="submit" class="login-btn" id="login-btn">
+                Access Dashboard
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('login-form');
+        const errorMsg = document.getElementById('error-msg');
+        const loginBtn = document.getElementById('login-btn');
+
+        // Check if already authenticated
+        const token = localStorage.getItem('owner_token');
+        if (token) {
+            verifyToken(token);
+        }
+
+        async function verifyToken(token) {
+            try {
+                const res = await fetch('/api/owner/settings', {
+                    headers: { 'X-Owner-Token': token }
+                });
+                if (res.ok) {
+                    window.location.href = '/owner/dashboard.html';
+                } else {
+                    localStorage.removeItem('owner_token');
+                }
+            } catch (e) {
+                localStorage.removeItem('owner_token');
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const password = document.getElementById('password').value;
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Authenticating...';
+            errorMsg.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/owner/authenticate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+
+                const data = await res.json();
+
+                if (data.success && data.token) {
+                    localStorage.setItem('owner_token', data.token);
+                    window.location.href = '/owner/dashboard.html';
+                } else {
+                    errorMsg.textContent = data.error || 'Authentication failed';
+                    errorMsg.style.display = 'block';
+                }
+            } catch (err) {
+                errorMsg.textContent = 'Connection error. Please try again.';
+                errorMsg.style.display = 'block';
+            }
+
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Access Dashboard';
+        });
+    </script>
+</body>
+</html>

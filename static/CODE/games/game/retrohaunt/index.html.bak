@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Retrohaunt</title>
+<meta charset="utf-8" />
+<script>
+function checkCookie() {
+    const cookies = document.cookie.split("; ");
+    const accessCookie = cookies.find(row => row.startsWith("access="));
+    if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+        window.location.href = "/index.html"; // Redirect if no valid cookie
+    }
+}
+checkCookie();
+</script>
+<script src="bundle.js" defer></script>
+<style>
+body {
+background-color:#000;
+overflow:hidden;
+}
+canvas {
+height:100%;
+}
+canvas, img {
+position:absolute;
+top:0;
+left:0;
+}
+img {
+visibility:hidden;
+}
+</style>
+</head>
+<body>
+<img src="levels.png" />
+<canvas></canvas>
+</body>
+</html>

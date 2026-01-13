@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Soundboard</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* Animated full-page gradient */
+    @keyframes gradientShift {
+      0%   { background-position:   0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position:   0% 50%; }
+    }
+    body {
+      margin: 0;
+      padding: 40px 20px;
+      font-family: 'Bubblegum Sans', cursive;
+      background: linear-gradient(270deg, #87ceeb, #1e90ff, #4169e1);
+      background-size: 600% 600%;
+      animation: gradientShift 20s ease infinite;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* Frosted-glass panel */
+    .soundboard-container {
+      position: relative;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+      padding: 40px 20px;
+      max-width: 700px;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Upload icon button */
+    .upload-button {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      color: white;
+      cursor: pointer;
+    }
+    .upload-button svg {
+      width: 100%;
+      height: 100%;
+      fill: white;
+      transition: fill 0.2s ease;
+    }
+    .upload-button:hover svg {
+      fill: #ffcc33;
+    }
+
+    /* Background selector button */
+    .bg-button {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 999;
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(8px);
+      border-radius: 12px;
+      padding: 6px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      color: #fff;
+      font-family: 'Bubblegum Sans', cursive;
+      font-size: 1rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.25);
+    }
+    .bg-button:hover {
+      background: rgba(255,255,255,0.22);
+    }
+    .bg-button svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    /* Title */
+    h1 {
+      margin: 0 0 30px;
+      font-size: 3.5rem;
+      color: #ffffff;
+      text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Volume control */
+    .volume-control {
+      margin-bottom: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #fff;
+      font-size: 1rem;
+    }
+    .volume-control input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 220px;
+      height: 12px;
+      background: linear-gradient(90deg, #ffb347, #ffcc33);
+      border-radius: 6px;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+      outline: none;
+    }
+    .volume-control input[type=range]::-webkit-slider-thumb,
+    .volume-control input[type=range]::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      background: #ff6600;
+      border: 2px solid #ffa500;
+      border-radius: 50%;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+    .volume-control input[type=number] {
+      width: 70px;
+      padding: 4px 6px;
+      border: 1px solid #ffa500;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.8);
+      text-align: right;
+    }
+
+    /* Button grid */
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+      gap: 20px;
+      justify-items: center;
+    }
+
+    /* Glossy 3D buttons */
+    .sound-button {
+      position: relative;
+      width: 70px;
+      height: 70px;
+      background: radial-gradient(circle at 30% 30%, #e74c3c, #c0392b);
+      border: none;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+      box-shadow:
+        0 4px #932b26,
+        0 6px 10px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 5px;
+      line-height: 1.2;
+    }
+    .sound-button:active {
+      transform: translateY(4px);
+      box-shadow:
+        0 2px #932b26,
+        0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    .sound-button::before {
+      content: '';
+      position: absolute;
+      top: -100%;
+      left: -100%;
+      width: 200%;
+      height: 200%;
+      background: rgba(255, 255, 255, 0.25);
+      transform: rotate(45deg) translate(-100%, -100%);
+      transition: transform 0.6s ease;
+    }
+    .sound-button:hover::before {
+      transform: rotate(45deg) translate(0, 0);
+    }
+    .sound-button:focus {
+      outline: 2px solid rgba(255, 255, 255, 0.7);
+      outline-offset: 4px;
+    }
+    .sound-button[data-sound="spongebob.mp3"],
+    .sound-button[data-sound="emotionaldamage.mp3"] {
+      font-size: 0.7rem;
+    }
+
+    /* Mode controls between buttons and footer */
+    .mode-bar {
+      margin: 30px 0 20px;
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 10px 20px;
+      border-radius: 12px;
+      backdrop-filter: blur(6px);
+    }
+    .mode-bar button {
+      font-family: 'Bubblegum Sans', cursive;
+      background: #ff6600;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .mode-bar button:active {
+      transform: scale(0.95);
+    }
+    .mode-bar button.active {
+      background: #ffcc33;
+      color: #000;
+      box-shadow: 0 0 8px #ffcc33;
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 40px;
+      font-size: 1rem;
+      color: white;
+    }
+    footer div + div {
+      font-size: 0.8rem;
+      color: #ff4d4d;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  
+  <div class="soundboard-container">
+  <a href="background.html" class="bg-button" title="Change background">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2C6.477 2 2 6.146 2 11c0 4.553 3.822 8 8.5 8 .338 0 .722-.03 1.1-.09a3.5 3.5 0 0 0 3.884-2.387l.33-1.03A3.001 3.001 0 0 1 19 13c0-2.059-1.387-4.014-3.36-5.18C14.364 4.905 13.328 2 12 2ZM7 10a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm4-2a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm4 2a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm-2 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/>
+    </svg>
+    Background
+  </a>
+    
+    <!-- Upload page link -->
+    <a href="upload.html" class="upload-button" title="Upload Sound">
+      <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 10l5-5 5 5H11v4H9v-4H5z M3 16h14v-2H3v2z"/>
+      </svg>
+    </a>
+
+    <h1>Soundboard</h1>
+
+    <div class="volume-control">
+      <label for="volume-slider">Volume</label>
+      <input type="range" id="volume-slider" min="0" max="100" value="100" />
+      <input type="number" id="volume-input" min="0" max="1000000" value="100" />%
+    </div>
+
+    <div class="buttons">
+      <button class="sound-button" data-sound="bruh.mp3">bruh</button>
+      <button class="sound-button" data-sound="wtf.mp3">i got no rizz</button>
+      <button class="sound-button" data-sound="soulmate.mp3">wedding piano thing</button>
+      <button class="sound-button" data-sound="br_br_patapim.mp3">brainrot AAAA</button>
+      <button class="sound-button" data-sound="hellnaw.mp3">oh HELL no</button>
+      <button class="sound-button" data-sound="yippee.mp3">yippee</button>
+      <button class="sound-button" data-sound="cheer.mp3">kids cheer</button>
+      <button class="sound-button" data-sound="heartbreak.mp3">womp womp</button>
+      <button class="sound-button" data-sound="emotionaldamage.mp3">EMOTIONAL DAMAGE</button>
+      <button class="sound-button" data-sound="ohio.mp3">ohio</button>
+      <button class="sound-button" data-sound="mid.mp3">rizz</button>
+      <button class="sound-button" data-sound="discord.mp3">discord</button>
+      <button class="sound-button" data-sound="kafutilaugh.mp3">baby laugh</button>
+      <button class="sound-button" data-sound="gotye.mp3">galaxy brain🗣️🧠</button>
+      <button class="sound-button" data-sound="moan.mp3">moan</button>
+      <button class="sound-button" data-sound="fart.mp3">fart</button>
+      <button class="sound-button" data-sound="uwu.mp3">uwu</button>
+      <button class="sound-button" data-sound="spongebob.mp3">spongebob</button>
+      <button class="sound-button" data-sound="taco.mp3">taco bell</button>
+      <button class="sound-button" data-sound="saxy.mp3">saxy😏</button>
+      <button class="sound-button" data-sound="thomas.mp3">thomas the dank</button>
+      <button class="sound-button" data-sound="mexicoahh.mp3">horn</button>
+      <button class="sound-button" data-sound="burgerking.mp3">burger king wtf</button>
+      <button class="sound-button" data-sound="bababoi.mp3">bababoi</button>
+      <button class="sound-button" data-sound="caseohburgerking.mp3">caseoh at burger king</button>
+      <button class="sound-button" data-sound="eardrumwhopper.mp3">burger king LOUD</button>
+      <button class="sound-button" data-sound="gay.mp3">gay</button>
+      <button class="sound-button" data-sound="scream.mp3">scream</button>
+      <button class="sound-button" data-sound="samsung.mp3">samsung</button>
+      <button class="sound-button" data-sound="krustykrab.mp3">krusty krab</button>
+      <button class="sound-button" data-sound="squidward.mp3">what the sigma</button>
+      <button class="sound-button" data-sound="uwuburp.mp3">uwu burp</button>
+      <button class="sound-button" data-sound="apple.mp3">iphone</button>
+      <button class="sound-button" data-sound="samsungremix.mp3">samsung remix</button>
+      <button class="sound-button" data-sound="weird.mp3">stupid n</button>
+      <button class="sound-button" data-sound="metalpipe.mp3">metal pipe</button>
+      <button class="sound-button" data-sound="hub.mp3">cornhub</button>
+      <button class="sound-button" data-sound="geda.mp3">gedagedi</button>
+      <button class="sound-button" data-sound="eagle.mp3">eagle</button>
+      <button class="sound-button" data-sound="goku.mp3">goku</button>
+      <button class="sound-button" data-sound="wiisports.mp3">wii sports LOUD</button>
+      <button class="sound-button" data-sound="hellothere.mp3">hello there</button>
+      <button class="sound-button" data-sound="huh.mp3">huh</button>
+      <button class="sound-button" data-sound="oof.mp3">oof</button>
+      <button class="sound-button" data-sound="21.mp3">21</button>
+      <button class="sound-button" data-sound="genalpha.mp3">gen alpha</button>
+      <button class="sound-button" data-sound="jet2.mp3">jet2 holiday</button>
+      <button class="sound-button" data-sound="lizard.mp3">lizard</button>
+      <button class="sound-button" data-sound="bone.mp3">bad to the bone</button>
+      <button class="sound-button" data-sound="incorrect.mp3">buzzer</button>
+      <button class="sound-button" data-sound="crack.mp3">bone crack</button>
+      <button class="sound-button" data-sound="mariojump.mp3">mario jump</button>
+      <button class="sound-button" data-sound="punch.mp3">punch</button>
+      <button class="sound-button" data-sound="ohmygod.mp3">oh my god</button>
+      <button class="sound-button" data-sound="mustard.mp3">MUSTARD</button>
+      <button class="sound-button" data-sound="india.mp3">indian music</button>
+      <button class="sound-button" data-sound="nono.mp3">nono square</button>
+      <button class="sound-button" data-sound="quack.mp3">quack</button>
+      <button class="sound-button" data-sound="subway.mp3">subway surfers</button>
+      <button class="sound-button" data-sound="dogsniff.mp3">dog sniff</button>
+      <button class="sound-button" data-sound="whatthehell.mp3">what the hell</button>
+      <button class="sound-button" data-sound="brainfart.mp3">brain fart</button>
+      <button class="sound-button" data-sound="heaven.mp3">heaven</button>
+      <button class="sound-button" data-sound="linging.mp3">yo phone linging</button>
+      <button class="sound-button" data-sound="sniffsniff.mp3">sniff sniff</button>
+      <button class="sound-button" data-sound="chingchong.mp3">ching chong</button>
+      <button class="sound-button" data-sound="electriczoo.mp3">electric zoo</button>
+      <button class="sound-button" data-sound="airhorn.mp3">air horn</button>
+      <button class="sound-button" data-sound="amogus.mp3">among us</button>
+      <button class="sound-button" data-sound="pew.mp3">pew</button>
+      <button class="sound-button" data-sound="fish.mp3">fish</button>
+      <button class="sound-button" data-sound="dun.mp3">dun dun dun</button>
+      <button class="sound-button" data-sound="violin.mp3">violin</button>
+      <button class="sound-button" data-sound="applepay.mp3">apple pay</button>
+      <button class="sound-button" data-sound="boom.mp3">vine boom</button>
+      <button class="sound-button" data-sound="pluh.mp3">pluh</button>
+      <button class="sound-button" data-sound="fah.mp3">fah</button>
+      <button class="sound-button" data-sound="wow.mp3">wow</button>
+      <button class="sound-button" data-sound="sodapop.mp3">soda pop</button>
+      <button class="sound-button" data-sound="clashroyale.mp3">clash royale</button>
+      <button class="sound-button" data-sound="idiot.mp3">u are an idiot</button>
+      <button class="sound-button" data-sound="hogrider.mp3">hog rider</button>
+      <button class="sound-button" data-sound="awww.mp3">awww</button>
+      <button class="sound-button" data-sound="prowler.mp3">prowler</button>
+      <button class="sound-button" data-sound="67.mp3">67</button>
+      <button class="sound-button" data-sound="catlaugh.mp3">cat laugh</button>
+      <button class="sound-button" data-sound="butttwin.mp3">digging in yo butt</button>
+      <button class="sound-button" data-sound="fears.mp3">fears to fathom</button>
+      <button class="sound-button" data-sound="toxicroyale.mp3">clash crying emote</button>
+      <button class="sound-button" data-sound="ihaten.mp3">i hate n</button>
+      <button class="sound-button" data-sound="imspongebob.mp3">im spongebob</button>
+      <button class="sound-button" data-sound="chickenroyale.mp3">clash chicken emote</button>
+      <button class="sound-button" data-sound="uwuvomit.mp3">uwu vomit</button>
+      <button class="sound-button" data-sound="rickroll.mp3">rickroll</button>
+      <button class="sound-button" data-sound="yahaha.mp3">yahaha</button>
+      <button class="sound-button" data-sound="helicopter.mp3">helicopter</button>
+      <button class="sound-button" data-sound="dingdong.mp3">ding dong eat it up</button>
+      <button class="sound-button" data-sound="dingdong2.mp3">ding dong eat it up 2</button>
+      <button class="sound-button" data-sound="brainrot-song.mp3">brainrot song</button>
+      <button class="sound-button" data-sound="johncena.mp3">john cena</button>
+      <button class="sound-button" data-sound="redbull.mp3">redbull</button>
+      <button class="sound-button" data-sound="homeless.mp3">please speed</button>
+      <button class="sound-button" data-sound="spinningcat.mp3">spinning cat</button>
+      <button class="sound-button" data-sound="ohyes.mp3">oh yes</button>
+      <button class="sound-button" data-sound="coming.mp3">Im coming</button>
+      <button class="sound-button" data-sound="gyat.mp3">gyat</button>
+      <button class="sound-button" data-sound="toddler.mp3">toddler</button>
+      <button class="sound-button" data-sound="diddyblud.mp3">diddy blud</button>
+      <button class="sound-button" data-sound="getout.mp3">get out</button>
+      <button class="sound-button" data-sound="gulp.mp3">gop gop gop</button>
+      <button class="sound-button" data-sound="adultscheer.mp3">cheer</button>
+      <button class="sound-button" data-sound="kachow.mp3">kachow</button>
+      <button class="sound-button" data-sound="ding.mp3">ding</button>
+      <button class="sound-button" data-sound="piano/sample.wav">piano sample</button>
+    </div>
+    <!-- Mode controls between buttons and footer -->
+    <div class="mode-bar">
+      <button id="chaos-btn">Chaos (C)</button>
+      <button id="loop-btn">Loop (L)</button>
+      <button id="stop-btn">Stop (S)</button>
+      <button id="download-btn" onclick="downloadAllSounds()">Cache for Offline</button>
+    </div>
+    <div id="download-status" style="color: white; text-align: center; margin-top: 10px; font-family: 'Bubblegum Sans', cursive;"></div>
+
+    <footer>
+      <div>©2025 BustAnEar LLC. All rights reserved.</div>
+      <div>By using this soundboard, you agree to our terms and conditions.</div>
+    </footer>
+  </div>
+
+  <audio id="player" preload="auto" style="display:none"></audio>
+  <script src="offline-downloader.js"></script>
+  <script>
+    // Elements
+    const slider   = document.getElementById('volume-slider');
+    const volInput = document.getElementById('volume-input');
+    const container= document.querySelector('.buttons');
+    const chaosBtn = document.getElementById('chaos-btn');
+    const loopBtn  = document.getElementById('loop-btn');
+    const stopBtn  = document.getElementById('stop-btn');
+
+    // AudioContext & Gain for volume (0–1000%)
+    const context = new (window.AudioContext||window.webkitAudioContext)();
+    const gainNode = context.createGain();
+    gainNode.gain.value = 1; 
+    gainNode.connect(context.destination);
+
+    // State
+    let chaosMode = false;
+    let loopMode  = false;
+    let playing   = []; // array of HTMLAudioElements
+
+    // Core playback logic
+    function playSound(src) {
+      context.resume();
+      if (!chaosMode) stopAll();
+      const audio = new Audio(src);
+      audio.loop = loopMode;
+      // route through gainNode
+      const srcNode = context.createMediaElementSource(audio);
+      srcNode.connect(gainNode);
+      audio.play();
+      playing.push(audio);
+    }
+
+    function stopAll() {
+      playing.forEach(a => a.pause());
+      playing = [];
+    }
+
+    function toggleChaos() {
+      chaosMode = !chaosMode;
+      chaosBtn.classList.toggle('active', chaosMode);
+    }
+
+    function toggleLoop() {
+      loopMode = !loopMode;
+      loopBtn.classList.toggle('active', loopMode);
+    }
+
+    // Volume control ↔ gain
+    slider.addEventListener('input', () => {
+      const pct = parseInt(slider.value,10);
+      volInput.value = pct;
+      gainNode.gain.value = pct/100;
+    });
+    volInput.addEventListener('input', () => {
+      let v = parseFloat(volInput.value);
+      if (isNaN(v)||v<0) v=0;
+      if (v>1000) v=1000;
+      volInput.value = v;
+      gainNode.gain.value = v/100;
+      slider.value = v>100?100:v;
+    });
+
+    // Bind existing & custom buttons
+    function bindSoundButton(btn) {
+      btn.addEventListener('click', () => {
+        const sound = btn.dataset.sound;
+        // Use full path so service worker can match cached files
+        const src = sound.startsWith('data:') || sound.startsWith('http') ? sound : '/CODE/sound/' + sound;
+        playSound(src);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // bind your 32
+      document.querySelectorAll('.sound-button').forEach(bindSoundButton);
+
+      // load user-uploaded
+      const custom = JSON.parse(localStorage.getItem('customSounds')||'[]');
+      custom.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className   = 'sound-button';
+        btn.textContent = item.label;
+        btn.dataset.sound = item.dataUrl;
+        container.appendChild(btn);
+        bindSoundButton(btn);
+      });
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+      const k = e.key.toLowerCase();
+      if (k==='c') toggleChaos();
+      if (k==='l') toggleLoop();
+      if (k==='s') stopAll();
+    });
+
+    // Mode-bar buttons
+    chaosBtn.addEventListener('click', toggleChaos);
+    loopBtn.addEventListener('click', toggleLoop);
+    stopBtn.addEventListener('click', stopAll);
+
+    // Apply stored background on load
+    (function applyStoredBackground(){
+      try {
+        const bg = JSON.parse(localStorage.getItem('soundboardBackground') || 'null');
+        if(!bg) return;
+
+        const body = document.body;
+        if(bg.type === 'color'){
+          body.style.background = bg.value;
+          body.style.backgroundSize = 'cover';
+          body.style.animation = 'none'; // disable animated gradient
+        } else if(bg.type === 'image'){
+          body.style.background = `url('${bg.value}') center/cover no-repeat, #0f0f12`;
+          body.style.animation = 'none';
+        }
+      } catch (e) {
+        console.warn("Could not apply background:", e);
+      }
+    })();
+  </script>
+</body>
+</html>
