@@ -931,8 +931,31 @@ app.get('/CODE/games/ext/', async (req, res) => {
         html = html.replace(/const\s+INDEX_XML_URL\s*=\s*['"][^'"]*['"]/g, 
             `const INDEX_XML_URL = '/api/games/index.xml'`);
         
-        // Add base tag to fix relative paths
-        html = html.replace(/<head>/i, `<head>\n<base href="${UI_REPO_BASE}/">`);
+        // Fix the play button navigation - change from '/' + game.name to our proxy path
+        // Original: window.location.href = dest; where dest = '/' + game.name
+        html = html.replace(
+            /const\s+dest\s*=\s*['"]\/['"]\s*\+\s*encodeURIComponent\(game\.name\);?\s*window\.location\.href\s*=\s*dest;?/g,
+            `window.location.href = '/CODE/games/ext/' + encodeURIComponent(game.name) + '/';`
+        );
+        
+        // Also fix any other navigation patterns
+        html = html.replace(
+            /window\.location\.href\s*=\s*['"]\/['"]\s*\+\s*encodeURIComponent\(game\.name\)/g,
+            `window.location.href = '/CODE/games/ext/' + encodeURIComponent(game.name) + '/'`
+        );
+        
+        // Fix the favicon and other external URLs to use raw GitHub
+        html = html.replace(
+            /href=["']https:\/\/raw\.githubusercontent\.com\/Sirco-team\/files\/refs\/heads\/main\/ugb\/UBG_favcon\.png["']/g,
+            `href="https://raw.githubusercontent.com/Sirco-team/files/main/ugb/UBG_favcon.png"`
+        );
+        
+        // DON'T add base tag - we want relative links to work with our server
+        // Instead, fix CSS/font URLs inline
+        html = html.replace(
+            /href=["'](https:\/\/fonts\.googleapis\.com[^"']*)["']/g,
+            (match, url) => `href="${url}"`
+        );
         
         res.set('Content-Type', 'text/html');
         res.send(html);
@@ -968,6 +991,85 @@ app.get('/api/games/index.xml', async (req, res) => {
     } catch (err) {
         console.error('Games XML error:', err);
         res.status(500).send('<?xml version="1.0"?><games></games>');
+    }
+});
+
+// Redirect game path without trailing slash to with trailing slash
+app.get('/CODE/games/ext/:game', (req, res) => {
+    res.redirect(`/CODE/games/ext/${req.params.game}/`);
+});
+
+// Handle game root directory (e.g., /CODE/games/ext/drivemad/)
+app.get('/CODE/games/ext/:game/', async (req, res) => {
+    const game = req.params.game;
+    
+    try {
+        const gameUrl = `${GAME_REPO_BASE}/${game}/index.html`;
+        const response = await fetch(gameUrl);
+        
+        if (!response.ok) {
+            return res.status(404).send('Game not found');
+        }
+        
+        let html = await response.text();
+        html = html.replace(/<script>\(function \(\) \{[\s\S]*?accessValue !== "1"[\s\S]*?\}\)\(\);<\/script>\s*/g, '');
+        
+        // Inject panic shortcut script
+        const shortcutScript = `
+<script>
+(function(){
+    function getConfig() {
+        try {
+            if (window.parent && window.parent !== window && window.parent.localStorage) {
+                const s = window.parent.localStorage.getItem('shortcut_config');
+                if (s) return JSON.parse(s);
+            }
+        } catch(e) {}
+        try {
+            const s = localStorage.getItem('shortcut_config');
+            return s ? JSON.parse(s) : null;
+        } catch(e) { return null; }
+    }
+    const DEFAULT = {modifiers:{ctrl:false,alt:true,shift:false,meta:false},key:'p',action:'goto',customURL:'/'};
+    function handleShortcut(e) {
+        const config = getConfig() || DEFAULT;
+        if (e.ctrlKey === config.modifiers.ctrl &&
+            e.altKey === config.modifiers.alt &&
+            e.shiftKey === config.modifiers.shift &&
+            e.metaKey === config.modifiers.meta &&
+            e.key.toLowerCase() === config.key.toLowerCase()) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            document.cookie = 'access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            try { localStorage.removeItem('accessCookieId'); } catch(e) {}
+            const target = window.top || window.parent || window;
+            if (config.action === 'goto') target.location.href = '/';
+            else if (config.action === 'google') target.location.href = 'https://www.google.com';
+            else if (config.action === 'custom' && config.customURL) {
+                const url = config.customURL.startsWith('http') ? config.customURL : 'https://' + config.customURL;
+                target.location.href = url;
+            } else target.location.reload();
+        }
+    }
+    document.addEventListener('keydown', handleShortcut, true);
+    window.addEventListener('keydown', handleShortcut, true);
+})();
+</script>`;
+        
+        if (html.includes('</head>')) {
+            html = html.replace('</head>', shortcutScript + '</head>');
+        } else if (html.includes('</body>')) {
+            html = html.replace('</body>', shortcutScript + '</body>');
+        } else {
+            html += shortcutScript;
+        }
+        
+        res.set('Content-Type', 'text/html');
+        res.send(html);
+    } catch (err) {
+        console.error('Game proxy error:', err);
+        res.status(500).send('Failed to load game');
     }
 });
 
