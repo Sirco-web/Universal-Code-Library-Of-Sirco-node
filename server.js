@@ -987,10 +987,67 @@ app.get('/CODE/games/ext/:game/*', async (req, res) => {
         // Get content type from response
         const contentType = response.headers.get('content-type') || 'application/octet-stream';
         
-        // For HTML files, remove access cookie scripts
+        // For HTML files, inject shortcut listener and remove access cookie scripts
         if (filePath.endsWith('.html') || filePath === '' || !filePath.includes('.')) {
             let html = await response.text();
             html = html.replace(/<script>\(function \(\) \{[\s\S]*?accessValue !== "1"[\s\S]*?\}\)\(\);<\/script>\s*/g, '');
+            
+            // Inject panic shortcut script into games
+            const shortcutScript = `
+<script>
+(function(){
+    // Panic shortcut for games - reads config from parent or localStorage
+    function getConfig() {
+        try {
+            // Try parent window first (if in iframe)
+            if (window.parent && window.parent !== window && window.parent.localStorage) {
+                const s = window.parent.localStorage.getItem('shortcut_config');
+                if (s) return JSON.parse(s);
+            }
+        } catch(e) {}
+        try {
+            const s = localStorage.getItem('shortcut_config');
+            return s ? JSON.parse(s) : null;
+        } catch(e) { return null; }
+    }
+    const DEFAULT = {modifiers:{ctrl:false,alt:true,shift:false,meta:false},key:'p',action:'goto',customURL:'/'};
+    
+    function handleShortcut(e) {
+        const config = getConfig() || DEFAULT;
+        if (e.ctrlKey === config.modifiers.ctrl &&
+            e.altKey === config.modifiers.alt &&
+            e.shiftKey === config.modifiers.shift &&
+            e.metaKey === config.modifiers.meta &&
+            e.key.toLowerCase() === config.key.toLowerCase()) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            document.cookie = 'access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            try { localStorage.removeItem('accessCookieId'); } catch(e) {}
+            // Navigate top window
+            const target = window.top || window.parent || window;
+            if (config.action === 'goto') target.location.href = '/';
+            else if (config.action === 'google') target.location.href = 'https://www.google.com';
+            else if (config.action === 'custom' && config.customURL) {
+                const url = config.customURL.startsWith('http') ? config.customURL : 'https://' + config.customURL;
+                target.location.href = url;
+            } else target.location.reload();
+        }
+    }
+    document.addEventListener('keydown', handleShortcut, true);
+    window.addEventListener('keydown', handleShortcut, true);
+})();
+</script>`;
+            
+            // Inject before </head> or </body> or at end
+            if (html.includes('</head>')) {
+                html = html.replace('</head>', shortcutScript + '</head>');
+            } else if (html.includes('</body>')) {
+                html = html.replace('</body>', shortcutScript + '</body>');
+            } else {
+                html += shortcutScript;
+            }
+            
             res.set('Content-Type', 'text/html');
             res.send(html);
         } else {

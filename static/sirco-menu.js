@@ -610,6 +610,107 @@
             border-radius: 6px;
         }
 
+        /* Chat Sub-tabs */
+        .sirco-chat-subtabs {
+            display: flex;
+            border-bottom: 1px solid #313244;
+            background: #1e1e2e;
+        }
+        .sirco-chat-subtab {
+            flex: 1;
+            padding: 10px 12px;
+            background: none;
+            border: none;
+            color: #6c7086;
+            font-size: 13px;
+            cursor: pointer;
+            transition: color 0.2s, background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .sirco-chat-subtab:hover {
+            color: #cdd6f4;
+            background: rgba(255,255,255,0.05);
+        }
+        .sirco-chat-subtab.active {
+            color: #89b4fa;
+            background: rgba(137, 180, 250, 0.1);
+            border-bottom: 2px solid #89b4fa;
+        }
+        .sirco-chat-subtab-content {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+        .sirco-chat-subtab-content.active {
+            display: flex;
+        }
+        .sirco-request-count {
+            background: #f38ba8;
+            color: white;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        .sirco-request-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #313244;
+            gap: 10px;
+        }
+        .sirco-request-item:last-child {
+            border-bottom: none;
+        }
+        .sirco-request-info {
+            flex: 1;
+        }
+        .sirco-request-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #cdd6f4;
+        }
+        .sirco-request-time {
+            font-size: 11px;
+            color: #6c7086;
+        }
+        .sirco-request-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .sirco-request-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .sirco-request-btn.accept {
+            background: #a6e3a1;
+            color: #1e1e2e;
+        }
+        .sirco-request-btn.decline {
+            background: #f38ba8;
+            color: #1e1e2e;
+        }
+        .sirco-request-btn:hover {
+            opacity: 0.85;
+        }
+        .sirco-requests-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .sirco-pending-status {
+            font-size: 11px;
+            color: #fab387;
+            margin-top: 4px;
+        }
+
         /* Settings section */
         .sirco-settings-section {
             margin-top: 12px;
@@ -767,15 +868,35 @@
             <!-- Chat Tab -->
             <div class="sirco-tab-content active" data-content="chat">
                 <div class="sirco-chat-list-view">
-                    <div class="sirco-chat-search">
-                        <input type="text" placeholder="Search users by name or ID..." id="sirco-user-search">
+                    <!-- Sub-tabs for Chats and Requests -->
+                    <div class="sirco-chat-subtabs">
+                        <button class="sirco-chat-subtab active" data-subtab="chats">Chats</button>
+                        <button class="sirco-chat-subtab" data-subtab="requests">Requests <span class="sirco-request-count" id="sirco-request-count" style="display:none;">0</span></button>
                     </div>
-                    <div class="sirco-user-results" id="sirco-user-results" style="display: none;"></div>
-                    <div class="sirco-chat-list" id="sirco-chat-list">
-                        <div class="sirco-chat-empty">
-                            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-                            <p>No conversations yet</p>
-                            <span>Search for users to start chatting</span>
+                    
+                    <!-- Chats Sub-tab -->
+                    <div class="sirco-chat-subtab-content active" data-subcontent="chats">
+                        <div class="sirco-chat-search">
+                            <input type="text" placeholder="Search users by name or ID..." id="sirco-user-search">
+                        </div>
+                        <div class="sirco-user-results" id="sirco-user-results" style="display: none;"></div>
+                        <div class="sirco-chat-list" id="sirco-chat-list">
+                            <div class="sirco-chat-empty">
+                                <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                                <p>No conversations yet</p>
+                                <span>Search for users to start chatting</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Requests Sub-tab -->
+                    <div class="sirco-chat-subtab-content" data-subcontent="requests">
+                        <div class="sirco-requests-list" id="sirco-requests-list">
+                            <div class="sirco-chat-empty">
+                                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                <p>No pending requests</p>
+                                <span>Chat requests will appear here</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1059,7 +1180,26 @@
         });
     }
 
+    // ==================== CHAT SUBTABS ====================
+    const chatSubtabs = panel.querySelectorAll('.sirco-chat-subtab');
+    const chatSubtabContents = panel.querySelectorAll('.sirco-chat-subtab-content');
+
+    chatSubtabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const subtabName = tab.dataset.subtab;
+            chatSubtabs.forEach(t => t.classList.remove('active'));
+            chatSubtabContents.forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            panel.querySelector(`.sirco-chat-subtab-content[data-subcontent="${subtabName}"]`).classList.add('active');
+            
+            if (subtabName === 'requests') {
+                loadChatRequests();
+            }
+        });
+    });
+
     // ==================== CHAT FUNCTIONALITY ====================
+    let pendingRequests = [];
 
     async function loadConversations() {
         const user = getUserInfo();
@@ -1074,6 +1214,122 @@
             }
         } catch (e) {
             console.error('Failed to load conversations:', e);
+        }
+        
+        // Also load request count
+        loadChatRequests();
+    }
+
+    async function loadChatRequests() {
+        const user = getUserInfo();
+        if (!user.clientId) return;
+
+        try {
+            const res = await fetch('/api/chat/requests?clientId=' + encodeURIComponent(user.clientId));
+            if (res.ok) {
+                const data = await res.json();
+                pendingRequests = data.requests || [];
+                renderChatRequests();
+                updateRequestCount();
+            }
+        } catch (e) {
+            console.error('Failed to load requests:', e);
+        }
+    }
+
+    function updateRequestCount() {
+        const countEl = document.getElementById('sirco-request-count');
+        if (countEl) {
+            if (pendingRequests.length > 0) {
+                countEl.textContent = pendingRequests.length;
+                countEl.style.display = 'inline';
+            } else {
+                countEl.style.display = 'none';
+            }
+        }
+    }
+
+    function renderChatRequests() {
+        const listEl = document.getElementById('sirco-requests-list');
+        if (!listEl) return;
+
+        if (pendingRequests.length === 0) {
+            listEl.innerHTML = `
+                <div class="sirco-chat-empty">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    <p>No pending requests</p>
+                    <span>Chat requests will appear here</span>
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = pendingRequests.map(req => {
+            const initial = (req.fromName || 'U')[0].toUpperCase();
+            const time = new Date(req.createdAt).toLocaleString();
+            return `
+                <div class="sirco-request-item" data-request-id="${req.requestId}">
+                    <div class="sirco-chat-avatar">${initial}</div>
+                    <div class="sirco-request-info">
+                        <div class="sirco-request-name">${req.fromName || 'Unknown'}</div>
+                        <div class="sirco-request-time">${time}</div>
+                    </div>
+                    <div class="sirco-request-actions">
+                        <button class="sirco-request-btn accept" data-action="accept">Accept</button>
+                        <button class="sirco-request-btn decline" data-action="decline">Decline</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add click handlers
+        listEl.querySelectorAll('.sirco-request-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const item = btn.closest('.sirco-request-item');
+                const requestId = item.dataset.requestId;
+                const action = btn.dataset.action;
+                
+                if (action === 'accept') {
+                    await acceptChatRequest(requestId);
+                } else {
+                    await declineChatRequest(requestId);
+                }
+            });
+        });
+    }
+
+    async function acceptChatRequest(requestId) {
+        const user = getUserInfo();
+        try {
+            const res = await fetch('/api/chat/accept', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId, clientId: user.clientId })
+            });
+            if (res.ok) {
+                await loadChatRequests();
+                await loadConversations();
+                // Switch to chats tab
+                chatSubtabs[0].click();
+            }
+        } catch (e) {
+            console.error('Failed to accept request:', e);
+        }
+    }
+
+    async function declineChatRequest(requestId) {
+        const user = getUserInfo();
+        try {
+            const res = await fetch('/api/chat/decline', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId, clientId: user.clientId })
+            });
+            if (res.ok) {
+                await loadChatRequests();
+            }
+        } catch (e) {
+            console.error('Failed to decline request:', e);
         }
     }
 
@@ -1278,7 +1534,7 @@
             return;
         }
 
-        // Create new conversation
+        // Send chat request
         try {
             const res = await fetch('/api/chat/start', {
                 method: 'POST',
@@ -1292,16 +1548,25 @@
             });
             if (res.ok) {
                 const data = await res.json();
-                conv = {
-                    partnerId: userId,
-                    partnerName: userName,
-                    lastMessage: '',
-                    lastMessageTime: Date.now()
-                };
-                conversations.unshift(conv);
-                openChat(conv);
+                
+                if (data.accepted) {
+                    // Conversation was created (either existed or mutual request)
+                    conv = {
+                        partnerId: userId,
+                        partnerName: userName,
+                        lastMessage: '',
+                        lastMessageTime: Date.now()
+                    };
+                    conversations.unshift(conv);
+                    openChat(conv);
+                } else if (data.pending) {
+                    // Request was sent, show feedback
+                    alert('Chat request sent to ' + userName + '! They need to accept it first.');
+                }
+                
                 userResultsContainer.style.display = 'none';
                 userSearchInput.value = '';
+                await loadConversations();
             }
         } catch (e) {
             console.error('Failed to start chat:', e);
@@ -1508,8 +1773,31 @@
 
     loadShortcutUI();
 
-    // Global shortcut listener
-    document.addEventListener('keydown', (e) => {
+    // ==================== INPUT FOCUS HANDLING ====================
+    // Prevent game from capturing keystrokes when typing in menu inputs
+    const menuInputs = panel.querySelectorAll('input, textarea');
+    menuInputs.forEach(input => {
+        input.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+        });
+        input.addEventListener('keyup', (e) => {
+            e.stopPropagation();
+        });
+        input.addEventListener('keypress', (e) => {
+            e.stopPropagation();
+        });
+        // When input is focused, ensure menu panel has focus priority
+        input.addEventListener('focus', () => {
+            // Blur any iframes to stop them from capturing keys
+            document.querySelectorAll('iframe').forEach(iframe => {
+                try { iframe.blur(); } catch {}
+            });
+        });
+    });
+
+    // ==================== GLOBAL SHORTCUT LISTENER ====================
+    // Use capture phase to intercept before games/iframes can capture
+    function handleShortcut(e) {
         const config = getShortcutConfig();
         const match = (
             e.ctrlKey === config.modifiers.ctrl &&
@@ -1521,8 +1809,14 @@
 
         if (match) {
             e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            
             // Remove access cookie
             document.cookie = 'access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            
+            // Also clear from localStorage
+            localStorage.removeItem('accessCookieId');
             
             // Perform action
             if (config.action === 'goto') {
@@ -1532,15 +1826,25 @@
             } else if (config.action === 'custom' && config.customURL) {
                 const url = config.customURL.startsWith('http') ? config.customURL : 'https://' + config.customURL;
                 window.location.href = url;
+            } else if (config.action === 'none') {
+                // Just remove cookie and stay
+                window.location.reload();
             }
         }
-    });
+    }
 
-    // Close menu on escape
+    // Capture phase listener on document (catches before bubbling)
+    document.addEventListener('keydown', handleShortcut, true);
+    
+    // Also listen on window for extra coverage
+    window.addEventListener('keydown', handleShortcut, true);
+
+    // Close menu on escape (use capture)
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && isOpen) {
+            e.stopPropagation();
             toggleMenu();
         }
-    });
+    }, true);
 
 })();
