@@ -13,6 +13,9 @@
     // Don't initialize if already initialized
     if (window.__sircoMenuInitialized) return;
     window.__sircoMenuInitialized = true;
+    
+    // Also check if DOM elements already exist (extra safety)
+    if (document.querySelector('.sirco-menu-btn')) return;
 
     // Configuration
     const STORAGE_KEYS = {
@@ -134,6 +137,29 @@
         .sirco-menu-btn.open svg.menu-icon { display: none; }
         .sirco-menu-btn.open svg.close-icon { display: block; }
         .sirco-menu-btn svg.close-icon { display: none; }
+        
+        .sirco-notification-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            border-radius: 10px;
+            background: #ff3b30;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(255, 59, 48, 0.4);
+            box-sizing: border-box;
+        }
+        .sirco-notification-badge.visible {
+            display: flex;
+        }
 
         .sirco-overlay {
             position: fixed;
@@ -143,11 +169,13 @@
             opacity: 0;
             visibility: hidden;
             transition: opacity 0.3s, visibility 0.3s;
+            pointer-events: none;
             backdrop-filter: blur(4px);
         }
         .sirco-overlay.visible {
             opacity: 1;
             visibility: visible;
+            pointer-events: auto;
         }
 
         .sirco-menu-panel {
@@ -833,6 +861,7 @@
     menuBtn.innerHTML = `
         <svg class="menu-icon" viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
         <svg class="close-icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        <span class="sirco-notification-badge" id="sirco-notif-badge">0</span>
     `;
     document.body.appendChild(menuBtn);
 
@@ -1246,6 +1275,23 @@
             } else {
                 countEl.style.display = 'none';
             }
+        }
+        // Also update the notification badge on the menu button
+        updateNotificationBadge();
+    }
+    
+    function updateNotificationBadge() {
+        const badge = document.getElementById('sirco-notif-badge');
+        if (!badge) return;
+        
+        // Count pending requests + unread messages
+        const totalNotifications = pendingRequests.length;
+        
+        if (totalNotifications > 0) {
+            badge.textContent = totalNotifications > 99 ? '99+' : totalNotifications;
+            badge.classList.add('visible');
+        } else {
+            badge.classList.remove('visible');
         }
     }
 
@@ -1846,5 +1892,26 @@
             toggleMenu();
         }
     }, true);
+    
+    // Periodically check for new messages/requests (every 30 seconds)
+    async function checkForNotifications() {
+        const user = getUserInfo();
+        if (!user.clientId) return;
+        
+        try {
+            const res = await fetch('/api/chat/requests?clientId=' + encodeURIComponent(user.clientId));
+            if (res.ok) {
+                const data = await res.json();
+                pendingRequests = data.requests || [];
+                updateNotificationBadge();
+            }
+        } catch (e) {
+            // Silently fail
+        }
+    }
+    
+    // Initial check and periodic polling
+    checkForNotifications();
+    setInterval(checkForNotifications, 30000);
 
 })();
