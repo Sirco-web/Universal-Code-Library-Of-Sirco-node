@@ -892,15 +892,12 @@ app.get('/api/owner/analytics', verifyOwnerToken, (req, res) => {
 });
 
 // ============== DYNAMIC FOLDER ROUTING ==============
-// Handle dynamic CODE folder routing
+// Handle dynamic CODE folder routing - REWRITE only, no redirects
 app.use((req, res, next) => {
-    // If the path starts with /CODE, redirect to the current dynamic folder name
-    if (req.path.startsWith('/CODE') && serverSettings.dynamicFolderName !== 'CODE') {
-        const newPath = req.path.replace('/CODE', '/' + serverSettings.dynamicFolderName);
-        return res.redirect(newPath);
-    }
+    // If the path starts with /CODE and folder name is different, rewrite to serve from /CODE
+    // This way links always use /CODE and we don't need redirects
     
-    // If the path starts with the dynamic folder name, serve from /CODE
+    // If the path starts with the dynamic folder name, rewrite to /CODE
     if (serverSettings.dynamicFolderName !== 'CODE' && req.path.startsWith('/' + serverSettings.dynamicFolderName)) {
         req.url = req.url.replace('/' + serverSettings.dynamicFolderName, '/CODE');
     }
@@ -997,8 +994,7 @@ app.get('/api/games/index.xml', async (req, res) => {
 
 // Redirect game path without trailing slash to with trailing slash
 app.get('/CODE/games/ext/:game', (req, res) => {
-    const folder = serverSettings.dynamicFolderName || 'CODE';
-    res.redirect(`/${folder}/games/ext/${req.params.game}/`);
+    res.redirect(`/CODE/games/ext/${req.params.game}/`);
 });
 
 // Handle game root directory (e.g., /CODE/games/ext/drivemad/)
@@ -1166,21 +1162,12 @@ app.get('/CODE/games/ext/:game/*', async (req, res) => {
 });
 
 // ============== REDIRECTS ==============
-// Redirect directories without trailing slash to with trailing slash
-// This ensures relative paths in HTML resolve correctly
-app.get('/CODE/Supertube', (req, res) => {
-    const folder = serverSettings.dynamicFolderName || 'CODE';
-    res.redirect(`/${folder}/Supertube/`);
-});
-
-// Redirect /CODE/games/dictionary to /CODE/games/ext
+// Redirect /CODE/games/dictionary to /CODE/games/ext (no loop because target is /CODE)
 app.get('/CODE/games/dictionary', (req, res) => {
-    const folder = serverSettings.dynamicFolderName || 'CODE';
-    res.redirect(`/${folder}/games/ext/`);
+    res.redirect('/CODE/games/ext/');
 });
 app.get('/CODE/games/dictionary/', (req, res) => {
-    const folder = serverSettings.dynamicFolderName || 'CODE';
-    res.redirect(`/${folder}/games/ext/`);
+    res.redirect('/CODE/games/ext/');
 });
 
 // ============== USER CHAT API ==============
