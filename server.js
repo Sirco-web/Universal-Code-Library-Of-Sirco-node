@@ -1012,6 +1012,14 @@ app.get('/CODE/games/ext/:game/', async (req, res) => {
         let html = await response.text();
         html = html.replace(/<script>\(function \(\) \{[\s\S]*?accessValue !== "1"[\s\S]*?\}\)\(\);<\/script>\s*/g, '');
         
+        // Inject base tag to ensure relative paths work correctly
+        const baseTag = `<base href="/CODE/games/ext/${game}/">`;
+        if (html.includes('<head>')) {
+            html = html.replace('<head>', '<head>' + baseTag);
+        } else if (html.includes('<HEAD>')) {
+            html = html.replace('<HEAD>', '<HEAD>' + baseTag);
+        }
+        
         // Inject panic shortcut script
         const shortcutScript = `
 <script>
@@ -1091,6 +1099,14 @@ app.get('/CODE/games/ext/:game/*', async (req, res) => {
         if (filePath.endsWith('.html') || filePath === '' || !filePath.includes('.')) {
             let html = await response.text();
             html = html.replace(/<script>\(function \(\) \{[\s\S]*?accessValue !== "1"[\s\S]*?\}\)\(\);<\/script>\s*/g, '');
+            
+            // Inject base tag to ensure relative paths work correctly
+            const baseTag = `<base href="/CODE/games/ext/${game}/">`;
+            if (html.includes('<head>')) {
+                html = html.replace('<head>', '<head>' + baseTag);
+            } else if (html.includes('<HEAD>')) {
+                html = html.replace('<HEAD>', '<HEAD>' + baseTag);
+            }
             
             // Inject panic shortcut script into games
             const shortcutScript = `
