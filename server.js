@@ -1082,7 +1082,7 @@ app.get('/api/chat/conversations', (req, res) => {
     res.json({ conversations: userConversations });
 });
 
-// Start a new conversation
+// Start a new conversation (sends a request)
 app.post('/api/chat/start', (req, res) => {
     const { initiatorId, initiatorName, recipientId, recipientName } = req.body;
     
@@ -1091,30 +1091,157 @@ app.post('/api/chat/start', (req, res) => {
     }
     
     const chatData = loadChats();
+    chatData.requests = chatData.requests || {};
     
-    // Check if conversation already exists
+    // Check if conversation already exists and is accepted
     const existingConv = Object.entries(chatData.conversations || {}).find(([id, conv]) => 
-        conv.participants.includes(initiatorId) && conv.participants.includes(recipientId)
+        conv.participants.includes(initiatorId) && conv.participants.includes(recipientId) && conv.accepted
     );
     
     if (existingConv) {
-        return res.json({ conversationId: existingConv[0], exists: true });
+        return res.json({ conversationId: existingConv[0], exists: true, accepted: true });
     }
     
-    // Create new conversation
+    // Check if there's already a pending request
+    const existingRequest = Object.entries(chatData.requests).find(([id, req]) =>
+        (req.from === initiatorId && req.to === recipientId) ||
+        (req.from === recipientId && req.to === initiatorId)
+    );
+    
+    if (existingRequest) {
+        // If the other person sent us a request, accept it automatically
+        if (existingRequest[1].from === recipientId && existingRequest[1].to === initiatorId) {
+            // Accept the request
+            const reqId = existingRequest[0];
+            const request = chatData.requests[reqId];
+            
+            // Create conversation
+            const convId = `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            chatData.conversations = chatData.conversations || {};
+            chatData.conversations[convId] = {
+                participants: [initiatorId, recipientId],
+                createdAt: new Date().toISOString(),
+                createdBy: request.from,
+                accepted: true,
+                acceptedAt: new Date().toISOString()
+            };
+            chatData.messages = chatData.messages || {};
+            chatData.messages[convId] = [];
+            
+            // Remove request
+            delete chatData.requests[reqId];
+            
+            saveChats(chatData);
+            return res.json({ conversationId: convId, exists: false, accepted: true, wasRequest: true });
+        }
+        
+        return res.json({ requestId: existingRequest[0], pending: true, message: 'Request already sent' });
+    }
+    
+    // Create new request
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    chatData.requests[requestId] = {
+        from: initiatorId,
+        fromName: initiatorName || `User_${initiatorId.slice(0, 8)}`,
+        to: recipientId,
+        toName: recipientName || `User_${recipientId.slice(0, 8)}`,
+        createdAt: new Date().toISOString()
+    };
+    
+    saveChats(chatData);
+    
+    res.json({ requestId, pending: true, message: 'Chat request sent' });
+});
+
+// Get pending chat requests for a user
+app.get('/api/chat/requests', (req, res) => {
+    const clientId = req.query.clientId;
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const chatData = loadChats();
+    const requests = [];
+    
+    for (const [reqId, request] of Object.entries(chatData.requests || {})) {
+        if (request.to === clientId) {
+            requests.push({
+                requestId: reqId,
+                from: request.from,
+                fromName: request.fromName,
+                createdAt: request.createdAt
+            });
+        }
+    }
+    
+    res.json({ requests });
+});
+
+// Accept a chat request
+app.post('/api/chat/accept', (req, res) => {
+    const { requestId, clientId } = req.body;
+    
+    if (!requestId || !clientId) {
+        return res.status(400).json({ error: 'requestId and clientId required' });
+    }
+    
+    const chatData = loadChats();
+    const request = chatData.requests?.[requestId];
+    
+    if (!request) {
+        return res.status(404).json({ error: 'Request not found' });
+    }
+    
+    if (request.to !== clientId) {
+        return res.status(403).json({ error: 'Not authorized to accept this request' });
+    }
+    
+    // Create conversation
     const convId = `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     chatData.conversations = chatData.conversations || {};
     chatData.conversations[convId] = {
-        participants: [initiatorId, recipientId],
-        createdAt: new Date().toISOString(),
-        createdBy: initiatorId
+        participants: [request.from, request.to],
+        createdAt: request.createdAt,
+        createdBy: request.from,
+        accepted: true,
+        acceptedAt: new Date().toISOString()
     };
     chatData.messages = chatData.messages || {};
     chatData.messages[convId] = [];
     
+    // Remove request
+    delete chatData.requests[requestId];
+    
     saveChats(chatData);
     
-    res.json({ conversationId: convId, exists: false });
+    res.json({ success: true, conversationId: convId });
+});
+
+// Decline a chat request
+app.post('/api/chat/decline', (req, res) => {
+    const { requestId, clientId } = req.body;
+    
+    if (!requestId || !clientId) {
+        return res.status(400).json({ error: 'requestId and clientId required' });
+    }
+    
+    const chatData = loadChats();
+    const request = chatData.requests?.[requestId];
+    
+    if (!request) {
+        return res.status(404).json({ error: 'Request not found' });
+    }
+    
+    if (request.to !== clientId) {
+        return res.status(403).json({ error: 'Not authorized to decline this request' });
+    }
+    
+    // Remove request
+    delete chatData.requests[requestId];
+    
+    saveChats(chatData);
+    
+    res.json({ success: true });
 });
 
 // Get messages for a conversation
@@ -1239,12 +1366,16 @@ const injectMenuScript = (req, res, next) => {
         
         // Don't inject if already present
         if (!html.includes('sirco-menu.js')) {
-            // Inject before </body> or at end
-            const menuScript = '\n<script src="/sirco-menu.js"></script>\n';
+            // Inject before </body> or </html> or at end
+            const menuScript = '<script src="/sirco-menu.js"></script>';
             if (html.includes('</body>')) {
-                html = html.replace('</body>', menuScript + '</body>');
+                // Insert before the LAST </body> tag
+                const lastBodyIdx = html.lastIndexOf('</body>');
+                html = html.slice(0, lastBodyIdx) + menuScript + '\n' + html.slice(lastBodyIdx);
+            } else if (html.includes('</html>')) {
+                html = html.replace('</html>', menuScript + '\n</html>');
             } else {
-                html += menuScript;
+                html += '\n' + menuScript;
             }
         }
         
