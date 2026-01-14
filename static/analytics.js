@@ -28,6 +28,11 @@
         // Get clean page path
         const pagePath = window.location.pathname || '/';
         
+        // Get user info from localStorage
+        const clientId = localStorage.getItem('clientId') || null;
+        const username = localStorage.getItem('username') || null;
+        const accessCookieId = localStorage.getItem('accessCookieId') || null;
+        
         const payload = {
             os: getOS(),
             browser: getBrowser(),
@@ -35,7 +40,11 @@
             referrer: document.referrer || null,
             screenWidth: window.screen.width,
             screenHeight: window.screen.height,
-            language: navigator.language
+            language: navigator.language,
+            userId: clientId,
+            clientId: clientId,
+            username: username,
+            accessCookieId: accessCookieId
         };
         
         // Use sendBeacon for non-blocking send (instant, doesn't slow page)

@@ -40,7 +40,7 @@
             const res = await fetch('/api/check-status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clientId, accessCookieId })
+                body: JSON.stringify({ clientId, accessCookieId, username })
             });
 
             const data = await res.json();

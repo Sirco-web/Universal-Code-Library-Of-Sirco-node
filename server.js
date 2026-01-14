@@ -667,8 +667,9 @@ app.post('/api/register-user', (req, res) => {
 });
 
 // Check if client needs to do anything (banned, refresh, etc.)
+// Also syncs users - if user doesn't exist on this server, create them
 app.post('/api/check-status', (req, res) => {
-    const { clientId, accessCookieId } = req.body;
+    const { clientId, accessCookieId, username } = req.body;
     
     // Check if user is banned
     const bannedUsers = loadBannedUsers();
@@ -697,9 +698,33 @@ app.post('/api/check-status', (req, res) => {
         return res.json({ status: 'refresh_required' });
     }
     
-    // Update last seen
+    // Sync user - if user doesn't exist on this server but client has valid ID, create them
     const users = loadUsers();
-    if (users[clientId]) {
+    if (clientId && !users[clientId]) {
+        // User doesn't exist - create them (syncing from another server or restored backup)
+        users[clientId] = {
+            clientId,
+            username: username || 'User_' + clientId.substring(0, 8),
+            accessCookieId: accessCookieId,
+            createdAt: new Date().toISOString(),
+            lastSeen: new Date().toISOString(),
+            lastIP: getClientIP(req),
+            synced: true // Mark as synced from client
+        };
+        saveUsers(users);
+        console.log(`Synced user from client: ${clientId}`);
+        
+        // Also create/update access cookie record
+        if (accessCookieId && !accessCookies[accessCookieId]) {
+            accessCookies[accessCookieId] = {
+                clientId,
+                createdAt: new Date().toISOString(),
+                synced: true
+            };
+            saveAccessCookies(accessCookies);
+        }
+    } else if (users[clientId]) {
+        // Update last seen
         users[clientId].lastSeen = new Date().toISOString();
         users[clientId].lastIP = getClientIP(req);
         saveUsers(users);
@@ -791,6 +816,20 @@ app.post('/api/collect', (req, res) => {
         }
     }
     
+    // Get user ID from request body or try to find by accessCookieId
+    let userId = req.body.userId || req.body.clientId || null;
+    let username = req.body.username || null;
+    
+    // If we have an accessCookieId, try to look up the user
+    if (!userId && req.body.accessCookieId) {
+        const users = loadUsers();
+        const user = Object.values(users).find(u => u.accessCookieId === req.body.accessCookieId);
+        if (user) {
+            userId = user.clientId;
+            username = user.username;
+        }
+    }
+    
     const data = {
         os: req.body.os || 'Unknown',
         browser: req.body.browser || 'Unknown',
@@ -801,7 +840,9 @@ app.post('/api/collect', (req, res) => {
         language: req.body.language || 'Unknown',
         ip: getClientIP(req),
         timestamp: new Date().toISOString(),
-        userAgent: req.headers['user-agent']
+        userAgent: req.headers['user-agent'],
+        userId: userId,
+        username: username
     };
     
     // Add to cache immediately
@@ -850,6 +891,103 @@ app.use((req, res, next) => {
     }
     
     next();
+});
+
+// ============== GAME PROXY ==============
+// Proxy games from GitHub - no need to clone repos, browser downloads directly
+const GAME_REPO_BASE = 'https://raw.githubusercontent.com/Firewall-Freedom/file-s/main';
+const UI_REPO_BASE = 'https://raw.githubusercontent.com/Timmmy307/file-s/main';
+
+// Serve the game library index from Timmmy307's UI
+app.get('/CODE/games/ext/', async (req, res) => {
+    try {
+        const indexUrl = `${UI_REPO_BASE}/index.html`;
+        const response = await fetch(indexUrl);
+        if (!response.ok) throw new Error('Failed to fetch index');
+        
+        let html = await response.text();
+        
+        // Remove the access cookie check script
+        html = html.replace(/<script>\(function \(\) \{[\s\S]*?accessValue !== "1"[\s\S]*?\}\)\(\);<\/script>\s*/g, '');
+        
+        // Remove 404.js reference
+        html = html.replace(/<script[^>]*src=["'][^"']*404\.js["'][^>]*><\/script>\s*/gi, '');
+        
+        // Fix the INDEX_XML_URL to use our proxy
+        html = html.replace(/const\s+INDEX_XML_URL\s*=\s*['"][^'"]*['"]/g, 
+            `const INDEX_XML_URL = '/api/games/index.xml'`);
+        
+        // Add base tag to fix relative paths
+        html = html.replace(/<head>/i, `<head>\n<base href="${UI_REPO_BASE}/">`);
+        
+        res.set('Content-Type', 'text/html');
+        res.send(html);
+    } catch (err) {
+        console.error('Game index proxy error:', err);
+        res.status(500).send('Failed to load game library');
+    }
+});
+
+// Serve the games index.xml
+app.get('/api/games/index.xml', async (req, res) => {
+    try {
+        // Fetch the list of games from the repo
+        const response = await fetch('https://api.github.com/repos/Firewall-Freedom/file-s/contents');
+        if (!response.ok) throw new Error('Failed to fetch game list');
+        
+        const contents = await response.json();
+        const games = contents.filter(item => 
+            item.type === 'dir' && 
+            !item.name.startsWith('.') && 
+            item.name !== 'node_modules'
+        );
+        
+        // Generate XML
+        let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<games>\n';
+        for (const game of games) {
+            xml += `  <game>\n    <name>${game.name}</name>\n    <path>/CODE/games/ext/${game.name}/</path>\n  </game>\n`;
+        }
+        xml += '</games>';
+        
+        res.set('Content-Type', 'application/xml');
+        res.send(xml);
+    } catch (err) {
+        console.error('Games XML error:', err);
+        res.status(500).send('<?xml version="1.0"?><games></games>');
+    }
+});
+
+// Proxy individual game files
+app.get('/CODE/games/ext/:game/*', async (req, res) => {
+    const game = req.params.game;
+    const filePath = req.params[0] || 'index.html';
+    
+    try {
+        const gameUrl = `${GAME_REPO_BASE}/${game}/${filePath}`;
+        const response = await fetch(gameUrl);
+        
+        if (!response.ok) {
+            return res.status(404).send('Game file not found');
+        }
+        
+        // Get content type from response
+        const contentType = response.headers.get('content-type') || 'application/octet-stream';
+        
+        // For HTML files, remove access cookie scripts
+        if (filePath.endsWith('.html') || filePath === '' || !filePath.includes('.')) {
+            let html = await response.text();
+            html = html.replace(/<script>\(function \(\) \{[\s\S]*?accessValue !== "1"[\s\S]*?\}\)\(\);<\/script>\s*/g, '');
+            res.set('Content-Type', 'text/html');
+            res.send(html);
+        } else {
+            // Stream binary files directly
+            res.set('Content-Type', contentType);
+            response.body.pipe(res);
+        }
+    } catch (err) {
+        console.error('Game proxy error:', err);
+        res.status(500).send('Failed to load game');
+    }
 });
 
 // ============== REDIRECTS ==============

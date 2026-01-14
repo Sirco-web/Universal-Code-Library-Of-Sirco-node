@@ -49,6 +49,18 @@ scheduleNextCheck();</script></head>
 <body>
 <div id="container">
 <h2>Cookie Saver &amp; Exporter</h2>
+
+<!-- User ID Section -->
+<div id="user-info-section" style="background: #e8f4fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #b8daff;">
+<h3 style="margin-top:0; color: #004085;">👤 Your Account Info</h3>
+<div id="user-id-display" style="font-family: monospace; background: #fff; padding: 10px; border-radius: 4px; word-break: break-all;">
+    <strong>User ID:</strong> <span id="display-client-id">Loading...</span><br/>
+    <strong>Username:</strong> <span id="display-username">Loading...</span><br/>
+    <strong>Access Cookie ID:</strong> <span id="display-access-cookie-id">Loading...</span>
+</div>
+<button id="copy-user-id" style="margin-top: 10px; background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">📋 Copy User ID</button>
+</div>
+
 <div id="cookie-section">
 <h3>Your Cookies &amp; Local Storage</h3>
 <div id="cookie-table-container">
@@ -80,6 +92,27 @@ scheduleNextCheck();</script></head>
             BACKEND_URL = cfg.url.replace(/\/$/, '');
             initApp();
         });
+
+    // Display user info immediately
+    (function displayUserInfo() {
+        const clientId = localStorage.getItem('clientId') || 'Not set';
+        const username = localStorage.getItem('username') || 'Not set';
+        const accessCookieId = localStorage.getItem('accessCookieId') || 'Not set';
+        
+        document.getElementById('display-client-id').textContent = clientId;
+        document.getElementById('display-username').textContent = username;
+        document.getElementById('display-access-cookie-id').textContent = accessCookieId;
+        
+        document.getElementById('copy-user-id').addEventListener('click', function() {
+            const text = `User ID: ${clientId}\nUsername: ${username}\nAccess Cookie ID: ${accessCookieId}`;
+            navigator.clipboard.writeText(clientId).then(() => {
+                this.textContent = '✅ Copied!';
+                setTimeout(() => { this.textContent = '📋 Copy User ID'; }, 2000);
+            }).catch(() => {
+                alert('User ID: ' + clientId);
+            });
+        });
+    })();
 
     function initApp() {
         function checkCookie() {
