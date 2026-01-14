@@ -996,7 +996,8 @@ app.get('/api/games/index.xml', async (req, res) => {
 
 // Redirect game path without trailing slash to with trailing slash
 app.get('/CODE/games/ext/:game', (req, res) => {
-    res.redirect(`/CODE/games/ext/${req.params.game}/`);
+    const folder = serverSettings.dynamicFolderName || 'CODE';
+    res.redirect(`/${folder}/games/ext/${req.params.game}/`);
 });
 
 // Handle game root directory (e.g., /CODE/games/ext/drivemad/)
@@ -1165,8 +1166,14 @@ app.get('/CODE/games/ext/:game/*', async (req, res) => {
 
 // ============== REDIRECTS ==============
 // Redirect /CODE/games/dictionary to /CODE/games/ext
-app.get('/CODE/games/dictionary', (req, res) => res.redirect('/CODE/games/ext/'));
-app.get('/CODE/games/dictionary/', (req, res) => res.redirect('/CODE/games/ext/'));
+app.get('/CODE/games/dictionary', (req, res) => {
+    const folder = serverSettings.dynamicFolderName || 'CODE';
+    res.redirect(`/${folder}/games/ext/`);
+});
+app.get('/CODE/games/dictionary/', (req, res) => {
+    const folder = serverSettings.dynamicFolderName || 'CODE';
+    res.redirect(`/${folder}/games/ext/`);
+});
 
 // ============== USER CHAT API ==============
 const CHATS_FILE = path.join(DATA_DIR, 'chats.json');
