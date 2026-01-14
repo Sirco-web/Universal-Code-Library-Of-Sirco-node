@@ -1166,6 +1166,13 @@ app.get('/CODE/games/ext/:game/*', async (req, res) => {
 });
 
 // ============== REDIRECTS ==============
+// Redirect directories without trailing slash to with trailing slash
+// This ensures relative paths in HTML resolve correctly
+app.get('/CODE/Supertube', (req, res) => {
+    const folder = serverSettings.dynamicFolderName || 'CODE';
+    res.redirect(`/${folder}/Supertube/`);
+});
+
 // Redirect /CODE/games/dictionary to /CODE/games/ext
 app.get('/CODE/games/dictionary', (req, res) => {
     const folder = serverSettings.dynamicFolderName || 'CODE';
