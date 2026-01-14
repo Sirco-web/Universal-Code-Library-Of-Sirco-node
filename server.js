@@ -244,8 +244,9 @@ app.use((req, res, next) => {
         return next();
     }
     
-    // Allow static assets (css, images, fonts)
+    // Allow static assets (css, js, images, fonts)
     if (path.endsWith('.css') || 
+        path.endsWith('.js') ||
         path.endsWith('.ico') ||
         path.endsWith('.png') ||
         path.endsWith('.jpg') ||
