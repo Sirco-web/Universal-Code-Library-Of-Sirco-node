@@ -712,7 +712,7 @@ app.post('/api/check-status', (req, res) => {
             synced: true // Mark as synced from client
         };
         saveUsers(users);
-        console.log(`Synced user from client: ${clientId}`);
+        console.log(`Synced user from client: ${clientId} (${username})`);
         
         // Also create/update access cookie record
         if (accessCookieId && !accessCookies[accessCookieId]) {
@@ -724,14 +724,28 @@ app.post('/api/check-status', (req, res) => {
             saveAccessCookies(accessCookies);
         }
     } else if (users[clientId]) {
-        // Update last seen
+        // Update last seen and sync username if provided
         users[clientId].lastSeen = new Date().toISOString();
         users[clientId].lastIP = getClientIP(req);
+        // Update username if provided and different (sync from client)
+        if (username && users[clientId].username !== username) {
+            users[clientId].username = username;
+        }
         saveUsers(users);
     }
     
-    // User is OK - tell client to clear any stale banned status
-    return res.json({ status: 'ok', clearBanned: true });
+    // User is OK - return sync data
+    const user = users[clientId] || {};
+    return res.json({ 
+        status: 'ok', 
+        clearBanned: true,
+        sync: {
+            username: user.username,
+            clientId: user.clientId,
+            accessCookieId: user.accessCookieId,
+            createdAt: user.createdAt
+        }
+    });
 });
 
 // ============== AI CHAT API ==============
@@ -895,8 +909,8 @@ app.use((req, res, next) => {
 
 // ============== GAME PROXY ==============
 // Proxy games from GitHub - no need to clone repos, browser downloads directly
-const GAME_REPO_BASE = 'https://raw.githubusercontent.com/Firewall-Freedom/file-s/main';
-const UI_REPO_BASE = 'https://raw.githubusercontent.com/Timmmy307/file-s/main';
+const GAME_REPO_BASE = 'https://raw.githubusercontent.com/Firewall-Freedom/file-s/master';
+const UI_REPO_BASE = 'https://raw.githubusercontent.com/Timmmy307/file-s/master';
 
 // Serve the game library index from Timmmy307's UI
 app.get('/CODE/games/ext/', async (req, res) => {
@@ -995,7 +1009,255 @@ app.get('/CODE/games/ext/:game/*', async (req, res) => {
 app.get('/CODE/games/dictionary', (req, res) => res.redirect('/CODE/games/ext/'));
 app.get('/CODE/games/dictionary/', (req, res) => res.redirect('/CODE/games/ext/'));
 
+// ============== USER CHAT API ==============
+const CHATS_FILE = path.join(DATA_DIR, 'chats.json');
+
+function loadChats() {
+    if (fs.existsSync(CHATS_FILE)) {
+        try { return JSON.parse(fs.readFileSync(CHATS_FILE, 'utf8')); } catch {}
+    }
+    return { conversations: {}, messages: {} };
+}
+
+function saveChats(data) {
+    fs.writeFileSync(CHATS_FILE, JSON.stringify(data, null, 2));
+}
+
+// Search users by username or ID
+app.get('/api/chat/search-users', (req, res) => {
+    const query = (req.query.q || '').toLowerCase().trim();
+    if (query.length < 2) {
+        return res.json({ users: [] });
+    }
+    
+    const users = loadUsers();
+    const results = Object.values(users)
+        .filter(u => 
+            (u.username && u.username.toLowerCase().includes(query)) ||
+            (u.clientId && u.clientId.toLowerCase().includes(query))
+        )
+        .slice(0, 20)
+        .map(u => ({
+            clientId: u.clientId,
+            username: u.username || `User_${u.clientId.slice(0, 8)}`
+        }));
+    
+    res.json({ users: results });
+});
+
+// Get user's conversations
+app.get('/api/chat/conversations', (req, res) => {
+    const clientId = req.query.clientId;
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const chatData = loadChats();
+    const userConversations = [];
+    
+    // Find all conversations involving this user
+    for (const [convId, conv] of Object.entries(chatData.conversations || {})) {
+        if (conv.participants.includes(clientId)) {
+            const partnerId = conv.participants.find(p => p !== clientId);
+            const messages = chatData.messages[convId] || [];
+            const lastMsg = messages[messages.length - 1];
+            
+            // Get partner info
+            const users = loadUsers();
+            const partner = users[partnerId] || {};
+            
+            userConversations.push({
+                conversationId: convId,
+                partnerId,
+                partnerName: partner.username || `User_${partnerId?.slice(0, 8) || 'unknown'}`,
+                lastMessage: lastMsg?.content?.slice(0, 50) || '',
+                lastMessageTime: lastMsg?.timestamp || conv.createdAt
+            });
+        }
+    }
+    
+    // Sort by last message time
+    userConversations.sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
+    
+    res.json({ conversations: userConversations });
+});
+
+// Start a new conversation
+app.post('/api/chat/start', (req, res) => {
+    const { initiatorId, initiatorName, recipientId, recipientName } = req.body;
+    
+    if (!initiatorId || !recipientId) {
+        return res.status(400).json({ error: 'Both user IDs required' });
+    }
+    
+    const chatData = loadChats();
+    
+    // Check if conversation already exists
+    const existingConv = Object.entries(chatData.conversations || {}).find(([id, conv]) => 
+        conv.participants.includes(initiatorId) && conv.participants.includes(recipientId)
+    );
+    
+    if (existingConv) {
+        return res.json({ conversationId: existingConv[0], exists: true });
+    }
+    
+    // Create new conversation
+    const convId = `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    chatData.conversations = chatData.conversations || {};
+    chatData.conversations[convId] = {
+        participants: [initiatorId, recipientId],
+        createdAt: new Date().toISOString(),
+        createdBy: initiatorId
+    };
+    chatData.messages = chatData.messages || {};
+    chatData.messages[convId] = [];
+    
+    saveChats(chatData);
+    
+    res.json({ conversationId: convId, exists: false });
+});
+
+// Get messages for a conversation
+app.get('/api/chat/messages', (req, res) => {
+    const { clientId, partnerId } = req.query;
+    
+    if (!clientId || !partnerId) {
+        return res.status(400).json({ error: 'clientId and partnerId required' });
+    }
+    
+    const chatData = loadChats();
+    
+    // Find conversation
+    const conv = Object.entries(chatData.conversations || {}).find(([id, c]) => 
+        c.participants.includes(clientId) && c.participants.includes(partnerId)
+    );
+    
+    if (!conv) {
+        return res.json({ messages: [] });
+    }
+    
+    const messages = chatData.messages[conv[0]] || [];
+    
+    // Return last 20 messages
+    res.json({ messages: messages.slice(-20) });
+});
+
+// Send a message
+app.post('/api/chat/send', (req, res) => {
+    const { senderId, senderName, recipientId, content, type = 'text' } = req.body;
+    
+    if (!senderId || !recipientId || !content) {
+        return res.status(400).json({ error: 'senderId, recipientId, and content required' });
+    }
+    
+    // Limit message size (200KB for images)
+    if (content.length > 200 * 1024) {
+        return res.status(400).json({ error: 'Message too large (max 200KB)' });
+    }
+    
+    const chatData = loadChats();
+    
+    // Find or create conversation
+    let convId = Object.entries(chatData.conversations || {}).find(([id, c]) => 
+        c.participants.includes(senderId) && c.participants.includes(recipientId)
+    )?.[0];
+    
+    if (!convId) {
+        // Create new conversation
+        convId = `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        chatData.conversations = chatData.conversations || {};
+        chatData.conversations[convId] = {
+            participants: [senderId, recipientId],
+            createdAt: new Date().toISOString(),
+            createdBy: senderId
+        };
+        chatData.messages = chatData.messages || {};
+        chatData.messages[convId] = [];
+    }
+    
+    // Add message
+    const message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        senderId,
+        senderName: senderName || `User_${senderId.slice(0, 8)}`,
+        content,
+        type,
+        timestamp: new Date().toISOString()
+    };
+    
+    chatData.messages[convId] = chatData.messages[convId] || [];
+    chatData.messages[convId].push(message);
+    
+    // Keep only last 20 messages per conversation
+    if (chatData.messages[convId].length > 20) {
+        chatData.messages[convId] = chatData.messages[convId].slice(-20);
+    }
+    
+    saveChats(chatData);
+    
+    res.json({ success: true, message });
+});
+
 // ============== STATIC FILE SERVING ==============
+// Middleware to inject sirco-menu.js into HTML pages
+const injectMenuScript = (req, res, next) => {
+    // Only process HTML files
+    const ext = path.extname(req.path).toLowerCase();
+    const isHtmlRequest = ext === '.html' || ext === '.htm' || ext === '' || !ext;
+    
+    // Skip non-HTML requests
+    if (!isHtmlRequest) {
+        return next();
+    }
+    
+    // Skip API requests and specific paths
+    if (req.path.startsWith('/api/') || req.path === '/404.html' || req.path === '/error.html') {
+        return next();
+    }
+    
+    // Determine the file path
+    let filePath = path.join(STATIC_ROOT, req.path);
+    
+    // Try with index.html for directories
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+        filePath = path.join(filePath, 'index.html');
+    }
+    
+    // Try with .html extension
+    if (!fs.existsSync(filePath)) {
+        filePath = path.join(STATIC_ROOT, req.path + '.html');
+    }
+    
+    // If file doesn't exist, continue to next middleware
+    if (!fs.existsSync(filePath)) {
+        return next();
+    }
+    
+    // Read and inject script
+    try {
+        let html = fs.readFileSync(filePath, 'utf8');
+        
+        // Don't inject if already present
+        if (!html.includes('sirco-menu.js')) {
+            // Inject before </body> or at end
+            const menuScript = '\n<script src="/sirco-menu.js"></script>\n';
+            if (html.includes('</body>')) {
+                html = html.replace('</body>', menuScript + '</body>');
+            } else {
+                html += menuScript;
+            }
+        }
+        
+        res.set('Content-Type', 'text/html');
+        res.send(html);
+    } catch (e) {
+        next();
+    }
+};
+
+// Use menu injection before static serving
+app.use(injectMenuScript);
+
 // Serve static files from root
 app.use(express.static(STATIC_ROOT, {
     extensions: ['html', 'htm'],

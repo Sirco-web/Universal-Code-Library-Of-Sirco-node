@@ -49,6 +49,7 @@
                 case 'banned':
                     localStorage.setItem('banned', 'true');
                     localStorage.setItem('banReason', data.reason || 'No reason provided');
+                    if (data.bannedAt) localStorage.setItem('bannedAt', data.bannedAt);
                     showBannedMessage(data.reason);
                     break;
                 
@@ -66,7 +67,24 @@
                     break;
                 
                 case 'ok':
-                    // All good
+                    // Clear any stale banned status
+                    if (data.clearBanned) {
+                        localStorage.removeItem('banned');
+                        localStorage.removeItem('banReason');
+                        localStorage.removeItem('bannedAt');
+                    }
+                    // Sync data from server
+                    if (data.sync) {
+                        if (data.sync.username && data.sync.username !== localStorage.getItem('username')) {
+                            localStorage.setItem('username', data.sync.username);
+                        }
+                        if (data.sync.clientId) {
+                            localStorage.setItem('clientId', data.sync.clientId);
+                        }
+                        if (data.sync.accessCookieId) {
+                            localStorage.setItem('accessCookieId', data.sync.accessCookieId);
+                        }
+                    }
                     break;
             }
         } catch (err) {

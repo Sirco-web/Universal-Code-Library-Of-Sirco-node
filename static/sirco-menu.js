@@ -1,0 +1,1546 @@
+/**
+ * Sirco Floating Menu Component
+ * A draggable, resizable floating menu with:
+ * - User-to-user chat
+ * - Mini AI chat
+ * - Shortcuts
+ * - Hide option (except on welcome page)
+ */
+
+(function() {
+    'use strict';
+
+    // Don't initialize if already initialized
+    if (window.__sircoMenuInitialized) return;
+    window.__sircoMenuInitialized = true;
+
+    // Configuration
+    const STORAGE_KEYS = {
+        position: 'sirco_menu_position',
+        hidden: 'sirco_menu_hidden',
+        activeTab: 'sirco_menu_active_tab',
+        menuSize: 'sirco_menu_size'
+    };
+
+    const DEFAULT_POSITION = { right: 20, bottom: 20 };
+    const DEFAULT_SIZE = { width: 380, height: 500 };
+    const MIN_SIZE = { width: 320, height: 400 };
+    const MAX_SIZE = { width: 600, height: 700 };
+
+    // Check if on welcome page
+    const isWelcomePage = window.location.pathname.startsWith('/welcome');
+    
+    // Pages where menu should NOT be shown
+    const EXCLUDED_PAGES = ['/', '/index.html', '/404.html', '/error.html'];
+    const EXCLUDED_PREFIXES = ['/activate'];
+    
+    const currentPath = window.location.pathname;
+    const isExcludedPage = EXCLUDED_PAGES.includes(currentPath) || 
+                           EXCLUDED_PREFIXES.some(prefix => currentPath.startsWith(prefix));
+    
+    // Don't show menu on excluded pages
+    if (isExcludedPage) {
+        return;
+    }
+
+    // Get saved state
+    function getPosition() {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEYS.position);
+            return saved ? JSON.parse(saved) : DEFAULT_POSITION;
+        } catch { return DEFAULT_POSITION; }
+    }
+
+    function savePosition(pos) {
+        try {
+            localStorage.setItem(STORAGE_KEYS.position, JSON.stringify(pos));
+        } catch {}
+    }
+
+    function getSize() {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEYS.menuSize);
+            return saved ? JSON.parse(saved) : DEFAULT_SIZE;
+        } catch { return DEFAULT_SIZE; }
+    }
+
+    function saveSize(size) {
+        try {
+            localStorage.setItem(STORAGE_KEYS.menuSize, JSON.stringify(size));
+        } catch {}
+    }
+
+    function isHidden() {
+        if (isWelcomePage) return false;
+        try {
+            return localStorage.getItem(STORAGE_KEYS.hidden) === 'true';
+        } catch { return false; }
+    }
+
+    function setHidden(hidden) {
+        try {
+            localStorage.setItem(STORAGE_KEYS.hidden, hidden ? 'true' : 'false');
+        } catch {}
+    }
+
+    function getActiveTab() {
+        try {
+            return localStorage.getItem(STORAGE_KEYS.activeTab) || 'chat';
+        } catch { return 'chat'; }
+    }
+
+    function setActiveTab(tab) {
+        try {
+            localStorage.setItem(STORAGE_KEYS.activeTab, tab);
+        } catch {}
+    }
+
+    // Get current user info
+    function getUserInfo() {
+        return {
+            clientId: localStorage.getItem('clientId') || null,
+            username: localStorage.getItem('username') || 'Anonymous',
+            accessCookieId: localStorage.getItem('accessCookieId') || null
+        };
+    }
+
+    // Inject styles
+    const styles = `
+        .sirco-menu-btn {
+            position: fixed;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+            touch-action: none;
+        }
+        .sirco-menu-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+        }
+        .sirco-menu-btn svg {
+            width: 28px;
+            height: 28px;
+            fill: white;
+        }
+        .sirco-menu-btn.open svg.menu-icon { display: none; }
+        .sirco-menu-btn.open svg.close-icon { display: block; }
+        .sirco-menu-btn svg.close-icon { display: none; }
+
+        .sirco-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99998;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+            backdrop-filter: blur(4px);
+        }
+        .sirco-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .sirco-menu-panel {
+            position: fixed;
+            background: #1e1e2e;
+            border-radius: 16px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+            z-index: 100000;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #cdd6f4;
+        }
+        .sirco-menu-panel.visible {
+            display: flex;
+        }
+
+        .sirco-menu-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: #313244;
+            cursor: move;
+            user-select: none;
+        }
+        .sirco-menu-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #cdd6f4;
+        }
+        .sirco-menu-header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .sirco-menu-header-actions button {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .sirco-menu-header-actions button:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .sirco-menu-header-actions button svg {
+            width: 16px;
+            height: 16px;
+            fill: #cdd6f4;
+        }
+
+        .sirco-menu-tabs {
+            display: flex;
+            background: #1e1e2e;
+            border-bottom: 1px solid #313244;
+        }
+        .sirco-menu-tab {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            color: #6c7086;
+            font-size: 13px;
+            cursor: pointer;
+            transition: color 0.2s, background 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .sirco-menu-tab:hover {
+            color: #cdd6f4;
+            background: rgba(255,255,255,0.05);
+        }
+        .sirco-menu-tab.active {
+            color: #89b4fa;
+            background: rgba(137, 180, 250, 0.1);
+            border-bottom: 2px solid #89b4fa;
+        }
+        .sirco-menu-tab svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        .sirco-menu-content {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sirco-tab-content {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+        .sirco-tab-content.active {
+            display: flex;
+        }
+
+        /* Chat Tab Styles */
+        .sirco-chat-search {
+            padding: 12px;
+            border-bottom: 1px solid #313244;
+        }
+        .sirco-chat-search input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #45475a;
+            border-radius: 8px;
+            background: #313244;
+            color: #cdd6f4;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .sirco-chat-search input::placeholder {
+            color: #6c7086;
+        }
+        .sirco-chat-search input:focus {
+            outline: none;
+            border-color: #89b4fa;
+        }
+
+        .sirco-chat-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .sirco-chat-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            gap: 10px;
+        }
+        .sirco-chat-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .sirco-chat-item.active {
+            background: rgba(137, 180, 250, 0.15);
+        }
+        .sirco-chat-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+        }
+        .sirco-chat-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .sirco-chat-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #cdd6f4;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .sirco-chat-preview {
+            font-size: 12px;
+            color: #6c7086;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .sirco-chat-time {
+            font-size: 11px;
+            color: #6c7086;
+        }
+
+        .sirco-chat-view {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+        .sirco-chat-view.active {
+            display: flex;
+        }
+        .sirco-chat-header {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #313244;
+            gap: 10px;
+        }
+        .sirco-chat-back {
+            background: none;
+            border: none;
+            color: #89b4fa;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+        }
+        .sirco-chat-back:hover {
+            background: rgba(137, 180, 250, 0.1);
+        }
+        .sirco-chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .sirco-message {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        .sirco-message.sent {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .sirco-message.received {
+            align-self: flex-start;
+            background: #313244;
+            color: #cdd6f4;
+            border-bottom-left-radius: 4px;
+        }
+        .sirco-message img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            margin-top: 4px;
+        }
+        .sirco-chat-input-area {
+            display: flex;
+            gap: 8px;
+            padding: 12px;
+            border-top: 1px solid #313244;
+        }
+        .sirco-chat-input-area input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #45475a;
+            border-radius: 8px;
+            background: #313244;
+            color: #cdd6f4;
+            font-size: 14px;
+        }
+        .sirco-chat-input-area input:focus {
+            outline: none;
+            border-color: #89b4fa;
+        }
+        .sirco-chat-input-area button {
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .sirco-chat-input-area button:hover {
+            opacity: 0.9;
+        }
+
+        .sirco-chat-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+            color: #6c7086;
+        }
+        .sirco-chat-empty svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            fill: #45475a;
+        }
+
+        /* AI Tab Styles */
+        .sirco-ai-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .sirco-ai-message {
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .sirco-ai-message.user {
+            align-self: flex-end;
+            max-width: 85%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .sirco-ai-message.assistant {
+            align-self: flex-start;
+            background: #313244;
+            color: #cdd6f4;
+        }
+        .sirco-ai-message pre {
+            background: #1e1e2e;
+            padding: 8px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .sirco-ai-message code {
+            font-family: 'Fira Code', monospace;
+        }
+        .sirco-ai-input-area {
+            display: flex;
+            gap: 8px;
+            padding: 12px;
+            border-top: 1px solid #313244;
+        }
+        .sirco-ai-input-area textarea {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #45475a;
+            border-radius: 8px;
+            background: #313244;
+            color: #cdd6f4;
+            font-size: 14px;
+            resize: none;
+            min-height: 40px;
+            max-height: 120px;
+            font-family: inherit;
+        }
+        .sirco-ai-input-area textarea:focus {
+            outline: none;
+            border-color: #89b4fa;
+        }
+        .sirco-ai-input-area button {
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            align-self: flex-end;
+        }
+        .sirco-ai-thinking {
+            text-align: center;
+            padding: 12px;
+            color: #6c7086;
+            font-size: 13px;
+        }
+        .sirco-ai-model-select {
+            padding: 8px 12px;
+            border-bottom: 1px solid #313244;
+        }
+        .sirco-ai-model-select select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #45475a;
+            border-radius: 6px;
+            background: #313244;
+            color: #cdd6f4;
+            font-size: 13px;
+        }
+
+        /* Shortcuts Tab Styles */
+        .sirco-shortcuts-content {
+            padding: 16px;
+            overflow-y: auto;
+        }
+        .sirco-shortcut-section {
+            background: #313244;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .sirco-shortcut-section h4 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            color: #89b4fa;
+        }
+        .sirco-shortcut-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .sirco-shortcut-row label {
+            font-size: 13px;
+            color: #a6adc8;
+        }
+        .sirco-shortcut-row input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #89b4fa;
+        }
+        .sirco-shortcut-row input[type="text"] {
+            padding: 6px 10px;
+            border: 1px solid #45475a;
+            border-radius: 6px;
+            background: #1e1e2e;
+            color: #cdd6f4;
+            font-size: 13px;
+            width: 50px;
+            text-align: center;
+        }
+        .sirco-shortcut-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .sirco-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .sirco-btn:hover {
+            opacity: 0.85;
+        }
+        .sirco-btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .sirco-btn-secondary {
+            background: #45475a;
+            color: #cdd6f4;
+        }
+
+        .sirco-shortcut-current {
+            font-size: 12px;
+            color: #6c7086;
+            margin-top: 8px;
+            padding: 8px;
+            background: #1e1e2e;
+            border-radius: 6px;
+        }
+
+        /* Settings section */
+        .sirco-settings-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #45475a;
+        }
+        .sirco-settings-section h4 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: #a6adc8;
+        }
+
+        /* Resize handle */
+        .sirco-resize-handle {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            bottom: 0;
+            right: 0;
+            cursor: nwse-resize;
+            background: transparent;
+        }
+        .sirco-resize-handle::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
+            border-right: 2px solid #6c7086;
+            border-bottom: 2px solid #6c7086;
+        }
+
+        /* Request popup */
+        .sirco-request-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1e1e2e;
+            border-radius: 16px;
+            padding: 24px;
+            z-index: 100001;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            max-width: 300px;
+        }
+        .sirco-request-popup h3 {
+            margin: 0 0 8px 0;
+            color: #cdd6f4;
+        }
+        .sirco-request-popup p {
+            margin: 0 0 16px 0;
+            color: #a6adc8;
+            font-size: 14px;
+        }
+        .sirco-request-popup-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        /* User search results */
+        .sirco-user-results {
+            padding: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .sirco-user-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            gap: 10px;
+        }
+        .sirco-user-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        /* Pending requests badge */
+        .sirco-pending-badge {
+            background: #f38ba8;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+        }
+
+        /* Scrollbar styling */
+        .sirco-menu-panel ::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sirco-menu-panel ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sirco-menu-panel ::-webkit-scrollbar-thumb {
+            background: #45475a;
+            border-radius: 3px;
+        }
+        .sirco-menu-panel ::-webkit-scrollbar-thumb:hover {
+            background: #585b70;
+        }
+    `;
+
+    // Inject styles
+    const styleEl = document.createElement('style');
+    styleEl.textContent = styles;
+    document.head.appendChild(styleEl);
+
+    // Create DOM elements
+    const overlay = document.createElement('div');
+    overlay.className = 'sirco-overlay';
+    document.body.appendChild(overlay);
+
+    const menuBtn = document.createElement('button');
+    menuBtn.className = 'sirco-menu-btn';
+    menuBtn.innerHTML = `
+        <svg class="menu-icon" viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+        <svg class="close-icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    `;
+    document.body.appendChild(menuBtn);
+
+    const panel = document.createElement('div');
+    panel.className = 'sirco-menu-panel';
+    panel.innerHTML = `
+        <div class="sirco-menu-header">
+            <h3>Sirco Menu</h3>
+            <div class="sirco-menu-header-actions">
+                <button class="sirco-reset-pos" title="Reset position">
+                    <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                </button>
+                <button class="sirco-hide-menu" title="Hide menu">
+                    <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="sirco-menu-tabs">
+            <button class="sirco-menu-tab active" data-tab="chat">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                <span>Chat</span>
+            </button>
+            <button class="sirco-menu-tab" data-tab="ai">
+                <svg viewBox="0 0 24 24"><path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1-2.73 2.71-2.73 7.08 0 9.79s7.15 2.71 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.53-9.11-.02-12.58s9.14-3.47 12.65 0L21 3v7.12z"/></svg>
+                <span>AI</span>
+            </button>
+            <button class="sirco-menu-tab" data-tab="shortcuts">
+                <svg viewBox="0 0 24 24"><path d="M15 7.5V2H9v5.5l3 3 3-3zM7.5 9H2v6h5.5l3-3-3-3zM9 16.5V22h6v-5.5l-3-3-3 3zM16.5 9l-3 3 3 3H22V9h-5.5z"/></svg>
+                <span>Shortcuts</span>
+            </button>
+        </div>
+        <div class="sirco-menu-content">
+            <!-- Chat Tab -->
+            <div class="sirco-tab-content active" data-content="chat">
+                <div class="sirco-chat-list-view">
+                    <div class="sirco-chat-search">
+                        <input type="text" placeholder="Search users by name or ID..." id="sirco-user-search">
+                    </div>
+                    <div class="sirco-user-results" id="sirco-user-results" style="display: none;"></div>
+                    <div class="sirco-chat-list" id="sirco-chat-list">
+                        <div class="sirco-chat-empty">
+                            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                            <p>No conversations yet</p>
+                            <span>Search for users to start chatting</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sirco-chat-view" id="sirco-chat-view">
+                    <div class="sirco-chat-header">
+                        <button class="sirco-chat-back" id="sirco-chat-back">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                        </button>
+                        <div class="sirco-chat-avatar" id="sirco-chat-partner-avatar">?</div>
+                        <div class="sirco-chat-info">
+                            <div class="sirco-chat-name" id="sirco-chat-partner-name">User</div>
+                        </div>
+                    </div>
+                    <div class="sirco-chat-messages" id="sirco-chat-messages"></div>
+                    <div class="sirco-chat-input-area">
+                        <input type="text" placeholder="Type a message..." id="sirco-chat-input">
+                        <button id="sirco-chat-send">Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Tab -->
+            <div class="sirco-tab-content" data-content="ai">
+                <div class="sirco-ai-model-select">
+                    <select id="sirco-ai-model">
+                        <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
+                        <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
+                        <option value="deepseek-r1-distill-llama-70b">deepseek-r1-distill-llama-70b</option>
+                        <option value="qwen/qwen3-32b">qwen/qwen3-32b</option>
+                    </select>
+                </div>
+                <div class="sirco-ai-messages" id="sirco-ai-messages"></div>
+                <div class="sirco-ai-input-area">
+                    <textarea id="sirco-ai-input" placeholder="Ask AI anything..." rows="1"></textarea>
+                    <button id="sirco-ai-send">Send</button>
+                </div>
+            </div>
+
+            <!-- Shortcuts Tab -->
+            <div class="sirco-tab-content" data-content="shortcuts">
+                <div class="sirco-shortcuts-content">
+                    <div class="sirco-shortcut-section">
+                        <h4>Panic Shortcut</h4>
+                        <p style="font-size: 12px; color: #6c7086; margin-bottom: 12px;">Press the shortcut to remove access and optionally redirect</p>
+                        <div class="sirco-shortcut-row">
+                            <label><input type="checkbox" id="sirco-mod-ctrl"> Ctrl</label>
+                            <label><input type="checkbox" id="sirco-mod-alt" checked> Alt</label>
+                            <label><input type="checkbox" id="sirco-mod-shift"> Shift</label>
+                            <label><input type="checkbox" id="sirco-mod-meta"> Meta</label>
+                        </div>
+                        <div class="sirco-shortcut-row">
+                            <label>Key:</label>
+                            <input type="text" id="sirco-shortcut-key" value="p" maxlength="1">
+                        </div>
+                        <div class="sirco-shortcut-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                            <label><input type="radio" name="sirco-action" value="none"> No redirect</label>
+                            <label><input type="radio" name="sirco-action" value="goto" checked> Go home</label>
+                            <label><input type="radio" name="sirco-action" value="google"> Google</label>
+                            <label><input type="radio" name="sirco-action" value="custom"> Custom URL:</label>
+                            <input type="text" id="sirco-custom-url" placeholder="https://..." style="width: 100%;">
+                        </div>
+                        <div class="sirco-shortcut-actions">
+                            <button class="sirco-btn sirco-btn-primary" id="sirco-save-shortcut">Save</button>
+                            <button class="sirco-btn sirco-btn-secondary" id="sirco-reset-shortcut">Reset</button>
+                        </div>
+                        <div class="sirco-shortcut-current" id="sirco-shortcut-display">Current: Alt + P</div>
+                    </div>
+
+                    <div class="sirco-shortcut-section sirco-settings-section">
+                        <h4>Menu Settings</h4>
+                        <div class="sirco-shortcut-row">
+                            <label style="flex: 1;">
+                                <input type="checkbox" id="sirco-hide-on-other-pages" ${!isWelcomePage && isHidden() ? 'checked' : ''}>
+                                Hide menu on other pages
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="sirco-resize-handle"></div>
+    `;
+    document.body.appendChild(panel);
+
+    // State
+    let isOpen = false;
+    let isDragging = false;
+    let isResizing = false;
+    let dragOffset = { x: 0, y: 0 };
+    let currentChatUser = null;
+    let conversations = [];
+    let chatPollingInterval = null;
+
+    // Position and size
+    const pos = getPosition();
+    const size = getSize();
+    
+    // Apply initial button position
+    menuBtn.style.right = pos.right + 'px';
+    menuBtn.style.bottom = pos.bottom + 'px';
+
+    // Apply initial panel size
+    panel.style.width = size.width + 'px';
+    panel.style.height = size.height + 'px';
+
+    // Check if hidden
+    if (isHidden()) {
+        menuBtn.style.display = 'none';
+    }
+
+    // Position panel relative to button
+    function updatePanelPosition() {
+        const btnRect = menuBtn.getBoundingClientRect();
+        panel.style.right = (window.innerWidth - btnRect.right) + 'px';
+        panel.style.bottom = (window.innerHeight - btnRect.top + 10) + 'px';
+    }
+
+    // Toggle menu
+    function toggleMenu() {
+        isOpen = !isOpen;
+        menuBtn.classList.toggle('open', isOpen);
+        overlay.classList.toggle('visible', isOpen);
+        panel.classList.toggle('visible', isOpen);
+        if (isOpen) {
+            updatePanelPosition();
+            loadConversations();
+        }
+    }
+
+    menuBtn.addEventListener('click', (e) => {
+        if (!isDragging) toggleMenu();
+    });
+
+    overlay.addEventListener('click', () => {
+        if (isOpen) toggleMenu();
+    });
+
+    // Dragging
+    let dragStartX, dragStartY;
+    let wasDragged = false;
+
+    menuBtn.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        wasDragged = false;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        const rect = menuBtn.getBoundingClientRect();
+        dragOffset.x = e.clientX - rect.left;
+        dragOffset.y = e.clientY - rect.top;
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging && !isResizing) {
+            const dx = Math.abs(e.clientX - dragStartX);
+            const dy = Math.abs(e.clientY - dragStartY);
+            if (dx > 5 || dy > 5) wasDragged = true;
+
+            const x = e.clientX - dragOffset.x;
+            const y = e.clientY - dragOffset.y;
+            const btnWidth = menuBtn.offsetWidth;
+            const btnHeight = menuBtn.offsetHeight;
+
+            const right = Math.max(0, Math.min(window.innerWidth - btnWidth, window.innerWidth - x - btnWidth));
+            const bottom = Math.max(0, Math.min(window.innerHeight - btnHeight, window.innerHeight - y - btnHeight));
+
+            menuBtn.style.right = right + 'px';
+            menuBtn.style.bottom = bottom + 'px';
+            menuBtn.style.left = 'auto';
+            menuBtn.style.top = 'auto';
+
+            if (isOpen) updatePanelPosition();
+        }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        if (isDragging) {
+            const pos = {
+                right: parseInt(menuBtn.style.right) || 20,
+                bottom: parseInt(menuBtn.style.bottom) || 20
+            };
+            savePosition(pos);
+            
+            if (wasDragged) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }
+        isDragging = false;
+    });
+
+    // Resizing
+    const resizeHandle = panel.querySelector('.sirco-resize-handle');
+    let resizeStartW, resizeStartH, resizeStartX, resizeStartY;
+
+    resizeHandle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        resizeStartW = panel.offsetWidth;
+        resizeStartH = panel.offsetHeight;
+        resizeStartX = e.clientX;
+        resizeStartY = e.clientY;
+        e.preventDefault();
+        e.stopPropagation();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (isResizing) {
+            // Since we position from right/bottom, we need to invert the deltas
+            const dw = resizeStartX - e.clientX;
+            const dh = resizeStartY - e.clientY;
+            const newW = Math.max(MIN_SIZE.width, Math.min(MAX_SIZE.width, resizeStartW + dw));
+            const newH = Math.max(MIN_SIZE.height, Math.min(MAX_SIZE.height, resizeStartH + dh));
+            panel.style.width = newW + 'px';
+            panel.style.height = newH + 'px';
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isResizing) {
+            saveSize({
+                width: panel.offsetWidth,
+                height: panel.offsetHeight
+            });
+        }
+        isResizing = false;
+    });
+
+    // Tab switching
+    const tabs = panel.querySelectorAll('.sirco-menu-tab');
+    const tabContents = panel.querySelectorAll('.sirco-tab-content');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.dataset.tab;
+            tabs.forEach(t => t.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            panel.querySelector(`.sirco-tab-content[data-content="${tabName}"]`).classList.add('active');
+            setActiveTab(tabName);
+        });
+    });
+
+    // Set initial active tab
+    const savedTab = getActiveTab();
+    const savedTabBtn = panel.querySelector(`.sirco-menu-tab[data-tab="${savedTab}"]`);
+    if (savedTabBtn) savedTabBtn.click();
+
+    // Reset position
+    panel.querySelector('.sirco-reset-pos').addEventListener('click', () => {
+        menuBtn.style.right = DEFAULT_POSITION.right + 'px';
+        menuBtn.style.bottom = DEFAULT_POSITION.bottom + 'px';
+        savePosition(DEFAULT_POSITION);
+        panel.style.width = DEFAULT_SIZE.width + 'px';
+        panel.style.height = DEFAULT_SIZE.height + 'px';
+        saveSize(DEFAULT_SIZE);
+        updatePanelPosition();
+    });
+
+    // Hide menu
+    panel.querySelector('.sirco-hide-menu').addEventListener('click', () => {
+        if (isWelcomePage) {
+            alert('Menu cannot be hidden on the welcome page');
+            return;
+        }
+        setHidden(true);
+        menuBtn.style.display = 'none';
+        toggleMenu();
+    });
+
+    // Hide menu checkbox
+    const hideCheckbox = document.getElementById('sirco-hide-on-other-pages');
+    if (hideCheckbox) {
+        hideCheckbox.addEventListener('change', () => {
+            setHidden(hideCheckbox.checked);
+            if (hideCheckbox.checked && !isWelcomePage) {
+                menuBtn.style.display = 'none';
+                toggleMenu();
+            } else {
+                menuBtn.style.display = 'flex';
+            }
+        });
+    }
+
+    // ==================== CHAT FUNCTIONALITY ====================
+
+    async function loadConversations() {
+        const user = getUserInfo();
+        if (!user.clientId) return;
+
+        try {
+            const res = await fetch('/api/chat/conversations?clientId=' + encodeURIComponent(user.clientId));
+            if (res.ok) {
+                const data = await res.json();
+                conversations = data.conversations || [];
+                renderConversations();
+            }
+        } catch (e) {
+            console.error('Failed to load conversations:', e);
+        }
+    }
+
+    function renderConversations() {
+        const listEl = document.getElementById('sirco-chat-list');
+        if (!listEl) return;
+
+        if (conversations.length === 0) {
+            listEl.innerHTML = `
+                <div class="sirco-chat-empty">
+                    <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                    <p>No conversations yet</p>
+                    <span>Search for users to start chatting</span>
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = conversations.map(conv => {
+            const initial = (conv.partnerName || 'U')[0].toUpperCase();
+            const time = conv.lastMessageTime ? new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+            return `
+                <div class="sirco-chat-item" data-partner-id="${conv.partnerId}">
+                    <div class="sirco-chat-avatar">${initial}</div>
+                    <div class="sirco-chat-info">
+                        <div class="sirco-chat-name">${conv.partnerName || 'Unknown'}</div>
+                        <div class="sirco-chat-preview">${conv.lastMessage || ''}</div>
+                    </div>
+                    <div class="sirco-chat-time">${time}</div>
+                </div>
+            `;
+        }).join('');
+
+        // Add click handlers
+        listEl.querySelectorAll('.sirco-chat-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const partnerId = item.dataset.partnerId;
+                const conv = conversations.find(c => c.partnerId === partnerId);
+                if (conv) openChat(conv);
+            });
+        });
+    }
+
+    function openChat(conv) {
+        currentChatUser = conv;
+        document.querySelector('.sirco-chat-list-view').style.display = 'none';
+        document.getElementById('sirco-chat-view').classList.add('active');
+        document.getElementById('sirco-chat-partner-name').textContent = conv.partnerName || 'Unknown';
+        document.getElementById('sirco-chat-partner-avatar').textContent = (conv.partnerName || 'U')[0].toUpperCase();
+        loadChatMessages();
+        startChatPolling();
+    }
+
+    function closeChat() {
+        currentChatUser = null;
+        document.querySelector('.sirco-chat-list-view').style.display = 'block';
+        document.getElementById('sirco-chat-view').classList.remove('active');
+        stopChatPolling();
+    }
+
+    async function loadChatMessages() {
+        if (!currentChatUser) return;
+        const user = getUserInfo();
+
+        try {
+            const res = await fetch(`/api/chat/messages?clientId=${encodeURIComponent(user.clientId)}&partnerId=${encodeURIComponent(currentChatUser.partnerId)}`);
+            if (res.ok) {
+                const data = await res.json();
+                renderChatMessages(data.messages || []);
+            }
+        } catch (e) {
+            console.error('Failed to load messages:', e);
+        }
+    }
+
+    function renderChatMessages(messages) {
+        const container = document.getElementById('sirco-chat-messages');
+        if (!container) return;
+
+        const user = getUserInfo();
+        container.innerHTML = messages.map(msg => {
+            const isSent = msg.senderId === user.clientId;
+            let content = msg.content;
+            if (msg.type === 'image') {
+                content = `<img src="${msg.content}" alt="Image">`;
+            }
+            return `<div class="sirco-message ${isSent ? 'sent' : 'received'}">${content}</div>`;
+        }).join('');
+
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function startChatPolling() {
+        stopChatPolling();
+        chatPollingInterval = setInterval(loadChatMessages, 3000);
+    }
+
+    function stopChatPolling() {
+        if (chatPollingInterval) {
+            clearInterval(chatPollingInterval);
+            chatPollingInterval = null;
+        }
+    }
+
+    async function sendChatMessage(content) {
+        if (!currentChatUser || !content.trim()) return;
+        const user = getUserInfo();
+
+        try {
+            const res = await fetch('/api/chat/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    senderId: user.clientId,
+                    senderName: user.username,
+                    recipientId: currentChatUser.partnerId,
+                    content: content.trim(),
+                    type: 'text'
+                })
+            });
+            if (res.ok) {
+                document.getElementById('sirco-chat-input').value = '';
+                loadChatMessages();
+            }
+        } catch (e) {
+            console.error('Failed to send message:', e);
+        }
+    }
+
+    // User search
+    const userSearchInput = document.getElementById('sirco-user-search');
+    const userResultsContainer = document.getElementById('sirco-user-results');
+    let searchTimeout;
+
+    if (userSearchInput) {
+        userSearchInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            const query = userSearchInput.value.trim();
+            if (query.length < 2) {
+                userResultsContainer.style.display = 'none';
+                return;
+            }
+            searchTimeout = setTimeout(() => searchUsers(query), 300);
+        });
+    }
+
+    async function searchUsers(query) {
+        try {
+            const res = await fetch('/api/chat/search-users?q=' + encodeURIComponent(query));
+            if (res.ok) {
+                const data = await res.json();
+                renderUserResults(data.users || []);
+            }
+        } catch (e) {
+            console.error('Failed to search users:', e);
+        }
+    }
+
+    function renderUserResults(users) {
+        if (!userResultsContainer) return;
+
+        if (users.length === 0) {
+            userResultsContainer.innerHTML = '<div style="padding: 12px; color: #6c7086; text-align: center;">No users found</div>';
+            userResultsContainer.style.display = 'block';
+            return;
+        }
+
+        const user = getUserInfo();
+        userResultsContainer.innerHTML = users
+            .filter(u => u.clientId !== user.clientId)
+            .map(u => `
+                <div class="sirco-user-item" data-user-id="${u.clientId}" data-user-name="${u.username}">
+                    <div class="sirco-chat-avatar">${(u.username || 'U')[0].toUpperCase()}</div>
+                    <div class="sirco-chat-info">
+                        <div class="sirco-chat-name">${u.username}</div>
+                        <div class="sirco-chat-preview">${u.clientId.slice(0, 8)}...</div>
+                    </div>
+                </div>
+            `).join('');
+
+        userResultsContainer.style.display = 'block';
+
+        // Add click handlers
+        userResultsContainer.querySelectorAll('.sirco-user-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const userId = item.dataset.userId;
+                const userName = item.dataset.userName;
+                startChatWithUser(userId, userName);
+            });
+        });
+    }
+
+    async function startChatWithUser(userId, userName) {
+        const user = getUserInfo();
+        
+        // Check if conversation already exists
+        let conv = conversations.find(c => c.partnerId === userId);
+        if (conv) {
+            openChat(conv);
+            userResultsContainer.style.display = 'none';
+            userSearchInput.value = '';
+            return;
+        }
+
+        // Create new conversation
+        try {
+            const res = await fetch('/api/chat/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    initiatorId: user.clientId,
+                    initiatorName: user.username,
+                    recipientId: userId,
+                    recipientName: userName
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                conv = {
+                    partnerId: userId,
+                    partnerName: userName,
+                    lastMessage: '',
+                    lastMessageTime: Date.now()
+                };
+                conversations.unshift(conv);
+                openChat(conv);
+                userResultsContainer.style.display = 'none';
+                userSearchInput.value = '';
+            }
+        } catch (e) {
+            console.error('Failed to start chat:', e);
+        }
+    }
+
+    // Chat back button
+    document.getElementById('sirco-chat-back')?.addEventListener('click', closeChat);
+
+    // Chat send
+    document.getElementById('sirco-chat-send')?.addEventListener('click', () => {
+        const input = document.getElementById('sirco-chat-input');
+        sendChatMessage(input.value);
+    });
+
+    document.getElementById('sirco-chat-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendChatMessage(e.target.value);
+        }
+    });
+
+    // ==================== AI FUNCTIONALITY ====================
+
+    const aiMessages = [];
+    const aiMessagesContainer = document.getElementById('sirco-ai-messages');
+    const aiInput = document.getElementById('sirco-ai-input');
+    const aiSendBtn = document.getElementById('sirco-ai-send');
+    const aiModelSelect = document.getElementById('sirco-ai-model');
+
+    // Load AI history from localStorage
+    function loadAIHistory() {
+        try {
+            const saved = localStorage.getItem('sirco_mini_ai_history');
+            if (saved) {
+                const history = JSON.parse(saved);
+                history.forEach(msg => {
+                    aiMessages.push(msg);
+                    appendAIMessage(msg.role, msg.content, false);
+                });
+            }
+        } catch {}
+    }
+
+    function saveAIHistory() {
+        try {
+            // Keep only last 20 messages
+            const toSave = aiMessages.slice(-20);
+            localStorage.setItem('sirco_mini_ai_history', JSON.stringify(toSave));
+        } catch {}
+    }
+
+    function appendAIMessage(role, content, save = true) {
+        if (!aiMessagesContainer) return;
+
+        const div = document.createElement('div');
+        div.className = `sirco-ai-message ${role}`;
+
+        // Simple markdown rendering
+        let html = content
+            .replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+            .replace(/\n/g, '<br>');
+
+        div.innerHTML = html;
+        aiMessagesContainer.appendChild(div);
+        aiMessagesContainer.scrollTop = aiMessagesContainer.scrollHeight;
+
+        if (save) {
+            aiMessages.push({ role, content });
+            saveAIHistory();
+        }
+    }
+
+    async function sendAIMessage() {
+        const content = aiInput.value.trim();
+        if (!content) return;
+
+        aiInput.value = '';
+        appendAIMessage('user', content);
+
+        // Show thinking
+        const thinking = document.createElement('div');
+        thinking.className = 'sirco-ai-thinking';
+        thinking.textContent = 'AI is thinking...';
+        aiMessagesContainer.appendChild(thinking);
+
+        try {
+            const model = aiModelSelect?.value || 'llama-3.3-70b-versatile';
+            const messages = aiMessages.map(m => ({
+                role: m.role === 'user' ? 'user' : 'assistant',
+                content: m.content
+            }));
+
+            const res = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model, messages })
+            });
+
+            thinking.remove();
+
+            if (res.ok) {
+                const data = await res.json();
+                const reply = data.choices?.[0]?.message?.content || 'No response';
+                appendAIMessage('assistant', reply);
+            } else {
+                appendAIMessage('assistant', 'Error: Failed to get response');
+            }
+        } catch (e) {
+            thinking.remove();
+            appendAIMessage('assistant', 'Error: ' + e.message);
+        }
+    }
+
+    aiSendBtn?.addEventListener('click', sendAIMessage);
+    aiInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendAIMessage();
+        }
+    });
+
+    // Auto-resize textarea
+    aiInput?.addEventListener('input', () => {
+        aiInput.style.height = 'auto';
+        aiInput.style.height = Math.min(aiInput.scrollHeight, 120) + 'px';
+    });
+
+    loadAIHistory();
+
+    // ==================== SHORTCUTS FUNCTIONALITY ====================
+
+    const DEFAULT_SHORTCUT = { modifiers: { ctrl: false, alt: true, shift: false, meta: false }, key: 'p', action: 'goto', customURL: '/' };
+
+    function getShortcutConfig() {
+        try {
+            const saved = localStorage.getItem('shortcut_config');
+            return saved ? JSON.parse(saved) : DEFAULT_SHORTCUT;
+        } catch { return DEFAULT_SHORTCUT; }
+    }
+
+    function saveShortcutConfig(config) {
+        try {
+            localStorage.setItem('shortcut_config', JSON.stringify(config));
+        } catch {}
+    }
+
+    function loadShortcutUI() {
+        const config = getShortcutConfig();
+        document.getElementById('sirco-mod-ctrl').checked = config.modifiers.ctrl;
+        document.getElementById('sirco-mod-alt').checked = config.modifiers.alt;
+        document.getElementById('sirco-mod-shift').checked = config.modifiers.shift;
+        document.getElementById('sirco-mod-meta').checked = config.modifiers.meta;
+        document.getElementById('sirco-shortcut-key').value = config.key;
+        document.getElementById('sirco-custom-url').value = config.customURL || '';
+        
+        const actionRadios = document.getElementsByName('sirco-action');
+        for (const radio of actionRadios) {
+            radio.checked = radio.value === config.action;
+        }
+
+        updateShortcutDisplay();
+    }
+
+    function updateShortcutDisplay() {
+        const config = getShortcutConfig();
+        const parts = [];
+        if (config.modifiers.ctrl) parts.push('Ctrl');
+        if (config.modifiers.alt) parts.push('Alt');
+        if (config.modifiers.shift) parts.push('Shift');
+        if (config.modifiers.meta) parts.push('Meta');
+        parts.push(config.key.toUpperCase());
+        document.getElementById('sirco-shortcut-display').textContent = 'Current: ' + parts.join(' + ');
+    }
+
+    document.getElementById('sirco-save-shortcut')?.addEventListener('click', () => {
+        const action = document.querySelector('input[name="sirco-action"]:checked')?.value || 'goto';
+        const config = {
+            modifiers: {
+                ctrl: document.getElementById('sirco-mod-ctrl').checked,
+                alt: document.getElementById('sirco-mod-alt').checked,
+                shift: document.getElementById('sirco-mod-shift').checked,
+                meta: document.getElementById('sirco-mod-meta').checked
+            },
+            key: (document.getElementById('sirco-shortcut-key').value || 'p').toLowerCase(),
+            action,
+            customURL: document.getElementById('sirco-custom-url').value.trim()
+        };
+        saveShortcutConfig(config);
+        updateShortcutDisplay();
+        alert('Shortcut saved!');
+    });
+
+    document.getElementById('sirco-reset-shortcut')?.addEventListener('click', () => {
+        if (confirm('Reset to default (Alt + P)?')) {
+            saveShortcutConfig(DEFAULT_SHORTCUT);
+            loadShortcutUI();
+            alert('Reset to default.');
+        }
+    });
+
+    loadShortcutUI();
+
+    // Global shortcut listener
+    document.addEventListener('keydown', (e) => {
+        const config = getShortcutConfig();
+        const match = (
+            e.ctrlKey === config.modifiers.ctrl &&
+            e.altKey === config.modifiers.alt &&
+            e.shiftKey === config.modifiers.shift &&
+            e.metaKey === config.modifiers.meta &&
+            e.key.toLowerCase() === config.key.toLowerCase()
+        );
+
+        if (match) {
+            e.preventDefault();
+            // Remove access cookie
+            document.cookie = 'access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            
+            // Perform action
+            if (config.action === 'goto') {
+                window.location.href = '/';
+            } else if (config.action === 'google') {
+                window.location.href = 'https://www.google.com';
+            } else if (config.action === 'custom' && config.customURL) {
+                const url = config.customURL.startsWith('http') ? config.customURL : 'https://' + config.customURL;
+                window.location.href = url;
+            }
+        }
+    });
+
+    // Close menu on escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isOpen) {
+            toggleMenu();
+        }
+    });
+
+})();

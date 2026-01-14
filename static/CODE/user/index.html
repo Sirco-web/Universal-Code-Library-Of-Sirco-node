@@ -173,7 +173,17 @@ scheduleNextCheck();</script></head>
             'wasOffline',
             'classic_mode',
             'dark_mode',
-            'chat_history'
+            'chat_history',
+            // Security-sensitive keys - NEVER show these
+            'owner_token',
+            'clientId',
+            'accessCookieId',
+            'banned',
+            'banReason',
+            'game_dictionary_recent',
+            'game_dictionary_recent_enabled',
+            'sirco_menu_hidden',
+            'sirco_menu_position'
             ];
             const all = getAllCookies();
             const filtered = {};
@@ -205,7 +215,17 @@ scheduleNextCheck();</script></head>
             'wasOffline',
             'classic_mode',
             'dark_mode',
-            'chat_history'
+            'chat_history',
+            // Security-sensitive keys - NEVER show these
+            'owner_token',
+            'clientId',
+            'accessCookieId',
+            'banned',
+            'banReason',
+            'game_dictionary_recent',
+            'game_dictionary_recent_enabled',
+            'sirco_menu_hidden',
+            'sirco_menu_position'
             ];
             const filtered = {};
             Object.keys(localStorage).forEach(key => {
