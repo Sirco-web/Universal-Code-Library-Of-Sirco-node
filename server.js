@@ -46,7 +46,8 @@ function loadSettings() {
         dynamicFolderName: process.env.DYNAMIC_FOLDER_NAME || 'CODE',
         adminApiPassword: process.env.ADMIN_API_PASSWORD || 'letmein',
         aiApiKeys: (process.env.AI_API_KEYS || '').split(',').filter(Boolean),
-        sessionSecret: process.env.SESSION_SECRET || 'change-me-in-production'
+        sessionSecret: process.env.SESSION_SECRET || 'change-me-in-production',
+        siteStatus: 'normal' // normal, 404-lockdown, 401-popup
     };
     
     if (fs.existsSync(settingsPath)) {
@@ -214,7 +215,48 @@ function saveAccessCookies(cookies) {
 
 // ============== MIDDLEWARE ==============
 
-// FIRST: Access cookie check - fastest rejection for unauthorized users
+// SITE STATUS CHECK - Handle 404-lockdown and 401-popup modes
+app.use((req, res, next) => {
+    const status = serverSettings.siteStatus || 'normal';
+    const reqPath = req.path;
+    
+    // Always allow these paths regardless of site status
+    const ALWAYS_ALLOWED = [
+        '/', '/index.html', '/404.html', '/error.html',
+        '/style.css', '/main.js', '/analytics.js',
+        '/404-status'  // Status management page
+    ];
+    
+    const ALWAYS_ALLOWED_PREFIXES = [
+        '/api/',        // API endpoints
+        '/owner'        // Owner panel
+    ];
+    
+    // Check if always allowed
+    if (ALWAYS_ALLOWED.includes(reqPath) || 
+        ALWAYS_ALLOWED_PREFIXES.some(p => reqPath.startsWith(p)) ||
+        reqPath.endsWith('.css') || reqPath.endsWith('.js')) {
+        // For 401-popup mode, inject popup script into HTML responses
+        if (status === '401-popup' && !reqPath.startsWith('/api/') && !reqPath.startsWith('/owner') && !reqPath.startsWith('/404-status')) {
+            res.locals.inject401Popup = true;
+        }
+        return next();
+    }
+    
+    // In 404-lockdown mode, redirect everything else to /404.html
+    if (status === '404-lockdown') {
+        return res.redirect('/404.html');
+    }
+    
+    // In 401-popup mode, allow access but mark for popup injection
+    if (status === '401-popup') {
+        res.locals.inject401Popup = true;
+    }
+    
+    next();
+});
+
+// SECOND: Access cookie check - fastest rejection for unauthorized users
 app.use((req, res, next) => {
     const path = req.path;
     
@@ -231,7 +273,8 @@ app.use((req, res, next) => {
         '/welcome',    // Welcome page (where users get the cookie)
         '/agree',      // Agreement page
         '/activate',   // Activation page
-        '/api/'        // API endpoints
+        '/api/',       // API endpoints
+        '/404-status'  // Site status management
     ];
     
     // Check if it's a public page
@@ -929,6 +972,321 @@ app.get('/api/games/index.xml', async (req, res) => {
     }
 });
 
+// ============== SITE STATUS MANAGEMENT ==============
+// Queue for status changes
+let statusChangeQueue = [];
+let processingQueue = false;
+
+async function processStatusQueue() {
+    if (processingQueue || statusChangeQueue.length === 0) return;
+    processingQueue = true;
+    
+    while (statusChangeQueue.length > 0) {
+        const change = statusChangeQueue.shift();
+        try {
+            serverSettings.siteStatus = change.status;
+            saveSettings();
+            logEvent('site_status_change', { 
+                status: change.status, 
+                changedBy: change.ip 
+            }, { ip: change.ip });
+        } catch (e) {
+            console.error('Failed to process status change:', e);
+        }
+    }
+    
+    processingQueue = false;
+}
+
+// Get current site status
+app.get('/api/site-status', (req, res) => {
+    res.json({ 
+        status: serverSettings.siteStatus || 'normal',
+        queueLength: statusChangeQueue.length
+    });
+});
+
+// Set site status (requires owner PIN)
+app.post('/api/site-status', (req, res) => {
+    const { status, ownerPin } = req.body;
+    
+    // Verify owner PIN
+    if (ownerPin !== serverSettings.ownerPassword) {
+        return res.status(401).json({ error: 'Invalid owner PIN' });
+    }
+    
+    // Validate status
+    const validStatuses = ['normal', '404-lockdown', '401-popup'];
+    if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Invalid status. Must be: normal, 404-lockdown, or 401-popup' });
+    }
+    
+    // Add to queue
+    statusChangeQueue.push({
+        status,
+        ip: req.ip,
+        timestamp: Date.now()
+    });
+    
+    // Start processing queue (async, so client can disconnect)
+    setImmediate(processStatusQueue);
+    
+    res.json({ 
+        success: true, 
+        message: `Status change to '${status}' queued`,
+        queuePosition: statusChangeQueue.length
+    });
+});
+
+// Serve the 404-status management page
+app.get('/404-status', (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Status Management</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: #1e1e2e;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #cdd6f4;
+            margin-bottom: 8px;
+            font-size: 24px;
+        }
+        .subtitle {
+            color: #6c7086;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .current-status {
+            background: #313244;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        .current-status label {
+            color: #6c7086;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .current-status .status {
+            color: #89b4fa;
+            font-size: 20px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        .current-status .status.normal { color: #a6e3a1; }
+        .current-status .status.lockdown { color: #f38ba8; }
+        .current-status .status.popup { color: #fab387; }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            color: #cdd6f4;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            background: #313244;
+            border: 1px solid #45475a;
+            border-radius: 8px;
+            color: #cdd6f4;
+            font-size: 16px;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #89b4fa;
+        }
+        .status-option {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #313244;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .status-option:hover {
+            background: #45475a;
+        }
+        .status-option.selected {
+            border-color: #89b4fa;
+        }
+        .status-option h3 {
+            color: #cdd6f4;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        .status-option p {
+            color: #6c7086;
+            font-size: 12px;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .message {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+        .message.success {
+            background: rgba(166, 227, 161, 0.2);
+            color: #a6e3a1;
+            display: block;
+        }
+        .message.error {
+            background: rgba(243, 139, 168, 0.2);
+            color: #f38ba8;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Site Status Control</h1>
+        <p class="subtitle">Manage site access mode</p>
+        
+        <div class="current-status">
+            <label>Current Status</label>
+            <div class="status" id="currentStatus">Loading...</div>
+        </div>
+        
+        <div class="form-group">
+            <label>Owner PIN</label>
+            <input type="password" id="ownerPin" placeholder="Enter owner PIN">
+        </div>
+        
+        <div class="form-group">
+            <label>Select New Status</label>
+            <div class="status-option" data-status="normal">
+                <h3>✅ Normal</h3>
+                <p>Site operates normally, all pages accessible</p>
+            </div>
+            <div class="status-option" data-status="404-lockdown">
+                <h3>🚫 404 Lockdown</h3>
+                <p>Only / and /404.html accessible, everything else redirects to /404.html</p>
+            </div>
+            <div class="status-option" data-status="401-popup">
+                <h3>⚠️ 401 Popup</h3>
+                <p>Shows a warning popup on all pages</p>
+            </div>
+        </div>
+        
+        <button class="btn" id="submitBtn" disabled>Set Status</button>
+        <div class="message" id="message"></div>
+    </div>
+    
+    <script>
+        let selectedStatus = null;
+        
+        // Fetch current status
+        fetch('/api/site-status')
+            .then(r => r.json())
+            .then(data => {
+                const el = document.getElementById('currentStatus');
+                el.textContent = data.status.toUpperCase().replace('-', ' ');
+                el.className = 'status ' + (data.status === 'normal' ? 'normal' : 
+                    data.status === '404-lockdown' ? 'lockdown' : 'popup');
+            });
+        
+        // Status option selection
+        document.querySelectorAll('.status-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.querySelectorAll('.status-option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                selectedStatus = opt.dataset.status;
+                updateButton();
+            });
+        });
+        
+        document.getElementById('ownerPin').addEventListener('input', updateButton);
+        
+        function updateButton() {
+            const pin = document.getElementById('ownerPin').value;
+            document.getElementById('submitBtn').disabled = !pin || !selectedStatus;
+        }
+        
+        document.getElementById('submitBtn').addEventListener('click', async () => {
+            const pin = document.getElementById('ownerPin').value;
+            const btn = document.getElementById('submitBtn');
+            const msg = document.getElementById('message');
+            
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+            
+            try {
+                const res = await fetch('/api/site-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: selectedStatus, ownerPin: pin })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    msg.className = 'message success';
+                    msg.textContent = data.message;
+                    // Reload to show new status
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    msg.className = 'message error';
+                    msg.textContent = data.error;
+                }
+            } catch (e) {
+                msg.className = 'message error';
+                msg.textContent = 'Failed to update status';
+            }
+            
+            btn.disabled = false;
+            btn.textContent = 'Set Status';
+        });
+    </script>
+</body>
+</html>`;
+    
+    res.send(html);
+});
+
 // ============== REDIRECTS ==============
 // Redirect /CODE/games/dictionary to /CODE/games/ext (no loop because target is /CODE)
 app.get('/CODE/games/dictionary', (req, res) => {
@@ -1266,8 +1624,11 @@ const injectMenuScript = (req, res, next) => {
         return next();
     }
     
-    // Skip API requests and specific paths
-    if (req.path.startsWith('/api/') || req.path === '/404.html' || req.path === '/error.html') {
+    // Skip API requests and specific paths (including banner.html which is loaded in iframe)
+    if (req.path.startsWith('/api/') || 
+        req.path === '/404.html' || 
+        req.path === '/error.html' ||
+        req.path === '/banner.html') {
         return next();
     }
     
@@ -1305,6 +1666,43 @@ const injectMenuScript = (req, res, next) => {
                 html = html.replace('</html>', menuScript + '\n</html>');
             } else {
                 html += '\n' + menuScript;
+            }
+        }
+        
+        // Inject 401 popup if in 401-popup mode
+        if (res.locals.inject401Popup && !html.includes('sirco-401-popup')) {
+            const popupScript = `
+<div id="sirco-401-popup" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 999999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+">
+    <div style="
+        background: #1e1e2e;
+        border-radius: 16px;
+        padding: 40px;
+        max-width: 450px;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    ">
+        <div style="font-size: 64px; margin-bottom: 20px;">⚠️</div>
+        <h1 style="color: #f38ba8; margin-bottom: 12px; font-size: 24px;">Site Temporarily Unavailable</h1>
+        <p style="color: #cdd6f4; line-height: 1.6; margin-bottom: 24px;">
+            This site is currently under maintenance or has been restricted. Please try again later.
+        </p>
+        <p style="color: #6c7086; font-size: 12px;">Error 401 - Access Restricted</p>
+    </div>
+</div>`;
+            if (html.includes('</body>')) {
+                const lastBodyIdx = html.lastIndexOf('</body>');
+                html = html.slice(0, lastBodyIdx) + popupScript + '\n' + html.slice(lastBodyIdx);
+            } else {
+                html += popupScript;
             }
         }
         
