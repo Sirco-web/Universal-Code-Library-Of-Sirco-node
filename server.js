@@ -75,6 +75,23 @@ const BANNED_IPS_FILE = path.join(DATA_DIR, 'banned-ips.json');
 const BANNED_USERS_FILE = path.join(DATA_DIR, 'banned-users.json');
 const ACCESS_COOKIES_FILE = path.join(DATA_DIR, 'access-cookies.json');
 const ANALYTICS_FILE = path.join(DATA_DIR, 'analytics.json');
+const USER_ACTIVITY_FILE = path.join(DATA_DIR, 'user-activity.json');
+
+// User activity tracking (in-memory, persisted periodically)
+let userActivity = {};
+function loadUserActivity() {
+    if (fs.existsSync(USER_ACTIVITY_FILE)) {
+        try { userActivity = JSON.parse(fs.readFileSync(USER_ACTIVITY_FILE, 'utf8')); } catch {}
+    }
+}
+loadUserActivity();
+
+function saveUserActivity() {
+    fs.writeFileSync(USER_ACTIVITY_FILE, JSON.stringify(userActivity, null, 2));
+}
+
+// Save activity every 30 seconds
+setInterval(saveUserActivity, 30000);
 
 // In-memory 404 cache for fast access
 let notFoundCache = [];
@@ -213,97 +230,129 @@ function saveAccessCookies(cookies) {
     fs.writeFileSync(ACCESS_COOKIES_FILE, JSON.stringify(cookies, null, 2));
 }
 
+// ============== USER CODE SYSTEM ==============
+// Generate a short memorable user code like "ABC-1234"
+function generateUserCode() {
+    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // No I/O to avoid confusion
+    const numbers = '0123456789';
+    let code = '';
+    for (let i = 0; i < 3; i++) code += letters[Math.floor(Math.random() * letters.length)];
+    code += '-';
+    for (let i = 0; i < 4; i++) code += numbers[Math.floor(Math.random() * numbers.length)];
+    return code;
+}
+
+// Find user by their code
+function findUserByCode(code) {
+    const users = loadUsers();
+    const upperCode = code.toUpperCase().trim();
+    return Object.values(users).find(u => u.userCode === upperCode);
+}
+
+// ============== REALTIME COMMAND SYSTEM ==============
+// Commands to execute on specific users when they next check in
+// Format: { clientId: { command: 'ban'|'redirect'|'refresh'|'revoke', data: {...}, timestamp } }
+const COMMANDS_FILE = path.join(DATA_DIR, 'user-commands.json');
+
+function loadUserCommands() {
+    if (fs.existsSync(COMMANDS_FILE)) {
+        try { return JSON.parse(fs.readFileSync(COMMANDS_FILE, 'utf8')); } catch {}
+    }
+    return {};
+}
+
+function saveUserCommands(commands) {
+    fs.writeFileSync(COMMANDS_FILE, JSON.stringify(commands, null, 2));
+}
+
+function queueUserCommand(clientId, command, data = {}) {
+    const commands = loadUserCommands();
+    commands[clientId] = {
+        command,
+        data,
+        timestamp: new Date().toISOString()
+    };
+    saveUserCommands(commands);
+    console.log(`Queued command '${command}' for user ${clientId}`);
+}
+
+function popUserCommand(clientId) {
+    const commands = loadUserCommands();
+    const cmd = commands[clientId];
+    if (cmd) {
+        delete commands[clientId];
+        saveUserCommands(commands);
+    }
+    return cmd;
+}
+
 // ============== MIDDLEWARE ==============
 
-// SITE STATUS CHECK - Handle 404-lockdown and 401-popup modes
+// UNIFIED ACCESS CONTROL - Handles site status, access cookies, and public pages
 app.use((req, res, next) => {
-    const status = serverSettings.siteStatus || 'normal';
     const reqPath = req.path;
+    const status = serverSettings.siteStatus || 'normal';
     
-    // Always allow these paths regardless of site status
-    const ALWAYS_ALLOWED = [
-        '/', '/index.html', '/404.html', '/error.html',
-        '/style.css', '/main.js', '/analytics.js',
-        '/404-status'  // Status management page
-    ];
-    
-    const ALWAYS_ALLOWED_PREFIXES = [
-        '/api/',        // API endpoints
-        '/owner'        // Owner panel
-    ];
-    
-    // Check if always allowed
-    if (ALWAYS_ALLOWED.includes(reqPath) || 
-        ALWAYS_ALLOWED_PREFIXES.some(p => reqPath.startsWith(p)) ||
-        reqPath.endsWith('.css') || reqPath.endsWith('.js')) {
-        // For 401-popup mode, inject popup script into HTML responses
-        if (status === '401-popup' && !reqPath.startsWith('/api/') && !reqPath.startsWith('/owner') && !reqPath.startsWith('/404-status')) {
-            res.locals.inject401Popup = true;
-        }
-        return next();
-    }
-    
-    // In 404-lockdown mode, redirect everything else to /404.html
-    if (status === '404-lockdown') {
-        return res.redirect('/404.html');
-    }
-    
-    // In 401-popup mode, allow access but mark for popup injection
-    if (status === '401-popup') {
-        res.locals.inject401Popup = true;
-    }
-    
-    next();
-});
-
-// SECOND: Access cookie check - fastest rejection for unauthorized users
-app.use((req, res, next) => {
-    const path = req.path;
-    
-    // These are normal public pages - no access cookie required
+    // ========== ALWAYS ALLOWED (no checks at all) ==========
     const PUBLIC_PAGES = [
         '/', '/index.html', '/404.html', '/error.html',
-        '/style.css', '/main.js', '/analytics.js', '/sw.js',
-        '/banner.html', '/version.txt', '/CNAME', '/README.md', '/LICENSE'
+        '/style.css', '/main.js', '/analytics.js', '/sw.js', '/analytics-sw.js',
+        '/banner.html', '/version.txt', '/CNAME', '/README.md', '/LICENSE',
+        '/404-status', '/sirco-menu.js'
     ];
     
-    // These paths are public (no cookie needed)
     const PUBLIC_PREFIXES = [
         '/owner',      // Owner panel
         '/welcome',    // Welcome page (where users get the cookie)
         '/agree',      // Agreement page
         '/activate',   // Activation page
-        '/api/',       // API endpoints
-        '/404-status'  // Site status management
+        '/api/'        // API endpoints
     ];
     
-    // Check if it's a public page
-    if (PUBLIC_PAGES.includes(path)) {
+    // Check if public page
+    if (PUBLIC_PAGES.includes(reqPath)) {
         return next();
     }
     
-    // Check if it starts with a public prefix
-    if (PUBLIC_PREFIXES.some(prefix => path.startsWith(prefix))) {
+    // Check if public prefix
+    if (PUBLIC_PREFIXES.some(prefix => reqPath.startsWith(prefix))) {
         return next();
     }
     
-    // Allow static assets (css, js, images, fonts)
-    if (path.endsWith('.css') || 
-        path.endsWith('.js') ||
-        path.endsWith('.ico') ||
-        path.endsWith('.png') ||
-        path.endsWith('.jpg') ||
-        path.endsWith('.svg') ||
-        path.endsWith('.woff') ||
-        path.endsWith('.woff2')) {
+    // Allow static assets (no access cookie needed for CSS, JS, images, fonts)
+    if (reqPath.endsWith('.css') || 
+        reqPath.endsWith('.js') ||
+        reqPath.endsWith('.ico') ||
+        reqPath.endsWith('.png') ||
+        reqPath.endsWith('.jpg') ||
+        reqPath.endsWith('.jpeg') ||
+        reqPath.endsWith('.gif') ||
+        reqPath.endsWith('.svg') ||
+        reqPath.endsWith('.woff') ||
+        reqPath.endsWith('.woff2') ||
+        reqPath.endsWith('.mp3') ||
+        reqPath.endsWith('.wav') ||
+        reqPath.endsWith('.ogg') ||
+        reqPath.endsWith('.webp')) {
         return next();
     }
     
-    // Everything else (CODE, ai, Pro, games, etc.) requires access cookie
+    // ========== SITE STATUS CHECKS ==========
+    // In 404-lockdown mode, block ALL non-public pages
+    if (status === '404-lockdown') {
+        return res.redirect('/404.html');
+    }
+    
+    // In 401-popup mode, mark for popup injection but allow access
+    if (status === '401-popup') {
+        res.locals.inject401Popup = true;
+    }
+    
+    // ========== ACCESS COOKIE CHECK ==========
+    // Everything else requires access cookie
     const accessCookie = req.cookies?.access;
     
     if (accessCookie !== '1') {
-        // No valid access cookie - redirect to 404 immediately
         return res.redirect('/404.html');
     }
     
@@ -639,6 +688,231 @@ app.post('/api/owner/force-refresh', verifyOwnerToken, (req, res) => {
     res.json({ success: true });
 });
 
+// ============== REALTIME USER CONTROL ==============
+
+// Search for user by code (ABC-1234 format)
+app.get('/api/owner/search-user', verifyOwnerToken, (req, res) => {
+    const { code, username, clientId } = req.query;
+    const users = loadUsers();
+    
+    let found = null;
+    
+    if (code) {
+        found = Object.values(users).find(u => u.userCode === code.toUpperCase().trim());
+    } else if (username) {
+        found = Object.values(users).find(u => 
+            u.username.toLowerCase().includes(username.toLowerCase())
+        );
+    } else if (clientId) {
+        found = users[clientId];
+    }
+    
+    if (found) {
+        res.json({ found: true, user: found });
+    } else {
+        res.json({ found: false });
+    }
+});
+
+// Send real-time command to user (executes on their next check-in, which is every few seconds)
+app.post('/api/owner/send-command', verifyOwnerToken, (req, res) => {
+    const { clientId, command, data } = req.body;
+    
+    if (!clientId || !command) {
+        return res.status(400).json({ error: 'clientId and command required' });
+    }
+    
+    const validCommands = ['ban', 'redirect', 'refresh', 'revoke'];
+    if (!validCommands.includes(command)) {
+        return res.status(400).json({ error: `Invalid command. Valid: ${validCommands.join(', ')}` });
+    }
+    
+    // Validate redirect has URL
+    if (command === 'redirect' && !data?.url) {
+        return res.status(400).json({ error: 'redirect command requires data.url' });
+    }
+    
+    queueUserCommand(clientId, command, data || {});
+    logEvent('command_queued', { clientId, command, data }, req);
+    
+    res.json({ success: true, message: `Command '${command}' queued for user` });
+});
+
+// Get pending commands (for debugging)
+app.get('/api/owner/pending-commands', verifyOwnerToken, (req, res) => {
+    res.json(loadUserCommands());
+});
+
+// Immediately ban and queue command (so it happens on next check-in)
+app.post('/api/owner/instant-ban', verifyOwnerToken, (req, res) => {
+    const { clientId, username, reason } = req.body;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    // Queue the ban command for immediate effect
+    queueUserCommand(clientId, 'ban', { username, reason });
+    
+    // Also add to banned users list
+    let bannedUsers = loadBannedUsers();
+    if (!bannedUsers.find(u => u.clientId === clientId)) {
+        bannedUsers.push({
+            clientId,
+            username,
+            reason,
+            bannedAt: new Date().toISOString()
+        });
+        saveBannedUsers(bannedUsers);
+    }
+    
+    logEvent('instant_ban', { clientId, username, reason }, req);
+    res.json({ success: true, message: 'User banned and will be disconnected on next check-in' });
+});
+
+// Redirect user to any URL
+app.post('/api/owner/redirect-user', verifyOwnerToken, (req, res) => {
+    const { clientId, url, message } = req.body;
+    
+    if (!clientId || !url) {
+        return res.status(400).json({ error: 'clientId and url required' });
+    }
+    
+    queueUserCommand(clientId, 'redirect', { url, message });
+    logEvent('user_redirect', { clientId, url }, req);
+    
+    res.json({ success: true, message: `User will be redirected to ${url} on next check-in` });
+});
+
+// Get user activity/status for dashboard
+app.get('/api/owner/user-activity/:clientId', verifyOwnerToken, (req, res) => {
+    const { clientId } = req.params;
+    const activity = userActivity[clientId] || null;
+    const users = loadUsers();
+    const user = users[clientId] || null;
+    
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({
+        user,
+        activity: activity ? {
+            ...activity,
+            isOnline: activity.lastHeartbeat && (Date.now() - new Date(activity.lastHeartbeat).getTime()) < 15000,
+            isActiveTab: activity.isActiveTab,
+            currentPage: activity.currentPage,
+            recentPages: activity.recentPages || [],
+            totalTimeOnSite: activity.totalTimeOnSite || 0
+        } : null
+    });
+});
+
+// Get all user activities for dashboard
+app.get('/api/owner/all-activity', verifyOwnerToken, (req, res) => {
+    const users = loadUsers();
+    const result = {};
+    
+    for (const [clientId, user] of Object.entries(users)) {
+        const activity = userActivity[clientId];
+        result[clientId] = {
+            username: user.username,
+            userCode: user.userCode,
+            isOnline: activity?.lastHeartbeat && (Date.now() - new Date(activity.lastHeartbeat).getTime()) < 15000,
+            isActiveTab: activity?.isActiveTab || false,
+            currentPage: activity?.currentPage || null,
+            lastSeen: user.lastSeen
+        };
+    }
+    
+    res.json(result);
+});
+
+// ============== USER ACTIVITY HEARTBEAT ==============
+
+// User sends heartbeat with activity info
+app.post('/api/heartbeat', (req, res) => {
+    const { clientId, page, isActiveTab, visibilityState } = req.body;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const now = new Date().toISOString();
+    
+    if (!userActivity[clientId]) {
+        userActivity[clientId] = {
+            recentPages: [],
+            totalTimeOnSite: 0,
+            sessionStart: now
+        };
+    }
+    
+    const activity = userActivity[clientId];
+    activity.lastHeartbeat = now;
+    activity.currentPage = page;
+    activity.isActiveTab = isActiveTab && visibilityState === 'visible';
+    activity.visibilityState = visibilityState;
+    
+    // Track page visits (keep last 20)
+    if (page && (!activity.recentPages.length || activity.recentPages[0].page !== page)) {
+        activity.recentPages.unshift({ page, timestamp: now });
+        activity.recentPages = activity.recentPages.slice(0, 20);
+    }
+    
+    // Calculate time on site (if active)
+    if (activity.isActiveTab && activity.lastActiveTime) {
+        const elapsed = Date.now() - new Date(activity.lastActiveTime).getTime();
+        if (elapsed < 10000) { // Only count if heartbeat is within 10s
+            activity.totalTimeOnSite = (activity.totalTimeOnSite || 0) + elapsed;
+        }
+    }
+    activity.lastActiveTime = now;
+    
+    res.json({ ok: true });
+});
+
+// ============== USERNAME CHANGE ==============
+
+// Change username
+app.post('/api/change-username', (req, res) => {
+    const { clientId, newUsername } = req.body;
+    
+    if (!clientId || !newUsername) {
+        return res.status(400).json({ error: 'clientId and newUsername required' });
+    }
+    
+    if (newUsername.length < 3 || newUsername.length > 20) {
+        return res.status(400).json({ error: 'Username must be 3-20 characters' });
+    }
+    
+    if (!/^[a-zA-Z0-9_-]+$/.test(newUsername)) {
+        return res.status(400).json({ error: 'Username can only contain letters, numbers, underscores, and hyphens' });
+    }
+    
+    const users = loadUsers();
+    
+    // Check if username is taken by another user
+    const existingUser = Object.values(users).find(
+        u => u.username.toLowerCase() === newUsername.toLowerCase() && u.clientId !== clientId
+    );
+    if (existingUser) {
+        return res.status(400).json({ error: 'Username already taken' });
+    }
+    
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const oldUsername = users[clientId].username;
+    users[clientId].username = newUsername;
+    saveUsers(users);
+    
+    logEvent('username_changed', { clientId, oldUsername, newUsername }, req);
+    
+    res.json({ success: true, username: newUsername });
+});
+
 // ============== ACTIVATION API ==============
 
 // Verify activation pin
@@ -682,9 +956,16 @@ app.post('/api/register-user', (req, res) => {
     const clientId = uuidv4();
     const ip = getClientIP(req);
     
+    // Generate unique user code
+    let userCode = generateUserCode();
+    while (Object.values(users).some(u => u.userCode === userCode)) {
+        userCode = generateUserCode(); // Regenerate if collision
+    }
+    
     users[clientId] = {
         clientId,
         username,
+        userCode,
         accessCookieId,
         createdAt: new Date().toISOString(),
         creationIP: ip,
@@ -705,15 +986,58 @@ app.post('/api/register-user', (req, res) => {
     };
     saveAccessCookies(accessCookies);
     
-    logEvent('user_registered', { clientId, username }, req);
+    logEvent('user_registered', { clientId, username, userCode }, req);
     
-    res.json({ success: true, clientId, username });
+    res.json({ success: true, clientId, username, userCode });
 });
 
 // Check if client needs to do anything (banned, refresh, etc.)
 // Also syncs users - if user doesn't exist on this server, create them
 app.post('/api/check-status', (req, res) => {
     const { clientId, accessCookieId, username } = req.body;
+    
+    // Check for queued commands FIRST (real-time ban, redirect, etc.)
+    if (clientId) {
+        const cmd = popUserCommand(clientId);
+        if (cmd) {
+            switch (cmd.command) {
+                case 'redirect':
+                    return res.json({ 
+                        status: 'redirect', 
+                        url: cmd.data.url,
+                        message: cmd.data.message || 'Redirecting...'
+                    });
+                case 'ban':
+                    // Actually ban the user
+                    let bannedUsers = loadBannedUsers();
+                    if (!bannedUsers.find(u => u.clientId === clientId)) {
+                        bannedUsers.push({
+                            clientId,
+                            username: cmd.data.username || username,
+                            reason: cmd.data.reason || 'Banned by owner',
+                            bannedAt: new Date().toISOString()
+                        });
+                        saveBannedUsers(bannedUsers);
+                    }
+                    return res.json({ 
+                        status: 'banned', 
+                        reason: cmd.data.reason || 'You have been banned',
+                        bannedAt: new Date().toISOString()
+                    });
+                case 'revoke':
+                    // Revoke access cookie
+                    const cookies = loadAccessCookies();
+                    if (cookies[accessCookieId]) {
+                        cookies[accessCookieId].revoked = true;
+                        cookies[accessCookieId].revokedAt = new Date().toISOString();
+                        saveAccessCookies(cookies);
+                    }
+                    return res.json({ status: 'access_revoked' });
+                case 'refresh':
+                    return res.json({ status: 'refresh_required' });
+            }
+        }
+    }
     
     // Check if user is banned
     const bannedUsers = loadBannedUsers();
@@ -745,10 +1069,17 @@ app.post('/api/check-status', (req, res) => {
     // Sync user - if user doesn't exist on this server but client has valid ID, create them
     const users = loadUsers();
     if (clientId && !users[clientId]) {
+        // Generate user code for synced user
+        let userCode = generateUserCode();
+        while (Object.values(users).some(u => u.userCode === userCode)) {
+            userCode = generateUserCode();
+        }
+        
         // User doesn't exist - create them (syncing from another server or restored backup)
         users[clientId] = {
             clientId,
             username: username || 'User_' + clientId.substring(0, 8),
+            userCode,
             accessCookieId: accessCookieId,
             createdAt: new Date().toISOString(),
             lastSeen: new Date().toISOString(),
@@ -756,7 +1087,7 @@ app.post('/api/check-status', (req, res) => {
             synced: true // Mark as synced from client
         };
         saveUsers(users);
-        console.log(`Synced user from client: ${clientId} (${username})`);
+        console.log(`Synced user from client: ${clientId} (${username}) [${userCode}]`);
         
         // Also create/update access cookie record
         if (accessCookieId && !accessCookies[accessCookieId]) {
@@ -772,19 +1103,29 @@ app.post('/api/check-status', (req, res) => {
         users[clientId].lastSeen = new Date().toISOString();
         users[clientId].lastIP = getClientIP(req);
         // Update username if provided and different (sync from client)
-        if (username && users[clientId].username !== username) {
+        // But DON'T overwrite with auto-generated User_XXXXX format
+        if (username && users[clientId].username !== username && !username.startsWith('User_')) {
             users[clientId].username = username;
+        }
+        // Generate userCode if missing (for old users)
+        if (!users[clientId].userCode) {
+            let userCode = generateUserCode();
+            while (Object.values(users).some(u => u.userCode === userCode)) {
+                userCode = generateUserCode();
+            }
+            users[clientId].userCode = userCode;
         }
         saveUsers(users);
     }
     
-    // User is OK - return sync data
+    // User is OK - return sync data (including userCode for client to store)
     const user = users[clientId] || {};
     return res.json({ 
         status: 'ok', 
         clearBanned: true,
         sync: {
             username: user.username,
+            userCode: user.userCode,
             clientId: user.clientId,
             accessCookieId: user.accessCookieId,
             createdAt: user.createdAt
@@ -1712,6 +2053,67 @@ const injectMenuScript = (req, res, next) => {
         next();
     }
 };
+
+// ============== PROTECTED OWNER DASHBOARD ==============
+// This route MUST be before static middleware to intercept dashboard requests
+app.get('/owner/dashboard.html', (req, res) => {
+    // Check for owner token in cookies or localStorage (sent via query param for initial load)
+    const token = req.query.token;
+    
+    if (!token) {
+        // Return blank page with redirect to login
+        return res.send(`
+            <!DOCTYPE html>
+            <html><head><title>Owner Dashboard</title>
+            <script>
+                // Check for token in localStorage
+                const token = localStorage.getItem('owner_token');
+                if (token) {
+                    // Verify token is still valid
+                    fetch('/api/owner/settings', {
+                        headers: { 'X-Owner-Token': token }
+                    }).then(res => {
+                        if (res.ok) {
+                            // Token valid - reload with token to get dashboard
+                            window.location.href = '/owner/dashboard.html?token=' + encodeURIComponent(token);
+                        } else {
+                            localStorage.removeItem('owner_token');
+                            window.location.href = '/owner/';
+                        }
+                    }).catch(() => {
+                        window.location.href = '/owner/';
+                    });
+                } else {
+                    window.location.href = '/owner/';
+                }
+            </script>
+            </head><body style="background:#1a1a2e"></body></html>
+        `);
+    }
+    
+    // Verify the token
+    const sessionsPath = path.join(DATA_DIR, 'owner-sessions.json');
+    let sessions = {};
+    if (fs.existsSync(sessionsPath)) {
+        try { sessions = JSON.parse(fs.readFileSync(sessionsPath, 'utf8')); } catch {}
+    }
+    
+    const session = sessions[token];
+    if (!session || session.expires < Date.now()) {
+        return res.send(`
+            <!DOCTYPE html>
+            <html><head><title>Session Expired</title>
+            <script>
+                localStorage.removeItem('owner_token');
+                window.location.href = '/owner/';
+            </script>
+            </head><body style="background:#1a1a2e"></body></html>
+        `);
+    }
+    
+    // Token valid - serve the actual dashboard
+    res.sendFile(path.join(STATIC_ROOT, 'owner', 'dashboard.html'));
+});
 
 // Use menu injection before static serving
 app.use(injectMenuScript);

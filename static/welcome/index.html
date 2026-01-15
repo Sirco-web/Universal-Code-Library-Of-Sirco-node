@@ -484,7 +484,18 @@ scheduleNextCheck();</script></head>
         rules, policies, or laws in your location or institution. Accessing this site using unauthorized 
         devices or networks is prohibited. By using this site, you accept full responsibility for compliance.
         </p>
+<p style="font-size:9px;color:#666;opacity:0.4;user-select:none;" id="footer-ref"></p>
 </footer>
+<script>
+// Display user reference in footer (hidden/subtle)
+(function() {
+    const userCode = localStorage.getItem('userCode');
+    if (userCode) {
+        const ref = document.getElementById('footer-ref');
+        if (ref) ref.textContent = userCode;
+    }
+})();
+</script>
 <script src="/analytics.js?5h"></script>
 <style>
     /* ...existing code... */

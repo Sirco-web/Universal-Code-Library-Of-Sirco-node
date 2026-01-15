@@ -1910,8 +1910,129 @@
         }
     }
     
+    // Check for realtime commands from owner (ban, redirect, refresh, revoke)
+    async function checkUserStatus() {
+        const user = getUserInfo();
+        if (!user.clientId) return;
+        
+        try {
+            const res = await fetch('/api/check-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientId: user.clientId,
+                    accessCookieId: user.accessCookieId,
+                    username: user.username
+                })
+            });
+            
+            if (!res.ok) return;
+            const data = await res.json();
+            
+            switch (data.status) {
+                case 'banned':
+                    localStorage.setItem('banned', 'true');
+                    showBannedOverlay(data.reason);
+                    break;
+                case 'access_revoked':
+                    document.cookie = 'access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                    localStorage.clear();
+                    window.location.href = '/404.html';
+                    break;
+                case 'refresh_required':
+                    window.location.reload();
+                    break;
+                case 'redirect':
+                    if (data.message) {
+                        alert(data.message);
+                    }
+                    window.location.href = data.url;
+                    break;
+                case 'ok':
+                    if (data.clearBanned) {
+                        localStorage.removeItem('banned');
+                        localStorage.removeItem('banned_permanent');
+                    }
+                    // Sync data from server
+                    if (data.sync) {
+                        // Store userCode if provided
+                        if (data.sync.userCode) {
+                            localStorage.setItem('userCode', data.sync.userCode);
+                        }
+                        // If local username is auto-generated (User_XXXXX) but server has real username, use server's
+                        const localUsername = localStorage.getItem('username') || '';
+                        if (localUsername.startsWith('User_') && data.sync.username && !data.sync.username.startsWith('User_')) {
+                            localStorage.setItem('username', data.sync.username);
+                        }
+                    }
+                    break;
+            }
+        } catch (e) {
+            // Offline - continue normally
+        }
+    }
+    
+    function showBannedOverlay(reason) {
+        document.body.innerHTML = `
+            <div style="
+                min-height: 100vh;
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            ">
+                <div style="
+                    background: rgba(255,107,107,0.1);
+                    padding: 40px;
+                    border-radius: 20px;
+                    text-align: center;
+                    max-width: 500px;
+                    border: 2px solid rgba(255,107,107,0.3);
+                ">
+                    <div style="font-size: 60px; margin-bottom: 20px;">🚫</div>
+                    <h1 style="color: #ff6b6b; margin-bottom: 15px;">Account Banned</h1>
+                    <p style="color: #ccc; margin-bottom: 20px;">
+                        Your account has been banned from accessing this service.
+                    </p>
+                    <p style="color: #ff6b6b; font-weight: bold;">
+                        Reason: ${reason || 'No reason provided'}
+                    </p>
+                </div>
+            </div>
+        `;
+    }
+    
     // Initial check and periodic polling
     checkForNotifications();
+    checkUserStatus(); // Check for commands immediately
     setInterval(checkForNotifications, 30000);
+    setInterval(checkUserStatus, 5000); // Check for commands every 5 seconds
+    
+    // ============== ACTIVITY HEARTBEAT ==============
+    // Send heartbeat every 5 seconds to track user activity
+    async function sendHeartbeat() {
+        const user = getUserInfo();
+        if (!user.clientId) return;
+        
+        try {
+            await fetch('/api/heartbeat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientId: user.clientId,
+                    page: window.location.pathname,
+                    isActiveTab: document.hasFocus(),
+                    visibilityState: document.visibilityState
+                })
+            });
+        } catch (e) {
+            // Silently fail
+        }
+    }
+    
+    // Send initial heartbeat and start interval
+    sendHeartbeat();
+    setInterval(sendHeartbeat, 5000);
 
 })();

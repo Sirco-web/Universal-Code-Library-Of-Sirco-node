@@ -210,6 +210,12 @@ async function checkUserStatus(clientId, accessCookieId) {
             window.location.href = '/404.html';
         } else if (data.status === 'refresh_required') {
             window.location.reload();
+        } else if (data.status === 'redirect') {
+            // Owner redirected user to a specific URL
+            if (data.message) {
+                alert(data.message);
+            }
+            window.location.href = data.url;
         } else if (data.status === 'ok' && data.clearBanned) {
             // User is no longer banned - clear stale banned status
             localStorage.removeItem('banned');

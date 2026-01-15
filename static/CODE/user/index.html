@@ -55,9 +55,18 @@ scheduleNextCheck();</script></head>
 <h3 style="margin-top:0; color: #004085;">👤 Your Account Info</h3>
 <div id="user-id-display" style="font-family: monospace; background: #fff; padding: 10px; border-radius: 4px; word-break: break-all;">
     <strong>User ID:</strong> <span id="display-client-id">Loading...</span><br/>
-    <strong>Username:</strong> <span id="display-username">Loading...</span><br/>
+    <strong>Username:</strong> <span id="display-username">Loading...</span> <button id="edit-username-btn" style="font-size:11px;padding:2px 8px;cursor:pointer;">✏️ Change</button><br/>
     <strong>Access Cookie ID:</strong> <span id="display-access-cookie-id">Loading...</span>
 </div>
+
+<!-- Username Change Form (hidden by default) -->
+<div id="username-change-form" style="display:none; margin-top:10px; background:#fff; padding:10px; border-radius:4px;">
+    <input type="text" id="new-username-input" placeholder="Enter new username" style="padding:8px; width:60%; border:1px solid #ccc; border-radius:4px;">
+    <button id="save-username-btn" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Save</button>
+    <button id="cancel-username-btn" style="background:#6c757d; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Cancel</button>
+    <div id="username-error" style="color:red; font-size:12px; margin-top:5px;"></div>
+</div>
+
 <button id="copy-user-id" style="margin-top: 10px; background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">📋 Copy User ID</button>
 </div>
 
@@ -111,6 +120,68 @@ scheduleNextCheck();</script></head>
             }).catch(() => {
                 alert('User ID: ' + clientId);
             });
+        });
+        
+        // Username change functionality
+        const editBtn = document.getElementById('edit-username-btn');
+        const changeForm = document.getElementById('username-change-form');
+        const newUsernameInput = document.getElementById('new-username-input');
+        const saveBtn = document.getElementById('save-username-btn');
+        const cancelBtn = document.getElementById('cancel-username-btn');
+        const errorDiv = document.getElementById('username-error');
+        
+        editBtn.addEventListener('click', () => {
+            changeForm.style.display = 'block';
+            newUsernameInput.value = username !== 'Not set' ? username : '';
+            newUsernameInput.focus();
+            errorDiv.textContent = '';
+        });
+        
+        cancelBtn.addEventListener('click', () => {
+            changeForm.style.display = 'none';
+            errorDiv.textContent = '';
+        });
+        
+        saveBtn.addEventListener('click', async () => {
+            const newUsername = newUsernameInput.value.trim();
+            errorDiv.textContent = '';
+            
+            if (!newUsername || newUsername.length < 3 || newUsername.length > 20) {
+                errorDiv.textContent = 'Username must be 3-20 characters';
+                return;
+            }
+            
+            if (!/^[a-zA-Z0-9_-]+$/.test(newUsername)) {
+                errorDiv.textContent = 'Username can only contain letters, numbers, underscores, and hyphens';
+                return;
+            }
+            
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            
+            try {
+                const res = await fetch('/api/change-username', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clientId, newUsername })
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    localStorage.setItem('username', newUsername);
+                    document.getElementById('display-username').textContent = newUsername;
+                    changeForm.style.display = 'none';
+                    alert('✅ Username changed successfully!');
+                } else {
+                    errorDiv.textContent = data.error || 'Failed to change username';
+                }
+            } catch (e) {
+                errorDiv.textContent = 'Network error. Try again.';
+            }
+            
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
         });
     })();
 

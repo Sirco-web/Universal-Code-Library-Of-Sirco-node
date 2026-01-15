@@ -221,9 +221,59 @@
             max-height: 200px;
             overflow-y: auto;
         }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        .modal-content {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #aaa;
+        }
+        .modal-close:hover { color: #fff; }
+        .status-online { color: #10b981; }
+        .status-away { color: #ffc107; }
+        .status-offline { color: #6c757d; }
+        .activity-item {
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
+    <!-- User Detail Modal -->
+    <div id="user-detail-modal" class="modal-overlay" onclick="if(event.target===this)closeUserModal()">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeUserModal()">&times;</span>
+            <h2 id="modal-username">User Details</h2>
+            <div id="modal-user-content"></div>
+        </div>
+    </div>
+
     <div class="header">
         <h1>🛡️ Owner Dashboard</h1>
         <div class="header-actions">
@@ -311,11 +361,50 @@
             <!-- Users Panel -->
             <div id="panel-users" class="panel">
                 <h2>Users <button class="refresh-btn" onclick="loadUsers()">🔄</button></h2>
+                
+                <!-- Search by Code -->
                 <div class="card">
+                    <h3>🔍 Search User</h3>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        <div class="form-group" style="flex:1;min-width:150px">
+                            <label>User Code (e.g. ABC-1234)</label>
+                            <input type="text" id="search-code" placeholder="ABC-1234" style="text-transform:uppercase">
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:150px">
+                            <label>Username</label>
+                            <input type="text" id="search-username" placeholder="Search username...">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="searchUser()">🔍 Search</button>
+                    <div id="search-result" style="margin-top:15px;display:none"></div>
+                </div>
+                
+                <!-- Quick Actions Panel (shows when user is found) -->
+                <div class="card" id="quick-actions-panel" style="display:none">
+                    <h3>⚡ Quick Actions for <span id="action-username"></span></h3>
+                    <input type="hidden" id="action-clientId">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px">
+                        <button class="btn btn-danger" onclick="instantBan()">🚫 Instant Ban</button>
+                        <button class="btn btn-primary" onclick="showRedirectModal()">🔗 Redirect User</button>
+                        <button class="btn" style="background:#ffc107;color:#000" onclick="instantRefresh()">🔄 Force Refresh</button>
+                        <button class="btn btn-danger" style="background:#8b0000" onclick="instantRevoke()">❌ Revoke Access</button>
+                    </div>
+                    <div class="form-group">
+                        <label>Redirect to URL:</label>
+                        <div style="display:flex;gap:10px">
+                            <input type="text" id="redirect-url" placeholder="https://example.com or /404.html">
+                            <button class="btn btn-primary" onclick="sendRedirect()">Send</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>All Users</h3>
                     <table class="log-table">
                         <thead>
                             <tr>
                                 <th>Username</th>
+                                <th>User Code</th>
                                 <th>Client ID</th>
                                 <th>Created</th>
                                 <th>Last Seen</th>
@@ -324,7 +413,7 @@
                             </tr>
                         </thead>
                         <tbody id="users-table">
-                            <tr><td colspan="6" class="loading">Loading...</td></tr>
+                            <tr><td colspan="7" class="loading">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -565,24 +654,115 @@
             const tbody = document.getElementById('users-table');
             
             if (!users || users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6">No users found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7">No users found</td></tr>';
                 return;
             }
 
             tbody.innerHTML = users.map(u => `
                 <tr>
-                    <td>${u.username}</td>
+                    <td><a href="#" onclick="showUserDetail('${u.clientId}');return false" style="color:#4a90d9;text-decoration:none">${u.username}</a></td>
+                    <td><code style="font-size:11px;color:#4a90d9">${u.userCode || 'N/A'}</code></td>
                     <td><code style="font-size:11px">${u.clientId?.slice(0,8)}...</code></td>
                     <td>${new Date(u.createdAt).toLocaleDateString()}</td>
                     <td>${u.lastSeen ? new Date(u.lastSeen).toLocaleString() : 'Never'}</td>
                     <td>${u.lastIP || u.creationIP || 'Unknown'}</td>
                     <td class="user-actions">
-                        <button class="btn btn-danger" onclick="banUser('${u.clientId}', '${u.username}')">Ban</button>
-                        <button class="btn btn-primary" onclick="revokeAccess('${u.clientId}')">Revoke</button>
-                        <button class="btn" style="background:#ffc107;color:#000" onclick="forceRefresh('${u.clientId}')">Refresh</button>
+                        <button class="btn btn-primary" style="background:#17a2b8" onclick="showUserDetail('${u.clientId}')">👁️</button>
+                        <button class="btn btn-danger" onclick="selectUser('${u.clientId}', '${u.username}')">⚡</button>
                     </td>
                 </tr>
             `).join('');
+        }
+
+        // Search user by code or username
+        async function searchUser() {
+            const code = document.getElementById('search-code').value.trim();
+            const username = document.getElementById('search-username').value.trim();
+            const resultDiv = document.getElementById('search-result');
+            
+            if (!code && !username) {
+                alert('Enter a user code or username');
+                return;
+            }
+            
+            const params = code ? `code=${encodeURIComponent(code)}` : `username=${encodeURIComponent(username)}`;
+            const result = await api(`/search-user?${params}`);
+            
+            resultDiv.style.display = 'block';
+            
+            if (result.found) {
+                const u = result.user;
+                resultDiv.innerHTML = `
+                    <div style="background:rgba(16,185,129,0.2);padding:15px;border-radius:8px">
+                        <strong>✅ User Found!</strong><br>
+                        <strong>Username:</strong> ${u.username}<br>
+                        <strong>Code:</strong> ${u.userCode || 'N/A'}<br>
+                        <strong>Client ID:</strong> <code>${u.clientId}</code><br>
+                        <strong>Last IP:</strong> ${u.lastIP || 'Unknown'}<br>
+                        <strong>Last Seen:</strong> ${u.lastSeen ? new Date(u.lastSeen).toLocaleString() : 'Never'}
+                    </div>
+                `;
+                selectUser(u.clientId, u.username);
+            } else {
+                resultDiv.innerHTML = `<div style="background:rgba(255,107,107,0.2);padding:15px;border-radius:8px">❌ User not found</div>`;
+                document.getElementById('quick-actions-panel').style.display = 'none';
+            }
+        }
+        
+        // Select user for quick actions
+        function selectUser(clientId, username) {
+            document.getElementById('action-clientId').value = clientId;
+            document.getElementById('action-username').textContent = username;
+            document.getElementById('quick-actions-panel').style.display = 'block';
+            document.getElementById('quick-actions-panel').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Instant ban (queues command for immediate effect)
+        async function instantBan() {
+            const clientId = document.getElementById('action-clientId').value;
+            const username = document.getElementById('action-username').textContent;
+            const reason = prompt(`Ban reason for ${username}:`);
+            if (!reason) return;
+            
+            const result = await api('/instant-ban', 'POST', { clientId, username, reason });
+            if (result.success) {
+                alert('✅ User banned! They will be disconnected on next check-in (within seconds)');
+                loadUsers();
+                loadBannedUsers();
+            }
+        }
+        
+        // Send redirect command
+        async function sendRedirect() {
+            const clientId = document.getElementById('action-clientId').value;
+            const url = document.getElementById('redirect-url').value.trim();
+            
+            if (!url) {
+                alert('Enter a URL');
+                return;
+            }
+            
+            const result = await api('/redirect-user', 'POST', { clientId, url });
+            if (result.success) {
+                alert(`✅ User will be redirected to ${url} on next check-in`);
+                document.getElementById('redirect-url').value = '';
+            }
+        }
+        
+        // Instant refresh
+        async function instantRefresh() {
+            const clientId = document.getElementById('action-clientId').value;
+            await api('/send-command', 'POST', { clientId, command: 'refresh' });
+            alert('✅ User will refresh on next check-in');
+        }
+        
+        // Instant revoke
+        async function instantRevoke() {
+            const clientId = document.getElementById('action-clientId').value;
+            if (!confirm('Revoke access? User will need to re-activate.')) return;
+            
+            await api('/send-command', 'POST', { clientId, command: 'revoke' });
+            alert('✅ User access will be revoked on next check-in');
         }
 
         async function loadEvents() {
@@ -801,6 +981,113 @@
         async function forceRefresh(clientId) {
             await api('/force-refresh', 'POST', { clientId });
             alert('User will be forced to refresh on next visit');
+        }
+
+        // ============== USER DETAIL MODAL ==============
+        function closeUserModal() {
+            document.getElementById('user-detail-modal').style.display = 'none';
+        }
+        
+        async function showUserDetail(clientId) {
+            const modal = document.getElementById('user-detail-modal');
+            const content = document.getElementById('modal-user-content');
+            const title = document.getElementById('modal-username');
+            
+            modal.style.display = 'flex';
+            content.innerHTML = '<div class="loading">Loading user activity...</div>';
+            
+            try {
+                const result = await api(`/user-activity/${clientId}`);
+                
+                if (!result.user) {
+                    content.innerHTML = '<p style="color:#ff6b6b">User not found</p>';
+                    return;
+                }
+                
+                const u = result.user;
+                const a = result.activity || {};
+                
+                title.textContent = `👤 ${u.username}`;
+                
+                // Calculate status
+                let statusClass = 'status-offline';
+                let statusText = 'Offline';
+                if (a.isOnline) {
+                    if (a.isActiveTab) {
+                        statusClass = 'status-online';
+                        statusText = '🟢 Online (Active)';
+                    } else {
+                        statusClass = 'status-away';
+                        statusText = '🟡 Online (Away/Background)';
+                    }
+                }
+                
+                // Format time on site
+                const totalSeconds = Math.floor((a.totalTimeOnSite || 0) / 1000);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                
+                content.innerHTML = `
+                    <div class="card" style="margin-bottom:15px">
+                        <h3>Status</h3>
+                        <p class="${statusClass}" style="font-size:1.2em;font-weight:bold">${statusText}</p>
+                        ${a.currentPage ? `<p>Current Page: <code>${a.currentPage}</code></p>` : ''}
+                    </div>
+                    
+                    <div class="card" style="margin-bottom:15px">
+                        <h3>User Info</h3>
+                        <p><strong>User Code:</strong> <code style="color:#4a90d9">${u.userCode || 'N/A'}</code></p>
+                        <p><strong>Client ID:</strong> <code>${u.clientId}</code></p>
+                        <p><strong>Created:</strong> ${new Date(u.createdAt).toLocaleString()}</p>
+                        <p><strong>Last Seen:</strong> ${u.lastSeen ? new Date(u.lastSeen).toLocaleString() : 'Never'}</p>
+                        <p><strong>Last IP:</strong> ${u.lastIP || u.creationIP || 'Unknown'}</p>
+                        <p><strong>Total Time on Site:</strong> ${timeStr}</p>
+                    </div>
+                    
+                    <div class="card" style="margin-bottom:15px">
+                        <h3>Recent Pages</h3>
+                        ${(a.recentPages || []).length > 0 ? 
+                            a.recentPages.map(p => `
+                                <div class="activity-item">
+                                    <strong>${p.page}</strong>
+                                    <span style="color:#888;float:right">${new Date(p.timestamp).toLocaleTimeString()}</span>
+                                </div>
+                            `).join('') : 
+                            '<p style="color:#888">No recent activity</p>'
+                        }
+                    </div>
+                    
+                    <div class="card">
+                        <h3>Quick Actions</h3>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button class="btn btn-danger" onclick="instantBanFromModal('${u.clientId}','${u.username}')">🚫 Ban</button>
+                            <button class="btn btn-primary" onclick="redirectFromModal('${u.clientId}')">🔗 Redirect</button>
+                            <button class="btn" style="background:#ffc107;color:#000" onclick="api('/send-command','POST',{clientId:'${u.clientId}',command:'refresh'}).then(()=>alert('Refresh queued'))">🔄 Refresh</button>
+                            <button class="btn btn-danger" style="background:#8b0000" onclick="api('/send-command','POST',{clientId:'${u.clientId}',command:'revoke'}).then(()=>alert('Access revoked'))">❌ Revoke</button>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                content.innerHTML = '<p style="color:#ff6b6b">Error loading user data</p>';
+            }
+        }
+        
+        async function instantBanFromModal(clientId, username) {
+            const reason = prompt(`Ban reason for ${username}:`);
+            if (!reason) return;
+            await api('/instant-ban', 'POST', { clientId, username, reason });
+            alert('✅ User banned!');
+            closeUserModal();
+            loadUsers();
+        }
+        
+        function redirectFromModal(clientId) {
+            const url = prompt('Enter URL to redirect user to:');
+            if (!url) return;
+            api('/redirect-user', 'POST', { clientId, url }).then(() => {
+                alert(`✅ User will be redirected to ${url}`);
+            });
         }
 
         // Initial load

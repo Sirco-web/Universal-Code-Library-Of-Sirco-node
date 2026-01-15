@@ -131,7 +131,7 @@
                     headers: { 'X-Owner-Token': token }
                 });
                 if (res.ok) {
-                    window.location.href = '/owner/dashboard.html';
+                    window.location.href = '/owner/dashboard.html?token=' + encodeURIComponent(token);
                 } else {
                     localStorage.removeItem('owner_token');
                 }
@@ -160,7 +160,7 @@
 
                 if (data.success && data.token) {
                     localStorage.setItem('owner_token', data.token);
-                    window.location.href = '/owner/dashboard.html';
+                    window.location.href = '/owner/dashboard.html?token=' + encodeURIComponent(data.token);
                 } else {
                     errorMsg.textContent = data.error || 'Authentication failed';
                     errorMsg.style.display = 'block';
