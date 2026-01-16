@@ -2,6 +2,12 @@
 // No external API calls for instant loading
 
 (function() {
+    // Register main service worker for offline support
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/analytics-sw.js', { scope: '/' })
+            .catch(() => {}); // Fail silently
+    }
+
     function getOS() {
         const ua = navigator.userAgent;
         if (/windows phone/i.test(ua)) return "Windows Phone";

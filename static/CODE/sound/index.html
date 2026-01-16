@@ -519,13 +519,6 @@
         console.warn("Could not apply background:", e);
       }
     })();
-
-    // Register service worker for offline support
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/CODE/sound/sw.js', { scope: '/CODE/sound/' })
-        .then(reg => console.log('Soundboard SW registered:', reg.scope))
-        .catch(err => console.error('Soundboard SW registration failed:', err));
-    }
   </script>
 </body>
 </html>
