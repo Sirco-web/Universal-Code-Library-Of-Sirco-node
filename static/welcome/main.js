@@ -191,6 +191,199 @@ function showWelcomeToast(username) {
     setTimeout(() => toast.remove(), 5000);
 }
 
+// ============== PASSWORD CHECK ==============
+async function checkPasswordRequired() {
+    const clientId = localStorage.getItem('clientId');
+    if (!clientId) return;
+    
+    try {
+        const res = await fetch(`/api/account/has-password?clientId=${clientId}`);
+        const data = await res.json();
+        
+        if (data.exists && !data.hasPassword) {
+            // Check if user has dismissed this before
+            const dismissed = localStorage.getItem('passwordPromptDismissed');
+            if (dismissed === 'true') return;
+            
+            showPasswordPrompt();
+        }
+    } catch (e) {
+        // Offline or error - skip
+    }
+}
+
+function showPasswordPrompt() {
+    const overlay = document.createElement('div');
+    overlay.id = 'password-overlay';
+    overlay.innerHTML = `
+        <div style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999999;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        ">
+            <div style="
+                background: white;
+                padding: 40px;
+                border-radius: 20px;
+                text-align: center;
+                max-width: 450px;
+                width: 90%;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            ">
+                <div style="font-size: 50px; margin-bottom: 15px;">🔐</div>
+                <h2 style="color: #333; margin-bottom: 10px;">Secure Your Account</h2>
+                <p style="color: #666; margin-bottom: 25px;">
+                    Set a password to protect your account. You can export and import your account across devices.
+                </p>
+                <div style="margin-bottom: 20px;">
+                    <input type="password" id="set-password" placeholder="Enter password" style="
+                        width: 100%;
+                        padding: 15px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 16px;
+                        text-align: center;
+                        margin-bottom: 10px;
+                    " minlength="4">
+                    <input type="password" id="confirm-password" placeholder="Confirm password" style="
+                        width: 100%;
+                        padding: 15px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 16px;
+                        text-align: center;
+                    " minlength="4">
+                    <p style="color: #999; font-size: 12px; margin-top: 5px;">
+                        Minimum 4 characters
+                    </p>
+                </div>
+                <div id="password-error" style="
+                    background: #f8d7da;
+                    color: #721c24;
+                    padding: 10px;
+                    border-radius: 8px;
+                    margin-bottom: 15px;
+                    display: none;
+                "></div>
+                <button onclick="setAccountPassword()" id="set-password-btn" style="
+                    width: 100%;
+                    padding: 15px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    margin-bottom: 10px;
+                ">
+                    Set Password
+                </button>
+                <button onclick="dismissPasswordPrompt()" style="
+                    width: 100%;
+                    padding: 12px;
+                    background: #e0e7ef;
+                    color: #666;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    cursor: pointer;
+                ">
+                    Maybe Later
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    
+    setTimeout(() => {
+        const input = document.getElementById('set-password');
+        if (input) input.focus();
+    }, 100);
+}
+
+async function setAccountPassword() {
+    const password = document.getElementById('set-password').value;
+    const confirm = document.getElementById('confirm-password').value;
+    const errorDiv = document.getElementById('password-error');
+    const btn = document.getElementById('set-password-btn');
+    
+    if (password.length < 4) {
+        errorDiv.textContent = 'Password must be at least 4 characters';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    if (password !== confirm) {
+        errorDiv.textContent = 'Passwords do not match';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Setting password...';
+    
+    try {
+        const clientId = localStorage.getItem('clientId');
+        const res = await fetch('/api/account/set-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clientId, password })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            const overlay = document.getElementById('password-overlay');
+            if (overlay) overlay.remove();
+            showPasswordToast();
+        } else {
+            errorDiv.textContent = data.error || 'Failed to set password';
+            errorDiv.style.display = 'block';
+        }
+    } catch (e) {
+        errorDiv.textContent = 'Connection error';
+        errorDiv.style.display = 'block';
+    }
+    
+    btn.disabled = false;
+    btn.textContent = 'Set Password';
+}
+
+function dismissPasswordPrompt() {
+    localStorage.setItem('passwordPromptDismissed', 'true');
+    const overlay = document.getElementById('password-overlay');
+    if (overlay) overlay.remove();
+}
+
+function showPasswordToast() {
+    const toast = document.createElement('div');
+    toast.innerHTML = `
+        <div style="
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            z-index: 999999;
+        ">
+            🔐 Password set! Your account is now protected.
+        </div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+}
+
 async function checkUserStatus(clientId, accessCookieId) {
     try {
         const res = await fetch('/api/check-status', {
@@ -306,6 +499,8 @@ window.onload = function () {
     checkOfflineStatus();
     // Set the banner iframe src with cache-busting using JS (like fetchVersion)
     document.getElementById('banner-frame').src = `/banner.html?nocache=${new Date().getTime()}`;
+    // Check if user needs to set a password (after a short delay)
+    setTimeout(checkPasswordRequired, 2000);
 };
 
 window.addEventListener('DOMContentLoaded', function() {

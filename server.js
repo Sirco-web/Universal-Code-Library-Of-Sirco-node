@@ -14,6 +14,40 @@ const { v4: uuidv4 } = require('uuid');
 const http = require('http');
 const https = require('https');
 const fetch = require('node-fetch');
+const crypto = require('crypto');
+
+// ============== ENCRYPTION FOR EXPORT/IMPORT ==============
+const EXPORT_SECRET = 'sircoonline2026iscooldonothackthispleaseslim';
+
+function encryptData(data) {
+    const key = crypto.createHash('sha256').update(EXPORT_SECRET).digest();
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'base64');
+    encrypted += cipher.final('base64');
+    // Combine IV + encrypted data and encode as base64
+    const combined = Buffer.concat([iv, Buffer.from(encrypted, 'base64')]);
+    return combined.toString('base64');
+}
+
+function decryptData(encryptedBase64) {
+    try {
+        const key = crypto.createHash('sha256').update(EXPORT_SECRET).digest();
+        const combined = Buffer.from(encryptedBase64, 'base64');
+        const iv = combined.subarray(0, 16);
+        const encrypted = combined.subarray(16);
+        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+        let decrypted = decipher.update(encrypted, undefined, 'utf8');
+        decrypted += decipher.final('utf8');
+        return JSON.parse(decrypted);
+    } catch (e) {
+        return null;
+    }
+}
+
+function hashPassword(password) {
+    return crypto.createHash('sha256').update(password + EXPORT_SECRET).digest('hex');
+}
 
 // Initialize Express app
 const app = express();
@@ -433,13 +467,17 @@ app.use((req, res, next) => {
 
 // Note: Access cookie check is now the FIRST middleware above for faster rejection
 
-// Log all requests
+// Log only important page visits (not every request)
 app.use((req, res, next) => {
-    logEvent('request', {
-        method: req.method,
-        path: req.path,
-        query: req.query
-    }, req);
+    // Only log page visits, not API calls or static assets
+    if (!req.path.startsWith('/api/') && 
+        !req.path.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json)$/) &&
+        req.method === 'GET') {
+        logEvent('page_visit', {
+            path: req.path,
+            referer: req.headers.referer || null
+        }, req);
+    }
     next();
 });
 
@@ -991,6 +1029,209 @@ app.post('/api/register-user', (req, res) => {
     res.json({ success: true, clientId, username, userCode });
 });
 
+// ============== ACCOUNT SYSTEM ==============
+
+// Set password for user account
+app.post('/api/account/set-password', (req, res) => {
+    const { clientId, password } = req.body;
+    
+    if (!clientId || !password) {
+        return res.status(400).json({ error: 'clientId and password required' });
+    }
+    
+    if (password.length < 4) {
+        return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    }
+    
+    const users = loadUsers();
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    users[clientId].passwordHash = hashPassword(password);
+    users[clientId].passwordSetAt = new Date().toISOString();
+    saveUsers(users);
+    
+    logEvent('password_set', { clientId, userCode: users[clientId].userCode }, req);
+    
+    res.json({ success: true });
+});
+
+// Login to account (verify password)
+app.post('/api/account/login', (req, res) => {
+    const { userCode, password } = req.body;
+    
+    if (!userCode || !password) {
+        return res.status(400).json({ error: 'userCode and password required' });
+    }
+    
+    const users = loadUsers();
+    const user = Object.values(users).find(u => u.userCode === userCode);
+    
+    if (!user) {
+        logEvent('login_failed', { userCode, reason: 'user_not_found' }, req);
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (!user.passwordHash) {
+        return res.status(400).json({ error: 'no_password', message: 'Account has no password set' });
+    }
+    
+    if (user.passwordHash !== hashPassword(password)) {
+        logEvent('login_failed', { userCode, reason: 'wrong_password' }, req);
+        return res.status(401).json({ error: 'Incorrect password' });
+    }
+    
+    logEvent('login_success', { userCode, clientId: user.clientId }, req);
+    
+    res.json({ 
+        success: true, 
+        user: {
+            clientId: user.clientId,
+            username: user.username,
+            userCode: user.userCode,
+            accessCookieId: user.accessCookieId,
+            createdAt: user.createdAt
+        }
+    });
+});
+
+// Check if user has password
+app.get('/api/account/has-password', (req, res) => {
+    const { clientId, userCode } = req.query;
+    
+    const users = loadUsers();
+    let user = null;
+    
+    if (clientId) {
+        user = users[clientId];
+    } else if (userCode) {
+        user = Object.values(users).find(u => u.userCode === userCode);
+    }
+    
+    if (!user) {
+        return res.json({ hasPassword: false, exists: false });
+    }
+    
+    res.json({ hasPassword: !!user.passwordHash, exists: true });
+});
+
+// Export account data (encrypted .uni file)
+app.post('/api/account/export', (req, res) => {
+    const { clientId, password } = req.body;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const users = loadUsers();
+    const user = users[clientId];
+    
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Verify password if set
+    if (user.passwordHash) {
+        if (!password || user.passwordHash !== hashPassword(password)) {
+            return res.status(401).json({ error: 'Incorrect password' });
+        }
+    }
+    
+    // Create export data
+    const exportData = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        user: {
+            clientId: user.clientId,
+            username: user.username,
+            userCode: user.userCode,
+            accessCookieId: user.accessCookieId,
+            createdAt: user.createdAt,
+            passwordHash: user.passwordHash || null
+        }
+    };
+    
+    const encrypted = encryptData(exportData);
+    
+    logEvent('account_exported', { clientId, userCode: user.userCode }, req);
+    
+    res.json({ 
+        success: true, 
+        data: encrypted,
+        filename: `sirco-account-${user.userCode}.uni`
+    });
+});
+
+// Import account data (from encrypted .uni file)
+app.post('/api/account/import', (req, res) => {
+    const { encryptedData, currentClientId } = req.body;
+    
+    if (!encryptedData) {
+        return res.status(400).json({ error: 'encryptedData required' });
+    }
+    
+    const decrypted = decryptData(encryptedData);
+    
+    if (!decrypted || !decrypted.user) {
+        logEvent('import_failed', { reason: 'decrypt_failed' }, req);
+        return res.status(400).json({ error: 'Invalid or corrupted file' });
+    }
+    
+    const importedUser = decrypted.user;
+    const users = loadUsers();
+    
+    // Check if user already exists
+    if (users[importedUser.clientId]) {
+        // User exists - verify they can claim it
+        if (users[importedUser.clientId].passwordHash && 
+            users[importedUser.clientId].passwordHash !== importedUser.passwordHash) {
+            logEvent('import_failed', { reason: 'password_mismatch', userCode: importedUser.userCode }, req);
+            return res.status(401).json({ error: 'Account exists with different password' });
+        }
+    }
+    
+    // Import/update the user
+    users[importedUser.clientId] = {
+        ...users[importedUser.clientId],
+        ...importedUser,
+        lastIP: getClientIP(req),
+        lastSeen: new Date().toISOString(),
+        importedAt: new Date().toISOString()
+    };
+    saveUsers(users);
+    
+    // Also update access cookies
+    if (importedUser.accessCookieId) {
+        const accessCookies = loadAccessCookies();
+        accessCookies[importedUser.accessCookieId] = {
+            clientId: importedUser.clientId,
+            username: importedUser.username,
+            createdAt: importedUser.createdAt,
+            lastUsed: new Date().toISOString(),
+            imported: true
+        };
+        saveAccessCookies(accessCookies);
+    }
+    
+    logEvent('account_imported', { 
+        clientId: importedUser.clientId, 
+        userCode: importedUser.userCode,
+        fromClientId: currentClientId 
+    }, req);
+    
+    res.json({ 
+        success: true, 
+        user: {
+            clientId: importedUser.clientId,
+            username: importedUser.username,
+            userCode: importedUser.userCode,
+            accessCookieId: importedUser.accessCookieId,
+            hasPassword: !!importedUser.passwordHash
+        }
+    });
+});
+
 // Check if client needs to do anything (banned, refresh, etc.)
 // Also syncs users - if user doesn't exist on this server, create them
 app.post('/api/check-status', (req, res) => {
@@ -1088,6 +1329,7 @@ app.post('/api/check-status', (req, res) => {
         };
         saveUsers(users);
         console.log(`Synced user from client: ${clientId} (${username}) [${userCode}]`);
+        logEvent('user_synced', { clientId, username, userCode }, req);
         
         // Also create/update access cookie record
         if (accessCookieId && !accessCookies[accessCookieId]) {
@@ -1161,20 +1403,23 @@ function saveNewsletterSubs(subs) {
 
 // Subscribe to newsletter
 app.post('/api/newsletter/subscribe', (req, res) => {
-    const { clientId } = req.body;
+    const { userCode } = req.body;
     
-    if (!clientId) {
-        return res.status(400).json({ error: 'clientId required' });
+    if (!userCode) {
+        return res.status(400).json({ error: 'userCode required' });
     }
     
     const subs = loadNewsletterSubs();
-    if (!subs[clientId]) {
-        subs[clientId] = {
-            subscribedAt: new Date().toISOString(),
-            lastRead: null
-        };
-        saveNewsletterSubs(subs);
-        logEvent('newsletter_subscribe', { clientId }, req);
+    const isNew = !subs[userCode];
+    subs[userCode] = {
+        userCode,
+        subscribedAt: subs[userCode]?.subscribedAt || new Date().toISOString(),
+        lastRead: subs[userCode]?.lastRead || null
+    };
+    saveNewsletterSubs(subs);
+    
+    if (isNew) {
+        logEvent('newsletter_subscribe', { userCode }, req);
     }
     
     res.json({ success: true, subscribed: true });
@@ -1182,17 +1427,17 @@ app.post('/api/newsletter/subscribe', (req, res) => {
 
 // Unsubscribe from newsletter
 app.post('/api/newsletter/unsubscribe', (req, res) => {
-    const { clientId } = req.body;
+    const { userCode } = req.body;
     
-    if (!clientId) {
-        return res.status(400).json({ error: 'clientId required' });
+    if (!userCode) {
+        return res.status(400).json({ error: 'userCode required' });
     }
     
     const subs = loadNewsletterSubs();
-    if (subs[clientId]) {
-        delete subs[clientId];
+    if (subs[userCode]) {
+        delete subs[userCode];
         saveNewsletterSubs(subs);
-        logEvent('newsletter_unsubscribe', { clientId }, req);
+        logEvent('newsletter_unsubscribe', { userCode }, req);
     }
     
     res.json({ success: true, subscribed: false });
@@ -1200,14 +1445,14 @@ app.post('/api/newsletter/unsubscribe', (req, res) => {
 
 // Check subscription status
 app.get('/api/newsletter/status', (req, res) => {
-    const { clientId } = req.query;
+    const { userCode } = req.query;
     
-    if (!clientId) {
+    if (!userCode) {
         return res.json({ subscribed: false });
     }
     
     const subs = loadNewsletterSubs();
-    res.json({ subscribed: !!subs[clientId] });
+    res.json({ subscribed: !!subs[userCode] });
 });
 
 // Get newsletters for user (public)
