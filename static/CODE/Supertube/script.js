@@ -466,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const STORAGE_KEY = 'supertube_session';
   const TOKEN_COOKIE = 'supertube_access'; // Cookie name for access token
   
-  let sessionData = { usedSeconds: 0, serverTimeOffset: 0 };
+  let sessionData = { usedSeconds: 0, serverTimeOffset: 0, hasChosen: false };
   let accessToken = null;
   let timeCheckInterval = null;
   let isTimeLocked = false;
@@ -518,7 +518,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = JSON.parse(saved);
         sessionData = { 
           usedSeconds: data.usedSeconds || 0,
-          serverTimeOffset: data.serverTimeOffset || 0
+          serverTimeOffset: data.serverTimeOffset || 0,
+          hasChosen: data.hasChosen || false
         };
       }
       
@@ -645,101 +646,351 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
   
-  function createTimeCodePopup() {
-    // Remove existing popup if any
-    const existing = document.getElementById('timecode-popup');
+  // Common popup styles
+  const popupStyles = `
+    .supertube-popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .supertube-popup .popup-content {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .supertube-popup h2 {
+      color: #fff;
+      margin: 0 0 10px 0;
+      font-size: 1.8em;
+    }
+    .supertube-popup .subtitle {
+      color: #9ca3af;
+      margin-bottom: 25px;
+    }
+    .supertube-popup .time-icon {
+      font-size: 4em;
+      margin-bottom: 15px;
+    }
+    .supertube-popup input {
+      width: 100%;
+      padding: 15px;
+      font-size: 1.4em;
+      text-align: center;
+      letter-spacing: 8px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      text-transform: uppercase;
+      margin-bottom: 15px;
+      box-sizing: border-box;
+    }
+    .supertube-popup input:focus {
+      outline: none;
+      border-color: #4ecdc4;
+    }
+    .supertube-popup button {
+      width: 100%;
+      padding: 15px;
+      font-size: 1.1em;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+    .supertube-popup button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    }
+    .supertube-popup .btn-primary {
+      background: linear-gradient(135deg, #4ecdc4, #44a08d);
+      color: #000;
+      font-weight: bold;
+    }
+    .supertube-popup .btn-free {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      font-weight: bold;
+    }
+    .supertube-popup .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: #9ca3af;
+    }
+    .supertube-popup .btn-disabled {
+      background: rgba(255,255,255,0.05);
+      color: #555;
+      cursor: not-allowed;
+    }
+    .supertube-popup .btn-disabled:hover {
+      transform: none;
+      box-shadow: none;
+    }
+    .supertube-popup .error {
+      color: #ff6b6b;
+      margin-top: 15px;
+      display: none;
+    }
+    .supertube-popup .success {
+      color: #4ecdc4;
+      margin-top: 15px;
+    }
+    .supertube-popup .info {
+      color: #666;
+      font-size: 0.85em;
+      margin-top: 20px;
+    }
+    .supertube-popup .divider {
+      color: #555;
+      margin: 20px 0;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .supertube-popup .divider::before,
+    .supertube-popup .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.1);
+    }
+  `;
+  
+  // Welcome popup - shows immediately on first visit or when no active session
+  function createWelcomePopup() {
+    const existing = document.getElementById('supertube-welcome');
     if (existing) existing.remove();
+    
+    const freeUsed = sessionData.usedSeconds >= FREE_MINUTES * 60;
+    const freeRemaining = Math.max(0, FREE_MINUTES * 60 - sessionData.usedSeconds);
+    const freeRemainingMins = Math.ceil(freeRemaining / 60);
+    
+    const popup = document.createElement('div');
+    popup.id = 'supertube-welcome';
+    popup.className = 'supertube-popup';
+    popup.innerHTML = `
+      <style>${popupStyles}</style>
+      <div class="popup-content">
+        <div class="time-icon">📺</div>
+        <h2>Welcome to SuperTube!</h2>
+        <p class="subtitle">Choose how you'd like to access SuperTube</p>
+        
+        ${freeUsed ? `
+          <button class="btn-disabled" disabled>❌ Free Trial Used</button>
+        ` : `
+          <button class="btn-free" onclick="window.startFreeTrial()">
+            🎉 Use Free ${freeRemainingMins} Minutes
+          </button>
+        `}
+        
+        <div class="divider">OR</div>
+        
+        <input type="text" id="welcome-code-input" placeholder="XXXXXX" maxlength="6" autocomplete="off">
+        <button class="btn-primary" onclick="window.redeemWelcomeCode()">🔓 Enter Time Code</button>
+        
+        <button class="btn-secondary" onclick="window.location.href='/index.html'">← Back to Home</button>
+        
+        <p class="error" id="welcome-error"></p>
+        <p class="info">💡 Time codes give you extended access. Get them from the site owner.</p>
+      </div>
+    `;
+    document.body.appendChild(popup);
+    
+    // Enter key to submit code
+    document.getElementById('welcome-code-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') window.redeemWelcomeCode();
+    });
+  }
+  
+  // Start free trial
+  window.startFreeTrial = function() {
+    const popup = document.getElementById('supertube-welcome');
+    if (popup) popup.remove();
+    sessionData.hasChosen = true;
+    saveSession();
+    isTimeLocked = false;
+  };
+  
+  // Redeem code from welcome popup
+  window.redeemWelcomeCode = async function() {
+    const input = document.getElementById('welcome-code-input');
+    const error = document.getElementById('welcome-error');
+    const code = input.value.trim().toUpperCase();
+    
+    if (!code || code.length !== 6) {
+      error.textContent = 'Please enter a 6-character code';
+      error.style.display = 'block';
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/supertube/redeem-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          code, 
+          clientId: localStorage.getItem('clientId') || 'anonymous' 
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Save the signed token
+        saveToken({
+          code: result.code,
+          expiresAt: result.expiresAt,
+          signature: result.signature,
+          issuedAt: result.issuedAt
+        });
+        
+        if (result.serverTime) {
+          sessionData.serverTimeOffset = result.serverTime - Date.now();
+        }
+        sessionData.usedSeconds = 0;
+        saveSession();
+        
+        // Show "another code" popup
+        showAnotherCodePopup(result.minutes);
+      } else {
+        error.textContent = result.error || 'Invalid code';
+        error.style.display = 'block';
+        input.value = '';
+        input.focus();
+      }
+    } catch (e) {
+      error.textContent = 'Failed to verify code. Check your connection.';
+      error.style.display = 'block';
+    }
+  };
+  
+  // Popup after code redeemed - ask for another or start
+  function showAnotherCodePopup(minutes) {
+    const existing = document.getElementById('supertube-welcome');
+    if (existing) existing.remove();
+    
+    const freeUsed = sessionData.usedSeconds >= FREE_MINUTES * 60;
+    
+    const popup = document.createElement('div');
+    popup.id = 'supertube-another';
+    popup.className = 'supertube-popup';
+    popup.innerHTML = `
+      <style>${popupStyles}</style>
+      <div class="popup-content">
+        <div class="time-icon">✅</div>
+        <h2>Code Accepted!</h2>
+        <p class="success">You now have ${minutes} minutes of access!</p>
+        <p class="subtitle">Do you have another code to add more time?</p>
+        
+        <input type="text" id="another-code-input" placeholder="XXXXXX" maxlength="6" autocomplete="off">
+        <button class="btn-primary" onclick="window.redeemAnotherCode()">➕ Add Another Code</button>
+        
+        <div class="divider">OR</div>
+        
+        <button class="btn-free" onclick="window.startWatching()">▶️ Start Watching Now</button>
+        
+        ${!freeUsed ? `
+          <button class="btn-secondary" onclick="window.startFreeTrial()">
+            🎉 Use Free ${FREE_MINUTES} Mins Instead
+          </button>
+        ` : ''}
+        
+        <p class="error" id="another-error"></p>
+      </div>
+    `;
+    document.body.appendChild(popup);
+    
+    document.getElementById('another-code-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') window.redeemAnotherCode();
+    });
+  }
+  
+  // Redeem another code
+  window.redeemAnotherCode = async function() {
+    const input = document.getElementById('another-code-input');
+    const error = document.getElementById('another-error');
+    const code = input.value.trim().toUpperCase();
+    
+    if (!code || code.length !== 6) {
+      error.textContent = 'Please enter a 6-character code';
+      error.style.display = 'block';
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/supertube/redeem-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          code, 
+          clientId: localStorage.getItem('clientId') || 'anonymous' 
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Save new token (extends/replaces old)
+        saveToken({
+          code: result.code,
+          expiresAt: result.expiresAt,
+          signature: result.signature,
+          issuedAt: result.issuedAt
+        });
+        
+        if (result.serverTime) {
+          sessionData.serverTimeOffset = result.serverTime - Date.now();
+        }
+        saveSession();
+        
+        // Show another code popup again with updated time
+        const popup = document.getElementById('supertube-another');
+        if (popup) popup.remove();
+        showAnotherCodePopup(result.minutes);
+      } else {
+        error.textContent = result.error || 'Invalid code';
+        error.style.display = 'block';
+        input.value = '';
+        input.focus();
+      }
+    } catch (e) {
+      error.textContent = 'Failed to verify code. Check your connection.';
+      error.style.display = 'block';
+    }
+  };
+  
+  // Start watching
+  window.startWatching = function() {
+    const popup = document.getElementById('supertube-another');
+    if (popup) popup.remove();
+    sessionData.hasChosen = true;
+    saveSession();
+    isTimeLocked = false;
+  };
+  
+  // Time's up popup - when free trial ends
+  function createTimeCodePopup() {
+    const existing = document.querySelectorAll('.supertube-popup');
+    existing.forEach(p => p.remove());
     
     const popup = document.createElement('div');
     popup.id = 'timecode-popup';
+    popup.className = 'supertube-popup';
     popup.innerHTML = `
-      <style>
-        #timecode-popup {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0,0,0,0.95);
-          z-index: 99999;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        #timecode-popup .popup-content {
-          background: linear-gradient(135deg, #1a1a2e, #16213e);
-          border-radius: 16px;
-          padding: 40px;
-          max-width: 420px;
-          width: 90%;
-          text-align: center;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-          border: 1px solid rgba(255,255,255,0.1);
-        }
-        #timecode-popup h2 {
-          color: #fff;
-          margin: 0 0 10px 0;
-          font-size: 1.8em;
-        }
-        #timecode-popup .subtitle {
-          color: #9ca3af;
-          margin-bottom: 25px;
-        }
-        #timecode-popup .time-icon {
-          font-size: 4em;
-          margin-bottom: 15px;
-        }
-        #timecode-popup input {
-          width: 100%;
-          padding: 15px;
-          font-size: 1.4em;
-          text-align: center;
-          letter-spacing: 8px;
-          border: 2px solid rgba(255,255,255,0.2);
-          border-radius: 10px;
-          background: rgba(255,255,255,0.05);
-          color: #fff;
-          text-transform: uppercase;
-          margin-bottom: 15px;
-        }
-        #timecode-popup input:focus {
-          outline: none;
-          border-color: #4ecdc4;
-        }
-        #timecode-popup button {
-          width: 100%;
-          padding: 15px;
-          font-size: 1.1em;
-          border: none;
-          border-radius: 10px;
-          cursor: pointer;
-          transition: transform 0.2s, box-shadow 0.2s;
-          margin-bottom: 10px;
-        }
-        #timecode-popup button:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-        }
-        #timecode-popup .btn-primary {
-          background: linear-gradient(135deg, #4ecdc4, #44a08d);
-          color: #000;
-          font-weight: bold;
-        }
-        #timecode-popup .btn-secondary {
-          background: rgba(255,255,255,0.1);
-          color: #9ca3af;
-        }
-        #timecode-popup .error {
-          color: #ff6b6b;
-          margin-top: 15px;
-          display: none;
-        }
-        #timecode-popup .info {
-          color: #666;
-          font-size: 0.85em;
-          margin-top: 20px;
-        }
-      </style>
+      <style>${popupStyles}</style>
       <div class="popup-content">
         <div class="time-icon">⏱️</div>
         <h2>Time's Up!</h2>
@@ -753,12 +1004,10 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.body.appendChild(popup);
     
-    // Focus input
     setTimeout(() => {
       document.getElementById('timecode-input').focus();
     }, 100);
     
-    // Enter key to submit
     document.getElementById('timecode-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') window.redeemTimeCode();
     });
@@ -803,12 +1052,13 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionData.usedSeconds = 0; // Reset free trial counter
         saveSession();
         
-        // Remove popup and unlock
+        // Remove popup and show another code option
         document.getElementById('timecode-popup').remove();
         isTimeLocked = false;
         resumeAllMedia();
         
-        alert(`✅ Code accepted! You have ${result.minutes} minutes of SuperTube access.`);
+        // Show another code popup
+        showAnotherCodePopup(result.minutes);
       } else {
         error.textContent = result.error || 'Invalid code';
         error.style.display = 'block';
@@ -857,6 +1107,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (accessToken) {
       const valid = await validateTokenWithServer();
       if (!valid) return; // Already redirected
+      
+      // Has valid token - no popup needed
+      sessionData.hasChosen = true;
+      saveSession();
+    }
+    
+    // SHOW WELCOME POPUP IMMEDIATELY if user hasn't chosen yet
+    if (!sessionData.hasChosen && !accessToken) {
+      isTimeLocked = true;
+      createWelcomePopup();
     }
     
     if (timeCheckInterval) clearInterval(timeCheckInterval);
@@ -880,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', () => {
           saveSession();
         }
         
-        // Check if time ran out
+        // Check if time ran out (free trial ended)
         if (!hasTimeRemaining()) {
           lockForTimeCode();
         }
@@ -891,11 +1151,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await validateTokenWithServer();
       }
     }, 1000);
-    
-    // Check on initial load
-    if (!hasTimeRemaining()) {
-      lockForTimeCode();
-    }
   }
   
   // Start tracking
