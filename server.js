@@ -1514,13 +1514,18 @@ app.get('/api/owner/newsletter-subscribers', verifyOwnerToken, (req, res) => {
     const subs = loadNewsletterSubs();
     const users = loadUsers();
     
-    // Enrich with user info
-    const enriched = Object.entries(subs).map(([clientId, sub]) => ({
-        clientId,
-        username: users[clientId]?.username || 'Unknown',
-        userCode: users[clientId]?.userCode || 'N/A',
-        ...sub
-    }));
+    // Enrich with user info - subs are keyed by userCode
+    const enriched = Object.entries(subs).map(([userCode, sub]) => {
+        // Find user by userCode
+        const user = Object.values(users).find(u => u.userCode === userCode);
+        return {
+            userCode,
+            username: user?.username || 'Unknown',
+            clientId: user?.clientId || 'N/A',
+            subscribedAt: sub.subscribedAt,
+            ...sub
+        };
+    });
     
     res.json(enriched);
 });
