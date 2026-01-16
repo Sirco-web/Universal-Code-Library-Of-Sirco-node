@@ -1776,6 +1776,164 @@ app.post('/api/supertube/redeem-code', (req, res) => {
     });
 });
 
+// ============== SUPERTUBE VIDEO API PROXY (with caching) ==============
+const YOUTUBE_API_HOST = 'yt-api.p.rapidapi.com';
+const YOUTUBE_API_KEYS = [
+    '628135d18cmsh9281abbf2c08801p1744fdjsndd8e9e7b173d',
+    'f0818770admsh5ea686ccfe9dbd6p1376c5jsnd5ce231c2c6c'
+];
+let youtubeApiKeyIndex = 0;
+
+// In-memory cache for video feeds
+const videoCache = {
+    trending: {},      // { region: { data, timestamp } }
+    search: {},        // { query: { data, timestamp } }
+    shorts: null       // { data, timestamp }
+};
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache
+
+function isCacheValid(cacheEntry) {
+    if (!cacheEntry || !cacheEntry.timestamp) return false;
+    return Date.now() - cacheEntry.timestamp < CACHE_DURATION;
+}
+
+async function fetchYouTubeAPI(path) {
+    const maxRetries = YOUTUBE_API_KEYS.length;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            const response = await fetch(`https://${YOUTUBE_API_HOST}${path}`, {
+                headers: {
+                    'X-RapidAPI-Key': YOUTUBE_API_KEYS[youtubeApiKeyIndex],
+                    'X-RapidAPI-Host': YOUTUBE_API_HOST
+                }
+            });
+            
+            if (response.status === 429 || response.status === 403) {
+                // Rate limited or forbidden, try next key
+                console.log(`YouTube API key ${youtubeApiKeyIndex + 1} exhausted, switching...`);
+                youtubeApiKeyIndex = (youtubeApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
+                continue;
+            }
+            
+            if (!response.ok) {
+                throw new Error(`YouTube API error: ${response.status}`);
+            }
+            
+            return await response.json();
+        } catch (e) {
+            console.error('YouTube API fetch error:', e.message);
+            if (attempt < maxRetries - 1) {
+                youtubeApiKeyIndex = (youtubeApiKeyIndex + 1) % YOUTUBE_API_KEYS.length;
+            }
+        }
+    }
+    
+    throw new Error('All YouTube API keys exhausted');
+}
+
+// Get trending videos (cached)
+app.get('/api/supertube/trending', async (req, res) => {
+    try {
+        const geo = req.query.geo || 'US';
+        
+        // Check cache
+        if (videoCache.trending[geo] && isCacheValid(videoCache.trending[geo])) {
+            console.log(`Serving cached trending for ${geo}`);
+            return res.json(videoCache.trending[geo].data);
+        }
+        
+        // Fetch fresh data
+        console.log(`Fetching fresh trending for ${geo}`);
+        const data = await fetchYouTubeAPI(`/trending?geo=${encodeURIComponent(geo)}`);
+        
+        // Cache it
+        videoCache.trending[geo] = {
+            data: data,
+            timestamp: Date.now()
+        };
+        
+        res.json(data);
+    } catch (e) {
+        console.error('Trending API error:', e.message);
+        res.status(500).json({ error: 'Failed to fetch trending videos' });
+    }
+});
+
+// Search videos (cached)
+app.get('/api/supertube/search', async (req, res) => {
+    try {
+        const query = req.query.query || '';
+        const type = req.query.type || 'video';
+        const cacheKey = `${query}:${type}`;
+        
+        // Check cache
+        if (videoCache.search[cacheKey] && isCacheValid(videoCache.search[cacheKey])) {
+            console.log(`Serving cached search for "${query}"`);
+            return res.json(videoCache.search[cacheKey].data);
+        }
+        
+        // Fetch fresh data
+        console.log(`Fetching fresh search for "${query}"`);
+        const data = await fetchYouTubeAPI(`/search?query=${encodeURIComponent(query)}&type=${type}`);
+        
+        // Cache it (limit search cache size)
+        const searchKeys = Object.keys(videoCache.search);
+        if (searchKeys.length > 50) {
+            // Remove oldest entries
+            const oldest = searchKeys.sort((a, b) => 
+                videoCache.search[a].timestamp - videoCache.search[b].timestamp
+            ).slice(0, 10);
+            oldest.forEach(k => delete videoCache.search[k]);
+        }
+        
+        videoCache.search[cacheKey] = {
+            data: data,
+            timestamp: Date.now()
+        };
+        
+        res.json(data);
+    } catch (e) {
+        console.error('Search API error:', e.message);
+        res.status(500).json({ error: 'Failed to search videos' });
+    }
+});
+
+// Get shorts (cached)
+app.get('/api/supertube/shorts', async (req, res) => {
+    try {
+        // Check cache
+        if (videoCache.shorts && isCacheValid(videoCache.shorts)) {
+            console.log('Serving cached shorts');
+            return res.json(videoCache.shorts.data);
+        }
+        
+        // Fetch fresh data
+        console.log('Fetching fresh shorts');
+        const data = await fetchYouTubeAPI('/search?query=shorts&type=video');
+        
+        // Cache it
+        videoCache.shorts = {
+            data: data,
+            timestamp: Date.now()
+        };
+        
+        res.json(data);
+    } catch (e) {
+        console.error('Shorts API error:', e.message);
+        res.status(500).json({ error: 'Failed to fetch shorts' });
+    }
+});
+
+// Clear video cache (owner only)
+app.post('/api/owner/clear-video-cache', verifyOwnerToken, (req, res) => {
+    videoCache.trending = {};
+    videoCache.search = {};
+    videoCache.shorts = null;
+    console.log('Video cache cleared by owner');
+    res.json({ success: true, message: 'Video cache cleared' });
+});
+
 // ============== AI CHAT API ==============
 app.post('/api/ai/chat', async (req, res) => {
     const { messages, model } = req.body;

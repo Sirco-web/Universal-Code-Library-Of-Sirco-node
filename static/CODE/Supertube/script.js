@@ -9,12 +9,7 @@ function checkCookie() {
 checkCookie();
 
 document.addEventListener('DOMContentLoaded', () => {
-  const API_HOST = "yt-api.p.rapidapi.com";
-  const API_KEYS = [
-    "628135d18cmsh9281abbf2c08801p1744fdjsndd8e9e7b173d",
-    "f0818770admsh5ea686ccfe9dbd6p1376c5jsnd5ce231c2c6c"
-  ];
-  let apiKeyIndex = 0;
+  // API calls now go through our server (keys hidden, responses cached)
   const PAGE_SIZE = 8;
 
   const q = document.getElementById('q');
@@ -342,23 +337,18 @@ document.addEventListener('DOMContentLoaded', () => {
     next.disabled=(start+pageSize)>=currentItems.length;
   }
 
-  // Fetch helper with automatic key fallback
-  async function fetchAPI(path){
-    const res = await fetch(`https://${API_HOST}${path}`,{
-      headers: {
-        "X-RapidAPI-Key": API_KEYS[apiKeyIndex],
-        "X-RapidAPI-Host": API_HOST
-      }
-    });
+  // Fetch from our server API (keys hidden, responses cached on server)
+  async function fetchAPI(endpoint, params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const url = `/api/supertube${endpoint}${queryString ? '?' + queryString : ''}`;
     
-    // If quota exceeded (429) or forbidden (403), try next key
-    if ((res.status === 429 || res.status === 403) && apiKeyIndex < API_KEYS.length - 1) {
-      console.log(`API key ${apiKeyIndex + 1} exhausted, switching to key ${apiKeyIndex + 2}`);
-      apiKeyIndex++;
-      return fetchAPI(path); // Retry with next key
+    const res = await fetch(url);
+    
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(error.error || `HTTP ${res.status}`);
     }
     
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
 
@@ -377,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
       nativePlayer.pause(); // Ensure native player is stopped
 
       const geo = region.value || "US";
-      const data = await fetchAPI(`/trending?geo=${encodeURIComponent(geo)}`);
+      const data = await fetchAPI('/trending', { geo });
       currentItems = normalize(data);
       pageIndex = 0;
       renderPage();
@@ -400,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
       nativePlayer.pause();
 
       // Search for shorts specifically
-      const data = await fetchAPI(`/search?query=shorts&type=video`);
+      const data = await fetchAPI('/shorts');
       currentItems = normalize(data);
       pageIndex = 0;
       renderPage();
@@ -425,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelector('.player').style.display = "none";
 
     try {
-      const data = await fetchAPI(`/search?query=${encodeURIComponent(query)}`);
+      const data = await fetchAPI('/search', { query });
       currentItems = normalize(data);
       pageIndex = 0;
       renderPage();
@@ -466,12 +456,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const STORAGE_KEY = 'supertube_session';
   const TOKEN_COOKIE = 'supertube_access'; // Cookie name for access token
   
-  let sessionData = { usedSeconds: 0, serverTimeOffset: 0, hasChosen: false, isPaused: false };
+  let sessionData = { usedSeconds: 0, serverTimeOffset: 0, hasChosen: false, pausedSeconds: 0 };
   let accessToken = null;
   let timeCheckInterval = null;
   let isTimeLocked = false;
   let serverTime = Date.now(); // Will be synced with server
   let isPageActive = true; // Track if user is on this page
+  let isPaused = false; // NOT saved - resets on page load
   
   // Track page visibility and focus
   document.addEventListener('visibilitychange', () => {
@@ -537,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
           usedSeconds: data.usedSeconds || 0,
           serverTimeOffset: data.serverTimeOffset || 0,
           hasChosen: data.hasChosen || false,
-          isPaused: data.isPaused || false
+          pausedSeconds: data.pausedSeconds || 0
         };
       }
       
@@ -637,8 +628,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check if cookie exists (auto-expires when time is up)
     const cookieExists = getCookie(TOKEN_COOKIE);
     if (cookieExists && accessToken && accessToken.expiresAt) {
+      // Add paused seconds to extend expiry
+      const adjustedExpiry = accessToken.expiresAt + (sessionData.pausedSeconds * 1000);
       const now = getServerTime();
-      if (now < accessToken.expiresAt) {
+      if (now < adjustedExpiry) {
         return true;
       } else {
         // Expired - delete cookie
@@ -652,7 +645,9 @@ document.addEventListener('DOMContentLoaded', () => {
   
   function getTimeRemainingSeconds() {
     if (accessToken && accessToken.expiresAt) {
-      const remaining = accessToken.expiresAt - getServerTime();
+      // Add paused seconds to extend expiry
+      const adjustedExpiry = accessToken.expiresAt + (sessionData.pausedSeconds * 1000);
+      const remaining = adjustedExpiry - getServerTime();
       if (remaining > 0) return Math.floor(remaining / 1000);
     }
     return Math.max(0, FREE_MINUTES * 60 - sessionData.usedSeconds);
@@ -801,11 +796,17 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.body.appendChild(widget);
     
-    // Close dropdown when clicking outside
+    // Close dropdown when clicking outside - auto resume if paused
     document.addEventListener('click', (e) => {
       const timer = document.getElementById('supertube-timer');
       const dropdown = document.getElementById('timer-dropdown');
       if (timer && dropdown && !timer.contains(e.target)) {
+        // Auto-resume when closing dropdown
+        if (isPaused) {
+          isPaused = false;
+          resumeAllMedia();
+          updateTimerWidget();
+        }
         dropdown.classList.remove('show');
       }
     });
@@ -819,19 +820,19 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   
   window.toggleTimerPause = function() {
-    sessionData.isPaused = !sessionData.isPaused;
-    saveSession();
+    isPaused = !isPaused;
     updateTimerWidget();
     
     const pauseBtn = document.getElementById('pause-btn');
     if (pauseBtn) {
-      if (sessionData.isPaused) {
+      if (isPaused) {
         pauseBtn.innerHTML = '<span class="icon">▶️</span><span>Resume Timer</span>';
         pauseBtn.classList.add('active');
-        pauseAllMedia();
+        pauseAllMedia(); // Pause all videos when timer paused
       } else {
         pauseBtn.innerHTML = '<span class="icon">⏸️</span><span>Pause Timer</span>';
         pauseBtn.classList.remove('active');
+        resumeAllMedia(); // Resume videos when timer resumed
       }
     }
   };
@@ -968,7 +969,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Status text
-    if (sessionData.isPaused) {
+    if (isPaused) {
       statusText.textContent = '⏸️ Paused';
       statusText.style.color = '#ffd93d';
     } else if (!isPageActive) {
@@ -990,7 +991,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Pause button state
     if (pauseBtn) {
-      if (sessionData.isPaused) {
+      if (isPaused) {
         pauseBtn.innerHTML = '<span class="icon">▶️</span><span>Resume Timer</span>';
         pauseBtn.classList.add('active');
       } else {
@@ -1486,9 +1487,11 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTimerWidget();
       
       // Check token expiry (even if offline)
+      // But add pausedSeconds to extend the expiry
       if (accessToken && accessToken.expiresAt) {
+        const adjustedExpiry = accessToken.expiresAt + (sessionData.pausedSeconds * 1000);
         const now = getServerTime();
-        if (now >= accessToken.expiresAt) {
+        if (now >= adjustedExpiry) {
           // Token expired - delete and redirect
           deleteTokenAndRedirect();
           return;
@@ -1499,7 +1502,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // 1. Page is visible/focused (isPageActive)
       // 2. Not locked (isTimeLocked)
       // 3. Not paused by user (isPaused)
-      if (isPageActive && !isTimeLocked && !sessionData.isPaused) {
+      if (isPageActive && !isTimeLocked && !isPaused) {
         // If no access token, count against free trial
         if (!accessToken) {
           sessionData.usedSeconds++;
@@ -1509,6 +1512,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Check if time ran out (free trial ended)
         if (!hasTimeRemaining()) {
           lockForTimeCode();
+        }
+      } else if (isPaused || !isPageActive) {
+        // Track paused/inactive time to extend token expiry
+        if (accessToken) {
+          sessionData.pausedSeconds++;
+          saveSession();
         }
       }
       
