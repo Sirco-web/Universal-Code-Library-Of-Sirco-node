@@ -466,11 +466,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const STORAGE_KEY = 'supertube_session';
   const TOKEN_COOKIE = 'supertube_access'; // Cookie name for access token
   
-  let sessionData = { usedSeconds: 0, serverTimeOffset: 0, hasChosen: false };
+  let sessionData = { usedSeconds: 0, serverTimeOffset: 0, hasChosen: false, isPaused: false };
   let accessToken = null;
   let timeCheckInterval = null;
   let isTimeLocked = false;
   let serverTime = Date.now(); // Will be synced with server
+  let isPageActive = true; // Track if user is on this page
+  
+  // Track page visibility and focus
+  document.addEventListener('visibilitychange', () => {
+    isPageActive = !document.hidden;
+    updateTimerWidget();
+  });
+  
+  window.addEventListener('focus', () => {
+    isPageActive = true;
+    updateTimerWidget();
+  });
+  
+  window.addEventListener('blur', () => {
+    isPageActive = false;
+    updateTimerWidget();
+  });
   
   // Cookie helper functions
   function setCookie(name, value, expiresMs) {
@@ -519,7 +536,8 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionData = { 
           usedSeconds: data.usedSeconds || 0,
           serverTimeOffset: data.serverTimeOffset || 0,
-          hasChosen: data.hasChosen || false
+          hasChosen: data.hasChosen || false,
+          isPaused: data.isPaused || false
         };
       }
       
@@ -644,6 +662,342 @@ document.addEventListener('DOMContentLoaded', () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+  
+  // ============== TIMER WIDGET ==============
+  function createTimerWidget() {
+    // Remove existing
+    const existing = document.getElementById('supertube-timer');
+    if (existing) existing.remove();
+    
+    const widget = document.createElement('div');
+    widget.id = 'supertube-timer';
+    widget.innerHTML = `
+      <style>
+        #supertube-timer {
+          position: fixed;
+          top: 15px;
+          right: 15px;
+          z-index: 9999;
+          font-family: 'Segoe UI', sans-serif;
+        }
+        #timer-display {
+          background: linear-gradient(135deg, #1a1a2e, #16213e);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px;
+          padding: 10px 16px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          transition: transform 0.2s, box-shadow 0.2s;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        #timer-display:hover {
+          transform: scale(1.02);
+          box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+        #timer-display .time-value {
+          font-size: 1.3em;
+          font-weight: bold;
+          color: #4ecdc4;
+          font-family: 'Courier New', monospace;
+          min-width: 55px;
+        }
+        #timer-display .time-value.warning {
+          color: #ffd93d;
+        }
+        #timer-display .time-value.critical {
+          color: #ff6b6b;
+          animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        #timer-display .status-icon {
+          font-size: 1.1em;
+        }
+        #timer-display .status-text {
+          font-size: 0.75em;
+          color: #666;
+        }
+        #timer-dropdown {
+          display: none;
+          position: absolute;
+          top: 100%;
+          right: 0;
+          margin-top: 8px;
+          background: linear-gradient(135deg, #1a1a2e, #16213e);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px;
+          padding: 12px;
+          min-width: 220px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        #timer-dropdown.show {
+          display: block;
+        }
+        #timer-dropdown .dropdown-item {
+          padding: 12px 15px;
+          border-radius: 8px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: #ccc;
+          transition: background 0.2s;
+          margin-bottom: 5px;
+        }
+        #timer-dropdown .dropdown-item:last-child {
+          margin-bottom: 0;
+        }
+        #timer-dropdown .dropdown-item:hover {
+          background: rgba(255,255,255,0.1);
+        }
+        #timer-dropdown .dropdown-item.active {
+          background: rgba(78, 205, 196, 0.2);
+          color: #4ecdc4;
+        }
+        #timer-dropdown .dropdown-item .icon {
+          font-size: 1.2em;
+        }
+        #timer-dropdown .divider {
+          height: 1px;
+          background: rgba(255,255,255,0.1);
+          margin: 10px 0;
+        }
+        #timer-dropdown .time-info {
+          padding: 10px 15px;
+          color: #888;
+          font-size: 0.85em;
+          text-align: center;
+        }
+      </style>
+      <div id="timer-display" onclick="window.toggleTimerDropdown()">
+        <span class="status-icon">⏱️</span>
+        <div>
+          <span class="time-value" id="timer-value">--:--</span>
+          <div class="status-text" id="timer-status">Loading...</div>
+        </div>
+      </div>
+      <div id="timer-dropdown">
+        <div class="time-info" id="timer-type-info">Free Trial</div>
+        <div class="divider"></div>
+        <div class="dropdown-item" id="pause-btn" onclick="window.toggleTimerPause()">
+          <span class="icon">⏸️</span>
+          <span>Pause Timer</span>
+        </div>
+        <div class="dropdown-item" onclick="window.showAddCodePopup()">
+          <span class="icon">➕</span>
+          <span>Add Time Code</span>
+        </div>
+        <div class="divider"></div>
+        <div class="dropdown-item" onclick="window.location.href='/index.html'">
+          <span class="icon">🏠</span>
+          <span>Exit to Home</span>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(widget);
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      const timer = document.getElementById('supertube-timer');
+      const dropdown = document.getElementById('timer-dropdown');
+      if (timer && dropdown && !timer.contains(e.target)) {
+        dropdown.classList.remove('show');
+      }
+    });
+  }
+  
+  window.toggleTimerDropdown = function() {
+    const dropdown = document.getElementById('timer-dropdown');
+    if (dropdown) {
+      dropdown.classList.toggle('show');
+    }
+  };
+  
+  window.toggleTimerPause = function() {
+    sessionData.isPaused = !sessionData.isPaused;
+    saveSession();
+    updateTimerWidget();
+    
+    const pauseBtn = document.getElementById('pause-btn');
+    if (pauseBtn) {
+      if (sessionData.isPaused) {
+        pauseBtn.innerHTML = '<span class="icon">▶️</span><span>Resume Timer</span>';
+        pauseBtn.classList.add('active');
+        pauseAllMedia();
+      } else {
+        pauseBtn.innerHTML = '<span class="icon">⏸️</span><span>Pause Timer</span>';
+        pauseBtn.classList.remove('active');
+      }
+    }
+  };
+  
+  window.showAddCodePopup = function() {
+    // Close dropdown
+    const dropdown = document.getElementById('timer-dropdown');
+    if (dropdown) dropdown.classList.remove('show');
+    
+    // Create mini popup for adding code
+    const existing = document.querySelector('.add-code-popup');
+    if (existing) existing.remove();
+    
+    const popup = document.createElement('div');
+    popup.className = 'add-code-popup supertube-popup';
+    popup.innerHTML = `
+      <style>${popupStyles}</style>
+      <div class="popup-content" style="max-width: 360px;">
+        <div class="time-icon">➕</div>
+        <h2>Add Time Code</h2>
+        <p class="subtitle">Enter a code to add more time</p>
+        <input type="text" id="add-code-input" placeholder="XXXXXX" maxlength="6" autocomplete="off">
+        <button class="btn-primary" onclick="window.submitAddCode()">Add Time</button>
+        <button class="btn-secondary" onclick="this.closest('.add-code-popup').remove()">Cancel</button>
+        <p class="error" id="add-code-error"></p>
+      </div>
+    `;
+    document.body.appendChild(popup);
+    
+    setTimeout(() => document.getElementById('add-code-input').focus(), 100);
+    
+    document.getElementById('add-code-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') window.submitAddCode();
+      if (e.key === 'Escape') popup.remove();
+    });
+  };
+  
+  window.submitAddCode = async function() {
+    const input = document.getElementById('add-code-input');
+    const error = document.getElementById('add-code-error');
+    const code = input.value.trim().toUpperCase();
+    
+    if (!code || code.length !== 6) {
+      error.textContent = 'Please enter a 6-character code';
+      error.style.display = 'block';
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/supertube/redeem-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          code, 
+          clientId: localStorage.getItem('clientId') || 'anonymous' 
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        saveToken({
+          code: result.code,
+          expiresAt: result.expiresAt,
+          signature: result.signature,
+          issuedAt: result.issuedAt
+        });
+        
+        if (result.serverTime) {
+          sessionData.serverTimeOffset = result.serverTime - Date.now();
+        }
+        sessionData.usedSeconds = 0;
+        saveSession();
+        
+        document.querySelector('.add-code-popup').remove();
+        updateTimerWidget();
+        
+        // Show success toast
+        showToast(`✅ Added ${result.minutes} minutes!`);
+      } else {
+        error.textContent = result.error || 'Invalid code';
+        error.style.display = 'block';
+        input.value = '';
+        input.focus();
+      }
+    } catch (e) {
+      error.textContent = 'Failed to verify code';
+      error.style.display = 'block';
+    }
+  };
+  
+  function showToast(message) {
+    const existing = document.querySelector('.supertube-toast');
+    if (existing) existing.remove();
+    
+    const toast = document.createElement('div');
+    toast.className = 'supertube-toast';
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #4ecdc4, #44a08d);
+      color: #000;
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-weight: bold;
+      z-index: 99999;
+      animation: toastIn 0.3s ease;
+    `;
+    toast.innerHTML = `<style>@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(20px); } }</style>${message}`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.remove(), 3000);
+  }
+  
+  function updateTimerWidget() {
+    const timeValue = document.getElementById('timer-value');
+    const statusText = document.getElementById('timer-status');
+    const typeInfo = document.getElementById('timer-type-info');
+    const pauseBtn = document.getElementById('pause-btn');
+    
+    if (!timeValue) return;
+    
+    const remaining = getTimeRemainingSeconds();
+    timeValue.textContent = formatTime(remaining);
+    
+    // Color coding
+    timeValue.classList.remove('warning', 'critical');
+    if (remaining <= 60) {
+      timeValue.classList.add('critical');
+    } else if (remaining <= 180) {
+      timeValue.classList.add('warning');
+    }
+    
+    // Status text
+    if (sessionData.isPaused) {
+      statusText.textContent = '⏸️ Paused';
+      statusText.style.color = '#ffd93d';
+    } else if (!isPageActive) {
+      statusText.textContent = '💤 Inactive';
+      statusText.style.color = '#888';
+    } else {
+      statusText.textContent = '▶️ Running';
+      statusText.style.color = '#4ecdc4';
+    }
+    
+    // Type info
+    if (typeInfo) {
+      if (accessToken) {
+        typeInfo.textContent = `🎫 Code: ${accessToken.code || 'Active'}`;
+      } else {
+        typeInfo.textContent = `🆓 Free Trial`;
+      }
+    }
+    
+    // Pause button state
+    if (pauseBtn) {
+      if (sessionData.isPaused) {
+        pauseBtn.innerHTML = '<span class="icon">▶️</span><span>Resume Timer</span>';
+        pauseBtn.classList.add('active');
+      } else {
+        pauseBtn.innerHTML = '<span class="icon">⏸️</span><span>Pause Timer</span>';
+        pauseBtn.classList.remove('active');
+      }
+    }
   }
   
   // Common popup styles
@@ -1103,6 +1457,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load session data
     loadSession();
     
+    // Create timer widget (always visible)
+    createTimerWidget();
+    
     // Validate existing token with server
     if (accessToken) {
       const valid = await validateTokenWithServer();
@@ -1119,9 +1476,15 @@ document.addEventListener('DOMContentLoaded', () => {
       createWelcomePopup();
     }
     
+    // Initial timer update
+    updateTimerWidget();
+    
     if (timeCheckInterval) clearInterval(timeCheckInterval);
     
     timeCheckInterval = setInterval(async () => {
+      // Always update timer display (live)
+      updateTimerWidget();
+      
       // Check token expiry (even if offline)
       if (accessToken && accessToken.expiresAt) {
         const now = getServerTime();
@@ -1132,8 +1495,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
       
-      // Only count time if page is visible and not locked
-      if (!document.hidden && !isTimeLocked) {
+      // Only count time if:
+      // 1. Page is visible/focused (isPageActive)
+      // 2. Not locked (isTimeLocked)
+      // 3. Not paused by user (isPaused)
+      if (isPageActive && !isTimeLocked && !sessionData.isPaused) {
         // If no access token, count against free trial
         if (!accessToken) {
           sessionData.usedSeconds++;
