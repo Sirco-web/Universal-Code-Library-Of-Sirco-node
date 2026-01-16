@@ -1133,6 +1133,219 @@ app.post('/api/check-status', (req, res) => {
     });
 });
 
+// ============== NEWSLETTER SYSTEM ==============
+const NEWSLETTER_FILE = path.join(DATA_DIR, 'newsletters.json');
+const NEWSLETTER_SUBS_FILE = path.join(DATA_DIR, 'newsletter-subscribers.json');
+
+function loadNewsletters() {
+    if (fs.existsSync(NEWSLETTER_FILE)) {
+        try { return JSON.parse(fs.readFileSync(NEWSLETTER_FILE, 'utf8')); } catch {}
+    }
+    return [];
+}
+
+function saveNewsletters(newsletters) {
+    fs.writeFileSync(NEWSLETTER_FILE, JSON.stringify(newsletters, null, 2));
+}
+
+function loadNewsletterSubs() {
+    if (fs.existsSync(NEWSLETTER_SUBS_FILE)) {
+        try { return JSON.parse(fs.readFileSync(NEWSLETTER_SUBS_FILE, 'utf8')); } catch {}
+    }
+    return {};
+}
+
+function saveNewsletterSubs(subs) {
+    fs.writeFileSync(NEWSLETTER_SUBS_FILE, JSON.stringify(subs, null, 2));
+}
+
+// Subscribe to newsletter
+app.post('/api/newsletter/subscribe', (req, res) => {
+    const { clientId } = req.body;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const subs = loadNewsletterSubs();
+    if (!subs[clientId]) {
+        subs[clientId] = {
+            subscribedAt: new Date().toISOString(),
+            lastRead: null
+        };
+        saveNewsletterSubs(subs);
+        logEvent('newsletter_subscribe', { clientId }, req);
+    }
+    
+    res.json({ success: true, subscribed: true });
+});
+
+// Unsubscribe from newsletter
+app.post('/api/newsletter/unsubscribe', (req, res) => {
+    const { clientId } = req.body;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const subs = loadNewsletterSubs();
+    if (subs[clientId]) {
+        delete subs[clientId];
+        saveNewsletterSubs(subs);
+        logEvent('newsletter_unsubscribe', { clientId }, req);
+    }
+    
+    res.json({ success: true, subscribed: false });
+});
+
+// Check subscription status
+app.get('/api/newsletter/status', (req, res) => {
+    const { clientId } = req.query;
+    
+    if (!clientId) {
+        return res.json({ subscribed: false });
+    }
+    
+    const subs = loadNewsletterSubs();
+    res.json({ subscribed: !!subs[clientId] });
+});
+
+// Get newsletters for user (public)
+app.get('/api/newsletter/posts', (req, res) => {
+    const newsletters = loadNewsletters();
+    // Return only published newsletters, sorted by date (newest first)
+    const published = newsletters
+        .filter(n => n.published)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(published);
+});
+
+// Mark newsletter as read
+app.post('/api/newsletter/read', (req, res) => {
+    const { clientId, newsletterId } = req.body;
+    
+    if (!clientId) return res.json({ success: false });
+    
+    const subs = loadNewsletterSubs();
+    if (subs[clientId]) {
+        subs[clientId].lastRead = new Date().toISOString();
+        subs[clientId].readPosts = subs[clientId].readPosts || [];
+        if (!subs[clientId].readPosts.includes(newsletterId)) {
+            subs[clientId].readPosts.push(newsletterId);
+        }
+        saveNewsletterSubs(subs);
+    }
+    
+    res.json({ success: true });
+});
+
+// Get unread count for user
+app.get('/api/newsletter/unread', (req, res) => {
+    const { clientId } = req.query;
+    
+    if (!clientId) return res.json({ unread: 0 });
+    
+    const subs = loadNewsletterSubs();
+    const sub = subs[clientId];
+    
+    if (!sub) return res.json({ unread: 0, subscribed: false });
+    
+    const newsletters = loadNewsletters().filter(n => n.published);
+    const readPosts = sub.readPosts || [];
+    const unread = newsletters.filter(n => !readPosts.includes(n.id)).length;
+    
+    res.json({ unread, subscribed: true });
+});
+
+// ============== OWNER NEWSLETTER MANAGEMENT ==============
+
+// Get all newsletters (owner)
+app.get('/api/owner/newsletters', verifyOwnerToken, (req, res) => {
+    res.json(loadNewsletters());
+});
+
+// Get newsletter subscribers (owner)
+app.get('/api/owner/newsletter-subscribers', verifyOwnerToken, (req, res) => {
+    const subs = loadNewsletterSubs();
+    const users = loadUsers();
+    
+    // Enrich with user info
+    const enriched = Object.entries(subs).map(([clientId, sub]) => ({
+        clientId,
+        username: users[clientId]?.username || 'Unknown',
+        userCode: users[clientId]?.userCode || 'N/A',
+        ...sub
+    }));
+    
+    res.json(enriched);
+});
+
+// Create newsletter (owner)
+app.post('/api/owner/newsletter', verifyOwnerToken, (req, res) => {
+    const { title, content, published } = req.body;
+    
+    if (!title || !content) {
+        return res.status(400).json({ error: 'title and content required' });
+    }
+    
+    const newsletters = loadNewsletters();
+    const newsletter = {
+        id: uuidv4(),
+        title,
+        content, // Markdown content
+        published: published !== false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+    
+    newsletters.push(newsletter);
+    saveNewsletters(newsletters);
+    logEvent('newsletter_created', { id: newsletter.id, title }, req);
+    
+    res.json({ success: true, newsletter });
+});
+
+// Update newsletter (owner)
+app.put('/api/owner/newsletter/:id', verifyOwnerToken, (req, res) => {
+    const { id } = req.params;
+    const { title, content, published } = req.body;
+    
+    const newsletters = loadNewsletters();
+    const idx = newsletters.findIndex(n => n.id === id);
+    
+    if (idx === -1) {
+        return res.status(404).json({ error: 'Newsletter not found' });
+    }
+    
+    if (title) newsletters[idx].title = title;
+    if (content) newsletters[idx].content = content;
+    if (published !== undefined) newsletters[idx].published = published;
+    newsletters[idx].updatedAt = new Date().toISOString();
+    
+    saveNewsletters(newsletters);
+    logEvent('newsletter_updated', { id, title }, req);
+    
+    res.json({ success: true, newsletter: newsletters[idx] });
+});
+
+// Delete newsletter (owner)
+app.delete('/api/owner/newsletter/:id', verifyOwnerToken, (req, res) => {
+    const { id } = req.params;
+    
+    let newsletters = loadNewsletters();
+    const found = newsletters.find(n => n.id === id);
+    
+    if (!found) {
+        return res.status(404).json({ error: 'Newsletter not found' });
+    }
+    
+    newsletters = newsletters.filter(n => n.id !== id);
+    saveNewsletters(newsletters);
+    logEvent('newsletter_deleted', { id, title: found.title }, req);
+    
+    res.json({ success: true });
+});
+
 // ============== AI CHAT API ==============
 app.post('/api/ai/chat', async (req, res) => {
     const { messages, model } = req.body;

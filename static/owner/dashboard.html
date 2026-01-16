@@ -287,6 +287,7 @@
             <div class="sidebar-item active" onclick="showPanel('overview')">📊 Overview</div>
             <div class="sidebar-item" onclick="showPanel('settings')">⚙️ Settings</div>
             <div class="sidebar-item" onclick="showPanel('users')">👥 Users</div>
+            <div class="sidebar-item" onclick="showPanel('newsletter')">📰 Newsletter</div>
             <div class="sidebar-item" onclick="showPanel('bans')">🚫 Bans</div>
             <div class="sidebar-item" onclick="showPanel('events')">📋 Event Log</div>
             <div class="sidebar-item" onclick="showPanel('warnings')">⚠️ Warnings</div>
@@ -416,6 +417,41 @@
                             <tr><td colspan="7" class="loading">Loading...</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Newsletter Panel -->
+            <div id="panel-newsletter" class="panel">
+                <h2>📰 Newsletter Management</h2>
+                
+                <!-- Create New Newsletter -->
+                <div class="card">
+                    <h3>Create New Post</h3>
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" id="newsletter-title" placeholder="Newsletter title...">
+                    </div>
+                    <div class="form-group">
+                        <label>Content (Markdown supported)</label>
+                        <textarea id="newsletter-content" rows="8" style="width:100%;padding:12px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;background:rgba(255,255,255,0.05);color:#fff;font-family:monospace;resize:vertical" placeholder="# Heading&#10;&#10;Your newsletter content here...&#10;&#10;- Bullet points&#10;- **Bold text**&#10;- *Italic text*"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="newsletter-publish" checked> Publish immediately</label>
+                    </div>
+                    <button class="btn btn-success" onclick="createNewsletter()">📤 Post Newsletter</button>
+                </div>
+                
+                <!-- Newsletter Stats -->
+                <div class="card">
+                    <h3>Subscribers <button class="refresh-btn" onclick="loadNewsletterSubs()">🔄</button></h3>
+                    <div id="newsletter-subs-count" style="margin-bottom:10px;color:#4a90d9;font-size:1.2em">0 subscribers</div>
+                    <div id="newsletter-subs-list" style="max-height:150px;overflow-y:auto"></div>
+                </div>
+                
+                <!-- Existing Newsletters -->
+                <div class="card">
+                    <h3>All Posts <button class="refresh-btn" onclick="loadNewsletters()">🔄</button></h3>
+                    <div id="newsletters-list"></div>
                 </div>
             </div>
 
@@ -581,6 +617,7 @@
                 case 'bans': loadBannedIPs(); loadBannedUsers(); break;
                 case 'analytics': loadAnalytics(); break;
                 case 'settings': loadSettings(); break;
+                case 'newsletter': loadNewsletterPosts(); loadNewsletterSubscribers(); break;
             }
         }
 
@@ -984,8 +1021,16 @@
         }
 
         // ============== USER DETAIL MODAL ==============
+        let userDetailInterval = null;
+        let currentDetailClientId = null;
+        
         function closeUserModal() {
             document.getElementById('user-detail-modal').style.display = 'none';
+            if (userDetailInterval) {
+                clearInterval(userDetailInterval);
+                userDetailInterval = null;
+            }
+            currentDetailClientId = null;
         }
         
         async function showUserDetail(clientId) {
@@ -993,9 +1038,22 @@
             const content = document.getElementById('modal-user-content');
             const title = document.getElementById('modal-username');
             
+            currentDetailClientId = clientId;
             modal.style.display = 'flex';
-            content.innerHTML = '<div class="loading">Loading user activity...</div>';
             
+            // Load initial data
+            await updateUserDetail(clientId, content, title);
+            
+            // Auto-refresh every 3 seconds
+            if (userDetailInterval) clearInterval(userDetailInterval);
+            userDetailInterval = setInterval(() => {
+                if (currentDetailClientId === clientId) {
+                    updateUserDetail(clientId, content, title);
+                }
+            }, 3000);
+        }
+        
+        async function updateUserDetail(clientId, content, title) {
             try {
                 const result = await api(`/user-activity/${clientId}`);
                 
@@ -1088,6 +1146,99 @@
             api('/redirect-user', 'POST', { clientId, url }).then(() => {
                 alert(`✅ User will be redirected to ${url}`);
             });
+        }
+
+        // ============== NEWSLETTER FUNCTIONS ==============
+        async function loadNewsletterPosts() {
+            const container = document.getElementById('newsletter-list');
+            container.innerHTML = '<p>Loading...</p>';
+            
+            const posts = await api('/newsletters');
+            if (!posts || posts.length === 0) {
+                container.innerHTML = '<p style="color:#888">No newsletters yet. Create your first one above!</p>';
+                return;
+            }
+            
+            container.innerHTML = posts.map(p => `
+                <div class="user-card" style="margin-bottom:10px">
+                    <div style="display:flex;justify-content:space-between;align-items:start">
+                        <div style="flex:1">
+                            <h4 style="margin:0 0 5px 0">${escapeHtml(p.title)}</h4>
+                            <p style="margin:0;color:#888;font-size:12px">
+                                ${new Date(p.createdAt).toLocaleString()} • 
+                                ${p.published ? '<span style="color:#4ecdc4">Published</span>' : '<span style="color:#ffc107">Draft</span>'}
+                            </p>
+                            <p style="margin:10px 0 0 0;color:#ccc;font-size:13px">${escapeHtml(p.content.substring(0, 150))}${p.content.length > 150 ? '...' : ''}</p>
+                        </div>
+                        <div style="display:flex;gap:5px;flex-shrink:0">
+                            <button class="btn btn-small" onclick="toggleNewsletterPublish('${p.id}', ${!p.published})" style="background:${p.published ? '#ffc107' : '#4ecdc4'};color:#000">
+                                ${p.published ? 'Unpublish' : 'Publish'}
+                            </button>
+                            <button class="btn btn-small btn-danger" onclick="deleteNewsletter('${p.id}')">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function loadNewsletterSubscribers() {
+            const container = document.getElementById('newsletter-subscribers');
+            container.innerHTML = '<p>Loading...</p>';
+            
+            const subs = await api('/newsletter-subscribers');
+            if (!subs || subs.length === 0) {
+                container.innerHTML = '<p style="color:#888">No subscribers yet</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <p style="margin-bottom:10px;color:#4ecdc4">${subs.length} subscriber(s)</p>
+                <div style="max-height:200px;overflow-y:auto">
+                    ${subs.map(s => `
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #333">
+                            <span style="font-family:monospace">${s.userCode}</span>
+                            <span style="color:#888;font-size:12px">${new Date(s.subscribedAt).toLocaleDateString()}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        async function createNewsletter() {
+            const title = document.getElementById('newsletter-title').value.trim();
+            const content = document.getElementById('newsletter-content').value.trim();
+            const published = document.getElementById('newsletter-publish').checked;
+            
+            if (!title || !content) {
+                alert('Please fill in title and content');
+                return;
+            }
+            
+            const result = await api('/newsletter', 'POST', { title, content, published });
+            if (result && result.success) {
+                document.getElementById('newsletter-title').value = '';
+                document.getElementById('newsletter-content').value = '';
+                document.getElementById('newsletter-publish').checked = false;
+                loadNewsletterPosts();
+                alert('✅ Newsletter created!');
+            }
+        }
+        
+        async function toggleNewsletterPublish(id, publish) {
+            await api(`/newsletter/${id}`, 'PUT', { published: publish });
+            loadNewsletterPosts();
+        }
+        
+        async function deleteNewsletter(id) {
+            if (!confirm('Delete this newsletter?')) return;
+            await api(`/newsletter/${id}`, 'DELETE');
+            loadNewsletterPosts();
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         // Initial load

@@ -98,6 +98,41 @@ scheduleNextCheck();</script></head>
 <rect fill="#28a745" height="2" rx="1" width="16" x="4" y="18"></rect>
 </svg>
 </button>
+<!-- Newsletter button -->
+<button id="newsletter-btn" style="
+    position: fixed;
+    top: 18px;
+    right: 126px;
+    z-index: 10001;
+    background: rgba(255,255,255,0.6);
+    border-radius: 50%;
+    box-shadow: 0 2px 8px #0002;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #eee;
+    transition: box-shadow 0.2s;
+    cursor: pointer;
+" title="Newsletter">
+<span style="font-size:20px;">📰</span>
+<span id="newsletter-badge" style="
+    display: none;
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: #ff6b6b;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    align-items: center;
+    justify-content: center;
+"></span>
+</button>
 <!-- Modal for offline confirmation -->
 <div id="offline-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:20000;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
 <div style="background:var(--modal-bg);color:var(--modal-text);padding:2em 2.5em;border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,0.12);text-align:center;max-width:90vw;position:relative;border:1px solid var(--modal-border);">
@@ -106,6 +141,21 @@ scheduleNextCheck();</script></head>
 <button class="blue-btn" id="offline-confirm-btn" style="margin:0 1em 0 0;">Yes</button>
 <button class="blue-btn" id="offline-cancel-btn" style="background:#e0e7ef;color:#007bff;">No</button>
 <button class="blue-btn" id="view-offline-btn" style="margin-left:1em;">View Offline Content</button>
+</div>
+</div>
+<!-- Newsletter Modal -->
+<div id="newsletter-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:20000;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
+<div style="background:var(--modal-bg);color:var(--modal-text);padding:1.5em 2em;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.15);max-width:500px;width:90vw;max-height:80vh;overflow-y:auto;position:relative;border:1px solid var(--modal-border);">
+<button aria-label="Close" id="newsletter-modal-close" style="position:absolute;top:10px;right:12px;background:none;border:none;font-size:1.5em;line-height:1;color:#888;cursor:pointer;">×</button>
+<h2 style="margin:0 0 0.5em 0;font-size:1.3em;">📰 Newsletter</h2>
+<div id="newsletter-subscribe-section" style="margin-bottom:1em;padding-bottom:1em;border-bottom:1px solid var(--modal-border);">
+<p style="margin:0 0 0.5em 0;font-size:0.95em;">Get updates about new features and announcements!</p>
+<button class="blue-btn" id="newsletter-subscribe-btn" style="width:100%;">Subscribe</button>
+<button class="blue-btn" id="newsletter-unsubscribe-btn" style="display:none;width:100%;background:#e0e7ef;color:#007bff;">Unsubscribe</button>
+</div>
+<div id="newsletter-posts-container">
+<p style="color:#888;text-align:center;">Loading newsletters...</p>
+</div>
 </div>
 </div>
 <!-- Modal for viewing offline content -->
@@ -393,6 +443,170 @@ scheduleNextCheck();</script></head>
         };
         offlineListCloseBtn.onclick = () => { offlineListModal.style.display = 'none'; };
 
+        // ============== NEWSLETTER FUNCTIONALITY ==============
+        const newsletterBtn = document.getElementById('newsletter-btn');
+        const newsletterModal = document.getElementById('newsletter-modal');
+        const newsletterModalClose = document.getElementById('newsletter-modal-close');
+        const newsletterSubscribeBtn = document.getElementById('newsletter-subscribe-btn');
+        const newsletterUnsubscribeBtn = document.getElementById('newsletter-unsubscribe-btn');
+        const newsletterPostsContainer = document.getElementById('newsletter-posts-container');
+        const newsletterBadge = document.getElementById('newsletter-badge');
+
+        function getUserCode() {
+            return localStorage.getItem('userCode') || null;
+        }
+
+        async function checkNewsletterStatus() {
+            const userCode = getUserCode();
+            if (!userCode) {
+                newsletterSubscribeBtn.style.display = 'block';
+                newsletterUnsubscribeBtn.style.display = 'none';
+                return false;
+            }
+            try {
+                const res = await fetch(`/api/newsletter/status?userCode=${userCode}`);
+                const data = await res.json();
+                if (data.subscribed) {
+                    newsletterSubscribeBtn.style.display = 'none';
+                    newsletterUnsubscribeBtn.style.display = 'block';
+                } else {
+                    newsletterSubscribeBtn.style.display = 'block';
+                    newsletterUnsubscribeBtn.style.display = 'none';
+                }
+                return data.subscribed;
+            } catch {
+                return false;
+            }
+        }
+
+        async function loadNewsletterPosts() {
+            const userCode = getUserCode();
+            try {
+                const res = await fetch('/api/newsletter/posts');
+                const posts = await res.json();
+                if (!posts || posts.length === 0) {
+                    newsletterPostsContainer.innerHTML = '<p style="color:#888;text-align:center;">No newsletters yet. Check back later!</p>';
+                    return;
+                }
+                // Get read status
+                const readPosts = JSON.parse(localStorage.getItem('readNewsletters') || '[]');
+                newsletterPostsContainer.innerHTML = posts.map(p => {
+                    const isRead = readPosts.includes(p.id);
+                    return `
+                        <div class="newsletter-post" data-id="${p.id}" style="margin-bottom:1em;padding:1em;background:${isRead ? 'transparent' : 'rgba(78, 205, 196, 0.1)'};border:1px solid ${isRead ? 'var(--modal-border)' : '#4ecdc4'};border-radius:8px;cursor:pointer;" onclick="toggleNewsletterPost(this)">
+                            <div style="display:flex;justify-content:space-between;align-items:start;">
+                                <h3 style="margin:0;font-size:1.05em;color:var(--modal-text);">${escapeNewsletterHtml(p.title)}</h3>
+                                ${!isRead ? '<span style="background:#4ecdc4;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;">NEW</span>' : ''}
+                            </div>
+                            <p style="margin:5px 0 0 0;font-size:0.85em;color:#888;">${new Date(p.createdAt).toLocaleDateString()}</p>
+                            <div class="newsletter-content" style="display:none;margin-top:1em;padding-top:1em;border-top:1px solid var(--modal-border);white-space:pre-wrap;font-size:0.95em;color:var(--modal-text);">${escapeNewsletterHtml(p.content)}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch {
+                newsletterPostsContainer.innerHTML = '<p style="color:#ff6b6b;text-align:center;">Error loading newsletters</p>';
+            }
+        }
+
+        function escapeNewsletterHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        window.toggleNewsletterPost = function(el) {
+            const content = el.querySelector('.newsletter-content');
+            const id = el.dataset.id;
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                // Mark as read
+                const readPosts = JSON.parse(localStorage.getItem('readNewsletters') || '[]');
+                if (!readPosts.includes(id)) {
+                    readPosts.push(id);
+                    localStorage.setItem('readNewsletters', JSON.stringify(readPosts));
+                    // Update UI
+                    el.style.background = 'transparent';
+                    el.style.borderColor = 'var(--modal-border)';
+                    const newBadge = el.querySelector('span');
+                    if (newBadge && newBadge.textContent === 'NEW') newBadge.remove();
+                    updateNewsletterBadge();
+                }
+            } else {
+                content.style.display = 'none';
+            }
+        };
+
+        async function updateNewsletterBadge() {
+            try {
+                const res = await fetch('/api/newsletter/posts');
+                const posts = await res.json();
+                const readPosts = JSON.parse(localStorage.getItem('readNewsletters') || '[]');
+                const unreadCount = posts.filter(p => !readPosts.includes(p.id)).length;
+                if (unreadCount > 0) {
+                    newsletterBadge.style.display = 'flex';
+                    newsletterBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+                } else {
+                    newsletterBadge.style.display = 'none';
+                }
+            } catch {
+                newsletterBadge.style.display = 'none';
+            }
+        }
+
+        newsletterBtn.onclick = async () => {
+            newsletterModal.style.display = 'flex';
+            await checkNewsletterStatus();
+            await loadNewsletterPosts();
+        };
+
+        newsletterModalClose.onclick = () => { newsletterModal.style.display = 'none'; };
+
+        newsletterSubscribeBtn.onclick = async () => {
+            const userCode = getUserCode();
+            if (!userCode) {
+                alert('You need a user code to subscribe. Please reload the page.');
+                return;
+            }
+            try {
+                const res = await fetch('/api/newsletter/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userCode })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    newsletterSubscribeBtn.style.display = 'none';
+                    newsletterUnsubscribeBtn.style.display = 'block';
+                    alert('✅ Subscribed to newsletter!');
+                }
+            } catch {
+                alert('Error subscribing');
+            }
+        };
+
+        newsletterUnsubscribeBtn.onclick = async () => {
+            const userCode = getUserCode();
+            if (!userCode) return;
+            try {
+                const res = await fetch('/api/newsletter/unsubscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userCode })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    newsletterSubscribeBtn.style.display = 'block';
+                    newsletterUnsubscribeBtn.style.display = 'none';
+                    alert('Unsubscribed from newsletter');
+                }
+            } catch {
+                alert('Error unsubscribing');
+            }
+        };
+
+        // Check for unread newsletters on page load
+        updateNewsletterBadge();
+
         // Hide navigation buttons if their pages are not cached and user is offline
         async function hideUnavailableButtons() {
             // If offline, always hide AI, Proxys and Tools buttons
@@ -477,22 +691,21 @@ scheduleNextCheck();</script></head>
 </div>
 <!-- window.location.href='/CODE/proxys'; -->
 <footer class="version-footer">
-<p>Site Version: <span id="siteVersion">Loading...</span></p>
+<p>Site Version: <span id="siteVersion">Loading...</span><span id="userCodeDisplay"></span></p>
 <p class="disclaimer">
         Disclaimer: This website and its contents are provided for entertainment purposes only. 
         We are not responsible for any misuse of the services offered, including violations of 
         rules, policies, or laws in your location or institution. Accessing this site using unauthorized 
         devices or networks is prohibited. By using this site, you accept full responsibility for compliance.
         </p>
-<p style="font-size:9px;color:#666;opacity:0.4;user-select:none;" id="footer-ref"></p>
 </footer>
 <script>
-// Display user reference in footer (hidden/subtle)
+// Display user code after version number
 (function() {
     const userCode = localStorage.getItem('userCode');
     if (userCode) {
-        const ref = document.getElementById('footer-ref');
-        if (ref) ref.textContent = userCode;
+        const display = document.getElementById('userCodeDisplay');
+        if (display) display.textContent = ' - ' + userCode;
     }
 })();
 </script>

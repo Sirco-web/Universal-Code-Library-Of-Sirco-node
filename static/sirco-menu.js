@@ -35,7 +35,7 @@
     
     // Pages where menu should NOT be shown
     const EXCLUDED_PAGES = ['/', '/index.html', '/404.html', '/error.html'];
-    const EXCLUDED_PREFIXES = ['/activate'];
+    const EXCLUDED_PREFIXES = ['/activate', '/owner'];
     
     const currentPath = window.location.pathname;
     const isExcludedPage = EXCLUDED_PAGES.includes(currentPath) || 
@@ -1943,9 +1943,6 @@
                     window.location.reload();
                     break;
                 case 'redirect':
-                    if (data.message) {
-                        alert(data.message);
-                    }
                     window.location.href = data.url;
                     break;
                 case 'ok':
