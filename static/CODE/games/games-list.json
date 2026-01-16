@@ -14,6 +14,7 @@
   { "title": "Eaglercraft Beta", "link": "game/eaglercraftbeta/index.html" },
   { "title": "Eaglercraft GC", "link": "game/eaglercraftgc/index.html" },
   { "title": "Eagly MC", "link": "game/eaglymc/index.html" },
+  { "title": "Eagly MC GC", "link": "game/eaglymc_gc/index.html" },
   { "title": "Flappy Bird", "link": "game/flappybird/index.html" },
   { "title": "Getaway Shootout (New)", "link": "game/getawayshootoutnew/index.html" },
   { "title": "Let's Surf", "link": "game/letssurf/index.html" },
@@ -25,6 +26,7 @@
   { "title": "Soccer Random", "link": "game/soccerrandom/index.html" },
   { "title": "Stack", "link": "game/stack/index.html" },
   { "title": "Stack Ball", "link": "game/stackball/index.html" },
+  { "title": "Starlike", "link": "game/starlike/index.html" },
   { "title": "Subway Surfers", "link": "game/subwaysurfers/index.html" },
   { "title": "Subway Surfers NY", "link": "game/subwaysurfersny/index.html" },
   { "title": "Subway Surfers Singapore", "link": "game/subwaysurferssingapore/index.html" },
@@ -32,5 +34,7 @@
   { "title": "The Impossible Quiz 2", "link": "game/theimpossiblequiz2/index.html" },
   { "title": "Tiny Fishing", "link": "game/tinyfishing/index.html" },
   { "title": "Tomb of the Mask", "link": "game/tombofthemask/index.html" },
-  { "title": "Tunnel Rush", "link": "game/tunnelrush/index.html" }
+  { "title": "Tunnel Rush", "link": "game/tunnelrush/index.html" },
+  { "title": "Beyond Rare", "link": "game/beyond-rare/index.html" },
+  { "title": "Draw", "link": "game/draw/index.html" }
 ]

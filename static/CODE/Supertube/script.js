@@ -461,46 +461,179 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ============== TIME CODE SYSTEM ==============
+  // ============== SECURE TIME CODE SYSTEM ==============
   const FREE_MINUTES = 10; // Free trial time in minutes
   const STORAGE_KEY = 'supertube_session';
+  const TOKEN_COOKIE = 'supertube_access'; // Cookie name for access token
   
-  let sessionData = loadSession();
+  let sessionData = { usedSeconds: 0, serverTimeOffset: 0 };
+  let accessToken = null;
   let timeCheckInterval = null;
   let isTimeLocked = false;
+  let serverTime = Date.now(); // Will be synced with server
+  
+  // Cookie helper functions
+  function setCookie(name, value, expiresMs) {
+    const expires = new Date(expiresMs);
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Strict`;
+  }
+  
+  function getCookie(name) {
+    const cookies = document.cookie.split(';');
+    for (let c of cookies) {
+      const [key, val] = c.trim().split('=');
+      if (key === name) return decodeURIComponent(val);
+    }
+    return null;
+  }
+  
+  function deleteCookie(name) {
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Strict`;
+  }
+  
+  // Get accurate server time (prevents user from changing local clock)
+  async function syncServerTime() {
+    try {
+      const response = await fetch('/api/supertube/time');
+      if (response.ok) {
+        const data = await response.json();
+        serverTime = data.serverTime;
+        sessionData.serverTimeOffset = serverTime - Date.now();
+        return true;
+      }
+    } catch (e) {
+      console.error('Failed to sync server time');
+    }
+    return false;
+  }
+  
+  function getServerTime() {
+    return Date.now() + (sessionData.serverTimeOffset || 0);
+  }
   
   function loadSession() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const data = JSON.parse(saved);
-        // Check if granted time has expired
-        if (data.grantedUntil && new Date(data.grantedUntil) > new Date()) {
-          return data;
-        }
-        // Reset if expired but keep used time
-        return { usedSeconds: data.usedSeconds || 0, grantedUntil: null };
+        sessionData = { 
+          usedSeconds: data.usedSeconds || 0,
+          serverTimeOffset: data.serverTimeOffset || 0
+        };
       }
-    } catch (e) {}
-    return { usedSeconds: 0, grantedUntil: null };
+      
+      // Load access token from COOKIE (auto-expires!)
+      const tokenData = getCookie(TOKEN_COOKIE);
+      if (tokenData) {
+        try {
+          const token = JSON.parse(tokenData);
+          // Cookie exists = not expired by browser
+          // But also verify with server time offset
+          if (token.expiresAt && getServerTime() < token.expiresAt) {
+            accessToken = token;
+          } else {
+            // Token expired according to server time - delete it
+            deleteCookie(TOKEN_COOKIE);
+            accessToken = null;
+          }
+        } catch (e) {
+          deleteCookie(TOKEN_COOKIE);
+          accessToken = null;
+        }
+      } else {
+        // Cookie doesn't exist = expired or never set
+        accessToken = null;
+      }
+    } catch (e) {
+      sessionData = { usedSeconds: 0, serverTimeOffset: 0 };
+      accessToken = null;
+    }
   }
   
   function saveSession() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
   }
   
-  function hasTimeRemaining() {
-    // If they have a valid granted time, they can use it
-    if (sessionData.grantedUntil && new Date(sessionData.grantedUntil) > new Date()) {
+  function saveToken(token) {
+    accessToken = token;
+    // Save token as cookie that expires at the token's expiry time
+    // Cookie will auto-delete when expired, even offline!
+    setCookie(TOKEN_COOKIE, JSON.stringify(token), token.expiresAt);
+  }
+  
+  function deleteTokenAndRedirect() {
+    deleteCookie(TOKEN_COOKIE);
+    localStorage.removeItem(STORAGE_KEY);
+    accessToken = null;
+    // Redirect to home page
+    window.location.href = '/index.html';
+  }
+  
+  async function validateTokenWithServer() {
+    if (!accessToken || !accessToken.signature) return false;
+    
+    // If offline, check if cookie still exists (browser auto-deletes expired cookies)
+    const cookieExists = getCookie(TOKEN_COOKIE);
+    if (!cookieExists) {
+      // Cookie expired - redirect
+      deleteTokenAndRedirect();
+      return false;
+    }
+    
+    // If offline, trust the cookie (it auto-expires)
+    if (!navigator.onLine) {
       return true;
     }
-    // Otherwise check free trial time
+    
+    // Online - validate with server
+    try {
+      const response = await fetch('/api/supertube/validate-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: accessToken })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.valid) {
+        // Token invalid or expired - delete and redirect
+        deleteTokenAndRedirect();
+        return false;
+      }
+      
+      // Update server time offset
+      if (result.serverTime) {
+        sessionData.serverTimeOffset = result.serverTime - Date.now();
+        saveSession();
+      }
+      
+      return true;
+    } catch (e) {
+      // Network error - trust the cookie
+      return true;
+    }
+  }
+  
+  function hasTimeRemaining() {
+    // Check if cookie exists (auto-expires when time is up)
+    const cookieExists = getCookie(TOKEN_COOKIE);
+    if (cookieExists && accessToken && accessToken.expiresAt) {
+      const now = getServerTime();
+      if (now < accessToken.expiresAt) {
+        return true;
+      } else {
+        // Expired - delete cookie
+        deleteCookie(TOKEN_COOKIE);
+        accessToken = null;
+      }
+    }
+    // Check free trial time
     return sessionData.usedSeconds < FREE_MINUTES * 60;
   }
   
   function getTimeRemainingSeconds() {
-    if (sessionData.grantedUntil) {
-      const remaining = new Date(sessionData.grantedUntil) - new Date();
+    if (accessToken && accessToken.expiresAt) {
+      const remaining = accessToken.expiresAt - getServerTime();
       if (remaining > 0) return Math.floor(remaining / 1000);
     }
     return Math.max(0, FREE_MINUTES * 60 - sessionData.usedSeconds);
@@ -581,6 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
           border-radius: 10px;
           cursor: pointer;
           transition: transform 0.2s, box-shadow 0.2s;
+          margin-bottom: 10px;
         }
         #timecode-popup button:hover {
           transform: translateY(-2px);
@@ -590,6 +724,10 @@ document.addEventListener('DOMContentLoaded', () => {
           background: linear-gradient(135deg, #4ecdc4, #44a08d);
           color: #000;
           font-weight: bold;
+        }
+        #timecode-popup .btn-secondary {
+          background: rgba(255,255,255,0.1);
+          color: #9ca3af;
         }
         #timecode-popup .error {
           color: #ff6b6b;
@@ -608,6 +746,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <p class="subtitle">Your free ${FREE_MINUTES}-minute trial has ended.<br>Enter a time code to continue watching.</p>
         <input type="text" id="timecode-input" placeholder="XXXXXX" maxlength="6" autocomplete="off">
         <button class="btn-primary" onclick="window.redeemTimeCode()">🔓 Unlock Access</button>
+        <button class="btn-secondary" onclick="window.location.href='/index.html'">← Back to Home</button>
         <p class="error" id="timecode-error"></p>
         <p class="info">💡 Get time codes from the site owner</p>
       </div>
@@ -649,7 +788,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await response.json();
       
       if (result.success) {
-        sessionData.grantedUntil = result.expiresAt;
+        // Save the signed token from server
+        saveToken({
+          code: result.code,
+          expiresAt: result.expiresAt,
+          signature: result.signature,
+          issuedAt: result.issuedAt
+        });
+        
+        // Update server time offset
+        if (result.serverTime) {
+          sessionData.serverTimeOffset = result.serverTime - Date.now();
+        }
         sessionData.usedSeconds = 0; // Reset free trial counter
         saveSession();
         
@@ -666,7 +816,7 @@ document.addEventListener('DOMContentLoaded', () => {
         input.focus();
       }
     } catch (e) {
-      error.textContent = 'Failed to verify code. Please try again.';
+      error.textContent = 'Failed to verify code. Check your connection.';
       error.style.display = 'block';
     }
   };
@@ -696,14 +846,36 @@ document.addEventListener('DOMContentLoaded', () => {
     createTimeCodePopup();
   }
   
-  function startTimeTracking() {
+  async function startTimeTracking() {
+    // Sync server time first
+    await syncServerTime();
+    
+    // Load session data
+    loadSession();
+    
+    // Validate existing token with server
+    if (accessToken) {
+      const valid = await validateTokenWithServer();
+      if (!valid) return; // Already redirected
+    }
+    
     if (timeCheckInterval) clearInterval(timeCheckInterval);
     
-    timeCheckInterval = setInterval(() => {
+    timeCheckInterval = setInterval(async () => {
+      // Check token expiry (even if offline)
+      if (accessToken && accessToken.expiresAt) {
+        const now = getServerTime();
+        if (now >= accessToken.expiresAt) {
+          // Token expired - delete and redirect
+          deleteTokenAndRedirect();
+          return;
+        }
+      }
+      
       // Only count time if page is visible and not locked
       if (!document.hidden && !isTimeLocked) {
-        // If they have granted time, don't count against free trial
-        if (!sessionData.grantedUntil || new Date(sessionData.grantedUntil) <= new Date()) {
+        // If no access token, count against free trial
+        if (!accessToken) {
           sessionData.usedSeconds++;
           saveSession();
         }
@@ -713,12 +885,17 @@ document.addEventListener('DOMContentLoaded', () => {
           lockForTimeCode();
         }
       }
+      
+      // Periodically validate token with server (every 60 seconds when online)
+      if (accessToken && navigator.onLine && Math.random() < 0.017) { // ~1/60 chance per second
+        await validateTokenWithServer();
+      }
     }, 1000);
-  }
-  
-  // Check on initial load
-  if (!hasTimeRemaining()) {
-    lockForTimeCode();
+    
+    // Check on initial load
+    if (!hasTimeRemaining()) {
+      lockForTimeCode();
+    }
   }
   
   // Start tracking

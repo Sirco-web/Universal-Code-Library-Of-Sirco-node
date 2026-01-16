@@ -1673,6 +1673,65 @@ app.delete('/api/owner/timecodes/:code', verifyOwnerToken, (req, res) => {
     res.json({ success: true });
 });
 
+// Token signing secret for SuperTube (derived from export secret)
+const SUPERTUBE_SECRET = crypto.createHash('sha256').update(EXPORT_SECRET + 'supertube').digest('hex');
+
+// Sign a SuperTube token
+function signSupertubeToken(data) {
+    const payload = JSON.stringify(data);
+    const signature = crypto.createHmac('sha256', SUPERTUBE_SECRET)
+        .update(payload)
+        .digest('hex');
+    return signature;
+}
+
+// Verify a SuperTube token signature
+function verifySupertubeToken(token) {
+    if (!token || !token.signature || !token.expiresAt || !token.issuedAt) {
+        return { valid: false, reason: 'Invalid token structure' };
+    }
+    
+    // Check expiry using server time
+    const now = Date.now();
+    if (now >= token.expiresAt) {
+        return { valid: false, reason: 'Token expired' };
+    }
+    
+    // Verify signature
+    const data = {
+        code: token.code,
+        expiresAt: token.expiresAt,
+        issuedAt: token.issuedAt
+    };
+    const expectedSig = signSupertubeToken(data);
+    
+    if (token.signature !== expectedSig) {
+        return { valid: false, reason: 'Invalid signature' };
+    }
+    
+    return { valid: true };
+}
+
+// Get server time (for syncing client clock)
+app.get('/api/supertube/time', (req, res) => {
+    res.json({ serverTime: Date.now() });
+});
+
+// Validate an existing token
+app.post('/api/supertube/validate-token', (req, res) => {
+    const { token } = req.body;
+    
+    if (!token) {
+        return res.json({ valid: false, reason: 'No token provided', serverTime: Date.now() });
+    }
+    
+    const result = verifySupertubeToken(token);
+    res.json({ 
+        ...result, 
+        serverTime: Date.now() 
+    });
+});
+
 // Validate and redeem a time code (public API for SuperTube)
 app.post('/api/supertube/redeem-code', (req, res) => {
     const { code, clientId } = req.body;
@@ -1689,16 +1748,31 @@ app.post('/api/supertube/redeem-code', (req, res) => {
     }
     
     const timeCode = codes[idx];
+    const now = Date.now();
+    const expiresAt = now + timeCode.minutes * 60 * 1000;
+    
     timeCode.usedAt = new Date().toISOString();
     timeCode.usedBy = clientId || 'anonymous';
     
     saveTimeCodes(codes);
     logEvent('timecode_redeemed', { code: timeCode.code, minutes: timeCode.minutes, clientId }, req);
     
+    // Create signed token
+    const tokenData = {
+        code: timeCode.code,
+        expiresAt: expiresAt,
+        issuedAt: now
+    };
+    const signature = signSupertubeToken(tokenData);
+    
     res.json({ 
         success: true, 
+        code: timeCode.code,
         minutes: timeCode.minutes,
-        expiresAt: new Date(Date.now() + timeCode.minutes * 60 * 1000).toISOString()
+        expiresAt: expiresAt,
+        issuedAt: now,
+        signature: signature,
+        serverTime: now
     });
 });
 
