@@ -1789,9 +1789,13 @@ async function processStatusQueue() {
         const change = statusChangeQueue.shift();
         try {
             serverSettings.siteStatus = change.status;
+            serverSettings.siteMessage = change.message || '';
+            serverSettings.siteReason = change.reason || '';
             saveSettings();
             logEvent('site_status_change', { 
-                status: change.status, 
+                status: change.status,
+                message: change.message || null,
+                reason: change.reason || null,
                 changedBy: change.ip 
             }, { ip: change.ip });
         } catch (e) {
@@ -1806,13 +1810,15 @@ async function processStatusQueue() {
 app.get('/api/site-status', (req, res) => {
     res.json({ 
         status: serverSettings.siteStatus || 'normal',
+        message: serverSettings.siteMessage || '',
+        reason: serverSettings.siteReason || '',
         queueLength: statusChangeQueue.length
     });
 });
 
 // Set site status (requires owner PIN)
 app.post('/api/site-status', (req, res) => {
-    const { status, ownerPin } = req.body;
+    const { status, ownerPin, message, reason } = req.body;
     
     // Verify owner PIN
     if (ownerPin !== serverSettings.ownerPassword) {
@@ -1825,9 +1831,16 @@ app.post('/api/site-status', (req, res) => {
         return res.status(400).json({ error: 'Invalid status. Must be: normal, 404-lockdown, or 401-popup' });
     }
     
-    // Add to queue
+    // Require reason for 404 lockdown
+    if (status === '404-lockdown' && !reason) {
+        return res.status(400).json({ error: 'Reason is required for 404 Lockdown' });
+    }
+    
+    // Add to queue with message/reason
     statusChangeQueue.push({
         status,
+        message: message || '',
+        reason: reason || '',
         ip: req.ip,
         timestamp: Date.now()
     });
@@ -2011,9 +2024,19 @@ app.get('/404-status', (req, res) => {
                 <p>Only / and /404.html accessible, everything else redirects to /404.html</p>
             </div>
             <div class="status-option" data-status="401-popup">
-                <h3>⚠️ 401 Popup</h3>
-                <p>Shows a warning popup on all pages</p>
+                <h3>📢 Announcement Popup</h3>
+                <p>Shows a custom announcement popup on all pages (e.g. new game, update notice)</p>
             </div>
+        </div>
+        
+        <div class="form-group" id="reason-group" style="display:none;">
+            <label>Lockdown Reason (required)</label>
+            <input type="text" id="lockdownReason" placeholder="e.g. Maintenance, Security update...">
+        </div>
+        
+        <div class="form-group" id="message-group" style="display:none;">
+            <label>Announcement Message</label>
+            <input type="text" id="announcementMessage" placeholder="e.g. 🎮 Check out our new game!">
         </div>
         
         <button class="btn" id="submitBtn" disabled>Set Status</button>
@@ -2028,9 +2051,16 @@ app.get('/404-status', (req, res) => {
             .then(r => r.json())
             .then(data => {
                 const el = document.getElementById('currentStatus');
-                el.textContent = data.status.toUpperCase().replace('-', ' ');
+                el.textContent = data.status.toUpperCase().replace('-', ' ').replace('401 POPUP', 'ANNOUNCEMENT');
                 el.className = 'status ' + (data.status === 'normal' ? 'normal' : 
                     data.status === '404-lockdown' ? 'lockdown' : 'popup');
+                // Show current message/reason if set
+                if (data.message) {
+                    document.getElementById('announcementMessage').value = data.message;
+                }
+                if (data.reason) {
+                    document.getElementById('lockdownReason').value = data.reason;
+                }
             });
         
         // Status option selection
@@ -2039,19 +2069,30 @@ app.get('/404-status', (req, res) => {
                 document.querySelectorAll('.status-option').forEach(o => o.classList.remove('selected'));
                 opt.classList.add('selected');
                 selectedStatus = opt.dataset.status;
+                
+                // Show/hide message and reason fields
+                document.getElementById('message-group').style.display = selectedStatus === '401-popup' ? 'block' : 'none';
+                document.getElementById('reason-group').style.display = selectedStatus === '404-lockdown' ? 'block' : 'none';
+                
                 updateButton();
             });
         });
         
         document.getElementById('ownerPin').addEventListener('input', updateButton);
+        document.getElementById('lockdownReason').addEventListener('input', updateButton);
         
         function updateButton() {
             const pin = document.getElementById('ownerPin').value;
-            document.getElementById('submitBtn').disabled = !pin || !selectedStatus;
+            const reason = document.getElementById('lockdownReason').value;
+            // Require reason for 404 lockdown
+            const reasonOk = selectedStatus !== '404-lockdown' || reason.trim().length > 0;
+            document.getElementById('submitBtn').disabled = !pin || !selectedStatus || !reasonOk;
         }
         
         document.getElementById('submitBtn').addEventListener('click', async () => {
             const pin = document.getElementById('ownerPin').value;
+            const message = document.getElementById('announcementMessage').value;
+            const reason = document.getElementById('lockdownReason').value;
             const btn = document.getElementById('submitBtn');
             const msg = document.getElementById('message');
             
@@ -2062,7 +2103,7 @@ app.get('/404-status', (req, res) => {
                 const res = await fetch('/api/site-status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: selectedStatus, ownerPin: pin })
+                    body: JSON.stringify({ status: selectedStatus, ownerPin: pin, message, reason })
                 });
                 
                 const data = await res.json();
@@ -2473,13 +2514,14 @@ const injectMenuScript = (req, res, next) => {
             }
         }
         
-        // Inject 401 popup if in 401-popup mode
-        if (res.locals.inject401Popup && !html.includes('sirco-401-popup')) {
+        // Inject 401 popup if in 401-popup mode (now an announcement popup)
+        if (res.locals.inject401Popup && !html.includes('sirco-announcement-popup')) {
+            const announcementMessage = serverSettings.siteMessage || 'Check out what\\'s new on Code Universe!';
             const popupScript = `
-<div id="sirco-401-popup" style="
+<div id="sirco-announcement-popup" style="
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.85);
+    background: rgba(0,0,0,0.7);
     z-index: 999999;
     display: flex;
     justify-content: center;
@@ -2487,19 +2529,29 @@ const injectMenuScript = (req, res, next) => {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 ">
     <div style="
-        background: #1e1e2e;
+        background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
         border-radius: 16px;
         padding: 40px;
         max-width: 450px;
         text-align: center;
         box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        border: 1px solid #4ecdc4;
     ">
-        <div style="font-size: 64px; margin-bottom: 20px;">⚠️</div>
-        <h1 style="color: #f38ba8; margin-bottom: 12px; font-size: 24px;">Site Temporarily Unavailable</h1>
-        <p style="color: #cdd6f4; line-height: 1.6; margin-bottom: 24px;">
-            This site is currently under maintenance or has been restricted. Please try again later.
+        <div style="font-size: 64px; margin-bottom: 20px;">📢</div>
+        <h1 style="color: #4ecdc4; margin-bottom: 12px; font-size: 24px;">Announcement</h1>
+        <p style="color: #cdd6f4; line-height: 1.6; margin-bottom: 24px; font-size: 16px;">
+            ${announcementMessage.replace(/'/g, "\\'")}
         </p>
-        <p style="color: #6c7086; font-size: 12px;">Error 401 - Access Restricted</p>
+        <button onclick="document.getElementById('sirco-announcement-popup').style.display='none'" style="
+            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+            color: #1e1e2e;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        ">Got it!</button>
     </div>
 </div>`;
             if (html.includes('</body>')) {
