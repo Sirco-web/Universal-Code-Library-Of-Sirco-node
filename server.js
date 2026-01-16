@@ -15,8 +15,31 @@ const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
 
-// Use native fetch (Node 18+) or fall back to node-fetch
-const nodeFetch = globalThis.fetch || require('node-fetch');
+// Fetch with timeout support (works with both native fetch and node-fetch)
+async function fetchWithTimeout(url, options = {}) {
+    const timeout = options.timeout || 30000;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+        const fetchFn = globalThis.fetch || require('node-fetch');
+        const response = await fetchFn(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+    } catch (err) {
+        clearTimeout(id);
+        if (err.name === 'AbortError') {
+            throw new Error(`Request timeout after ${timeout}ms`);
+        }
+        throw err;
+    }
+}
+
+// Alias for compatibility
+const nodeFetch = fetchWithTimeout;
 
 // ============== GLOBAL ERROR HANDLERS ==============
 process.on('uncaughtException', (err) => {
@@ -66,9 +89,18 @@ function hashPassword(password) {
 // Initialize Express app
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+
+// Handle body-parser errors (malformed JSON, etc.)
+app.use((err, req, res, next) => {
+    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        console.error('❌ JSON Parse Error:', err.message);
+        return res.status(400).json({ error: 'Invalid JSON in request body' });
+    }
+    next(err);
+});
 
 // Trust proxy for accurate IP detection
 app.set('trust proxy', true);
@@ -611,7 +643,12 @@ function verifyOwnerToken(req, res, next) {
 // Get owner dashboard (returns HTML only if authenticated)
 app.get('/api/owner/dashboard', verifyOwnerToken, (req, res) => {
     // Send the full dashboard HTML with all APIs
-    res.sendFile(path.join(__dirname, 'owner', 'dashboard-content.html'));
+    const filePath = path.join(STATIC_ROOT, 'owner', 'dashboard.html');
+    if (fs.existsSync(filePath)) {
+        res.sendFile(filePath);
+    } else {
+        res.status(404).json({ error: 'Dashboard file not found' });
+    }
 });
 
 // Get current settings
@@ -2891,7 +2928,11 @@ const injectMenuScript = (req, res, next) => {
     let filePath = path.join(STATIC_ROOT, req.path);
     
     // Try with index.html for directories
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    try {
+        if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+            filePath = path.join(filePath, 'index.html');
+        }
+    } catch (e) {
         filePath = path.join(filePath, 'index.html');
     }
     
