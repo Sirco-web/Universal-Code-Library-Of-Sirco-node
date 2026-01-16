@@ -13,8 +13,22 @@ const cookieParser = require('cookie-parser');
 const { v4: uuidv4 } = require('uuid');
 const http = require('http');
 const https = require('https');
-const fetch = require('node-fetch');
 const crypto = require('crypto');
+
+// Use native fetch (Node 18+) or fall back to node-fetch
+const nodeFetch = globalThis.fetch || require('node-fetch');
+
+// ============== GLOBAL ERROR HANDLERS ==============
+process.on('uncaughtException', (err) => {
+    console.error('❌ Uncaught Exception:', err.message);
+    console.error(err.stack);
+    // Don't exit - try to keep server running
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Promise Rejection:', reason);
+    // Don't exit - try to keep server running
+});
 
 // ============== ENCRYPTION FOR EXPORT/IMPORT ==============
 const EXPORT_SECRET = 'sircoonline2026iscooldonothackthispleaseslim';
@@ -97,7 +111,11 @@ function loadSettings() {
 
 function saveSettings() {
     const settingsPath = path.join(DATA_DIR, 'server-settings.json');
-    fs.writeFileSync(settingsPath, JSON.stringify(serverSettings, null, 2));
+    try {
+        fs.writeFileSync(settingsPath, JSON.stringify(serverSettings, null, 2));
+    } catch (e) {
+        console.error('Failed to save settings:', e.message);
+    }
 }
 
 // ============== LOGGING SYSTEM ==============
@@ -121,7 +139,11 @@ function loadUserActivity() {
 loadUserActivity();
 
 function saveUserActivity() {
-    fs.writeFileSync(USER_ACTIVITY_FILE, JSON.stringify(userActivity, null, 2));
+    try {
+        fs.writeFileSync(USER_ACTIVITY_FILE, JSON.stringify(userActivity, null, 2));
+    } catch (e) {
+        console.error('Failed to save user activity:', e.message);
+    }
 }
 
 // Save activity every 30 seconds
@@ -196,7 +218,11 @@ function logEvent(type, data, req) {
     events.unshift(entry);
     // Keep only last 1000 events
     events = events.slice(0, 1000);
-    fs.writeFileSync(EVENT_LOG_FILE, JSON.stringify(events, null, 2));
+    try {
+        fs.writeFileSync(EVENT_LOG_FILE, JSON.stringify(events, null, 2));
+    } catch (e) {
+        console.error('Failed to save event log:', e.message);
+    }
 }
 
 function logWarning(type, data, req) {
@@ -216,7 +242,11 @@ function logWarning(type, data, req) {
     }
     warnings.unshift(entry);
     warnings = warnings.slice(0, 500);
-    fs.writeFileSync(WARNING_LOG_FILE, JSON.stringify(warnings, null, 2));
+    try {
+        fs.writeFileSync(WARNING_LOG_FILE, JSON.stringify(warnings, null, 2));
+    } catch (e) {
+        console.error('Failed to save warning log:', e.message);
+    }
 }
 
 // ============== USER SYSTEM ==============
@@ -228,7 +258,11 @@ function loadUsers() {
 }
 
 function saveUsers(users) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+    try {
+        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+    } catch (e) {
+        console.error('Failed to save users:', e.message);
+    }
 }
 
 function loadBannedIPs() {
@@ -239,7 +273,11 @@ function loadBannedIPs() {
 }
 
 function saveBannedIPs(ips) {
-    fs.writeFileSync(BANNED_IPS_FILE, JSON.stringify(ips, null, 2));
+    try {
+        fs.writeFileSync(BANNED_IPS_FILE, JSON.stringify(ips, null, 2));
+    } catch (e) {
+        console.error('Failed to save banned IPs:', e.message);
+    }
 }
 
 function loadBannedUsers() {
@@ -250,7 +288,11 @@ function loadBannedUsers() {
 }
 
 function saveBannedUsers(users) {
-    fs.writeFileSync(BANNED_USERS_FILE, JSON.stringify(users, null, 2));
+    try {
+        fs.writeFileSync(BANNED_USERS_FILE, JSON.stringify(users, null, 2));
+    } catch (e) {
+        console.error('Failed to save banned users:', e.message);
+    }
 }
 
 function loadAccessCookies() {
@@ -261,7 +303,11 @@ function loadAccessCookies() {
 }
 
 function saveAccessCookies(cookies) {
-    fs.writeFileSync(ACCESS_COOKIES_FILE, JSON.stringify(cookies, null, 2));
+    try {
+        fs.writeFileSync(ACCESS_COOKIES_FILE, JSON.stringify(cookies, null, 2));
+    } catch (e) {
+        console.error('Failed to save access cookies:', e.message);
+    }
 }
 
 // ============== USER CODE SYSTEM ==============
@@ -296,7 +342,11 @@ function loadUserCommands() {
 }
 
 function saveUserCommands(commands) {
-    fs.writeFileSync(COMMANDS_FILE, JSON.stringify(commands, null, 2));
+    try {
+        fs.writeFileSync(COMMANDS_FILE, JSON.stringify(commands, null, 2));
+    } catch (e) {
+        console.error('Failed to save user commands:', e.message);
+    }
 }
 
 function queueUserCommand(clientId, command, data = {}) {
@@ -527,7 +577,11 @@ app.post('/api/owner/authenticate', (req, res) => {
         ip: getClientIP(req)
     };
     
-    fs.writeFileSync(sessionsPath, JSON.stringify(sessions, null, 2));
+    try {
+        fs.writeFileSync(sessionsPath, JSON.stringify(sessions, null, 2));
+    } catch (e) {
+        console.error('Failed to save owner sessions:', e.message);
+    }
     
     res.json({ success: true, token });
 });
@@ -1387,7 +1441,11 @@ function loadNewsletters() {
 }
 
 function saveNewsletters(newsletters) {
-    fs.writeFileSync(NEWSLETTER_FILE, JSON.stringify(newsletters, null, 2));
+    try {
+        fs.writeFileSync(NEWSLETTER_FILE, JSON.stringify(newsletters, null, 2));
+    } catch (e) {
+        console.error('Failed to save newsletters:', e.message);
+    }
 }
 
 function loadNewsletterSubs() {
@@ -1398,7 +1456,11 @@ function loadNewsletterSubs() {
 }
 
 function saveNewsletterSubs(subs) {
-    fs.writeFileSync(NEWSLETTER_SUBS_FILE, JSON.stringify(subs, null, 2));
+    try {
+        fs.writeFileSync(NEWSLETTER_SUBS_FILE, JSON.stringify(subs, null, 2));
+    } catch (e) {
+        console.error('Failed to save newsletter subs:', e.message);
+    }
 }
 
 // Subscribe to newsletter
@@ -1611,7 +1673,11 @@ function loadTimeCodes() {
 }
 
 function saveTimeCodes(codes) {
-    fs.writeFileSync(TIMECODES_FILE, JSON.stringify(codes, null, 2));
+    try {
+        fs.writeFileSync(TIMECODES_FILE, JSON.stringify(codes, null, 2));
+    } catch (e) {
+        console.error('Failed to save time codes:', e.message);
+    }
 }
 
 // Generate a random time code (6 alphanumeric chars)
@@ -1802,11 +1868,12 @@ async function fetchYouTubeAPI(path) {
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-            const response = await fetch(`https://${YOUTUBE_API_HOST}${path}`, {
+            const response = await nodeFetch(`https://${YOUTUBE_API_HOST}${path}`, {
                 headers: {
                     'X-RapidAPI-Key': YOUTUBE_API_KEYS[youtubeApiKeyIndex],
                     'X-RapidAPI-Host': YOUTUBE_API_HOST
-                }
+                },
+                timeout: 10000 // 10 second timeout
             });
             
             if (response.status === 429 || response.status === 403) {
@@ -1829,7 +1896,7 @@ async function fetchYouTubeAPI(path) {
         }
     }
     
-    throw new Error('All YouTube API keys exhausted');
+    throw new Error('All YouTube API keys exhausted or API unavailable');
 }
 
 // Get trending videos (cached)
@@ -1954,7 +2021,7 @@ app.post('/api/ai/chat', async (req, res) => {
     }
     
     try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const response = await nodeFetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1965,7 +2032,8 @@ app.post('/api/ai/chat', async (req, res) => {
                 messages,
                 temperature: 0.7,
                 max_tokens: 4096
-            })
+            }),
+            timeout: 30000 // 30 second timeout for AI
         });
         
         const data = await response.json();
@@ -2490,7 +2558,11 @@ function loadChats() {
 }
 
 function saveChats(data) {
-    fs.writeFileSync(CHATS_FILE, JSON.stringify(data, null, 2));
+    try {
+        fs.writeFileSync(CHATS_FILE, JSON.stringify(data, null, 2));
+    } catch (e) {
+        console.error('Failed to save chats:', e.message);
+    }
 }
 
 // Search users by username or ID
@@ -3003,6 +3075,19 @@ app.use((req, res, next) => {
     }
     
     res.status(404).send('Page not found');
+});
+
+// ============== EXPRESS ERROR HANDLER ==============
+// This catches any errors thrown in routes
+app.use((err, req, res, next) => {
+    console.error('❌ Express Error:', err.message);
+    console.error(err.stack);
+    
+    // Don't leak error details to client
+    res.status(500).json({ 
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+    });
 });
 
 // ============== START SERVER ==============
