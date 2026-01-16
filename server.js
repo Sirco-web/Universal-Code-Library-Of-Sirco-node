@@ -2516,7 +2516,7 @@ const injectMenuScript = (req, res, next) => {
         
         // Inject 401 popup if in 401-popup mode (now an announcement popup)
         if (res.locals.inject401Popup && !html.includes('sirco-announcement-popup')) {
-            const announcementMessage = serverSettings.siteMessage || 'Check out what\\'s new on Code Universe!';
+            const announcementMessage = serverSettings.siteMessage || 'Check out what is new on Code Universe!';
             const popupScript = `
 <div id="sirco-announcement-popup" style="
     position: fixed;
