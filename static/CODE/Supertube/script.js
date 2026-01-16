@@ -461,6 +461,269 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ============== TIME CODE SYSTEM ==============
+  const FREE_MINUTES = 10; // Free trial time in minutes
+  const STORAGE_KEY = 'supertube_session';
+  
+  let sessionData = loadSession();
+  let timeCheckInterval = null;
+  let isTimeLocked = false;
+  
+  function loadSession() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const data = JSON.parse(saved);
+        // Check if granted time has expired
+        if (data.grantedUntil && new Date(data.grantedUntil) > new Date()) {
+          return data;
+        }
+        // Reset if expired but keep used time
+        return { usedSeconds: data.usedSeconds || 0, grantedUntil: null };
+      }
+    } catch (e) {}
+    return { usedSeconds: 0, grantedUntil: null };
+  }
+  
+  function saveSession() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
+  }
+  
+  function hasTimeRemaining() {
+    // If they have a valid granted time, they can use it
+    if (sessionData.grantedUntil && new Date(sessionData.grantedUntil) > new Date()) {
+      return true;
+    }
+    // Otherwise check free trial time
+    return sessionData.usedSeconds < FREE_MINUTES * 60;
+  }
+  
+  function getTimeRemainingSeconds() {
+    if (sessionData.grantedUntil) {
+      const remaining = new Date(sessionData.grantedUntil) - new Date();
+      if (remaining > 0) return Math.floor(remaining / 1000);
+    }
+    return Math.max(0, FREE_MINUTES * 60 - sessionData.usedSeconds);
+  }
+  
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+  
+  function createTimeCodePopup() {
+    // Remove existing popup if any
+    const existing = document.getElementById('timecode-popup');
+    if (existing) existing.remove();
+    
+    const popup = document.createElement('div');
+    popup.id = 'timecode-popup';
+    popup.innerHTML = `
+      <style>
+        #timecode-popup {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.95);
+          z-index: 99999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        #timecode-popup .popup-content {
+          background: linear-gradient(135deg, #1a1a2e, #16213e);
+          border-radius: 16px;
+          padding: 40px;
+          max-width: 420px;
+          width: 90%;
+          text-align: center;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+          border: 1px solid rgba(255,255,255,0.1);
+        }
+        #timecode-popup h2 {
+          color: #fff;
+          margin: 0 0 10px 0;
+          font-size: 1.8em;
+        }
+        #timecode-popup .subtitle {
+          color: #9ca3af;
+          margin-bottom: 25px;
+        }
+        #timecode-popup .time-icon {
+          font-size: 4em;
+          margin-bottom: 15px;
+        }
+        #timecode-popup input {
+          width: 100%;
+          padding: 15px;
+          font-size: 1.4em;
+          text-align: center;
+          letter-spacing: 8px;
+          border: 2px solid rgba(255,255,255,0.2);
+          border-radius: 10px;
+          background: rgba(255,255,255,0.05);
+          color: #fff;
+          text-transform: uppercase;
+          margin-bottom: 15px;
+        }
+        #timecode-popup input:focus {
+          outline: none;
+          border-color: #4ecdc4;
+        }
+        #timecode-popup button {
+          width: 100%;
+          padding: 15px;
+          font-size: 1.1em;
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        #timecode-popup button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        #timecode-popup .btn-primary {
+          background: linear-gradient(135deg, #4ecdc4, #44a08d);
+          color: #000;
+          font-weight: bold;
+        }
+        #timecode-popup .error {
+          color: #ff6b6b;
+          margin-top: 15px;
+          display: none;
+        }
+        #timecode-popup .info {
+          color: #666;
+          font-size: 0.85em;
+          margin-top: 20px;
+        }
+      </style>
+      <div class="popup-content">
+        <div class="time-icon">⏱️</div>
+        <h2>Time's Up!</h2>
+        <p class="subtitle">Your free ${FREE_MINUTES}-minute trial has ended.<br>Enter a time code to continue watching.</p>
+        <input type="text" id="timecode-input" placeholder="XXXXXX" maxlength="6" autocomplete="off">
+        <button class="btn-primary" onclick="window.redeemTimeCode()">🔓 Unlock Access</button>
+        <p class="error" id="timecode-error"></p>
+        <p class="info">💡 Get time codes from the site owner</p>
+      </div>
+    `;
+    document.body.appendChild(popup);
+    
+    // Focus input
+    setTimeout(() => {
+      document.getElementById('timecode-input').focus();
+    }, 100);
+    
+    // Enter key to submit
+    document.getElementById('timecode-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') window.redeemTimeCode();
+    });
+  }
+  
+  window.redeemTimeCode = async function() {
+    const input = document.getElementById('timecode-input');
+    const error = document.getElementById('timecode-error');
+    const code = input.value.trim().toUpperCase();
+    
+    if (!code || code.length !== 6) {
+      error.textContent = 'Please enter a 6-character code';
+      error.style.display = 'block';
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/supertube/redeem-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          code, 
+          clientId: localStorage.getItem('clientId') || 'anonymous' 
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        sessionData.grantedUntil = result.expiresAt;
+        sessionData.usedSeconds = 0; // Reset free trial counter
+        saveSession();
+        
+        // Remove popup and unlock
+        document.getElementById('timecode-popup').remove();
+        isTimeLocked = false;
+        resumeAllMedia();
+        
+        alert(`✅ Code accepted! You have ${result.minutes} minutes of SuperTube access.`);
+      } else {
+        error.textContent = result.error || 'Invalid code';
+        error.style.display = 'block';
+        input.value = '';
+        input.focus();
+      }
+    } catch (e) {
+      error.textContent = 'Failed to verify code. Please try again.';
+      error.style.display = 'block';
+    }
+  };
+  
+  function pauseAllMedia() {
+    // Pause native player
+    if (nativePlayer) nativePlayer.pause();
+    // Stop iframe by replacing src
+    if (player && player.src) {
+      player.dataset.pausedSrc = player.src;
+      player.src = '';
+    }
+  }
+  
+  function resumeAllMedia() {
+    // Restore iframe if it was playing
+    if (player && player.dataset.pausedSrc) {
+      player.src = player.dataset.pausedSrc;
+      delete player.dataset.pausedSrc;
+    }
+  }
+  
+  function lockForTimeCode() {
+    if (isTimeLocked) return;
+    isTimeLocked = true;
+    pauseAllMedia();
+    createTimeCodePopup();
+  }
+  
+  function startTimeTracking() {
+    if (timeCheckInterval) clearInterval(timeCheckInterval);
+    
+    timeCheckInterval = setInterval(() => {
+      // Only count time if page is visible and not locked
+      if (!document.hidden && !isTimeLocked) {
+        // If they have granted time, don't count against free trial
+        if (!sessionData.grantedUntil || new Date(sessionData.grantedUntil) <= new Date()) {
+          sessionData.usedSeconds++;
+          saveSession();
+        }
+        
+        // Check if time ran out
+        if (!hasTimeRemaining()) {
+          lockForTimeCode();
+        }
+      }
+    }, 1000);
+  }
+  
+  // Check on initial load
+  if (!hasTimeRemaining()) {
+    lockForTimeCode();
+  }
+  
+  // Start tracking
+  startTimeTracking();
+
   // Initial load
   loadTrending();
   // player hidden by default via CSS

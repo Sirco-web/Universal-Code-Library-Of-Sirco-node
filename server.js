@@ -1596,6 +1596,112 @@ app.delete('/api/owner/newsletter/:id', verifyOwnerToken, (req, res) => {
     res.json({ success: true });
 });
 
+// ============== SUPERTUBE TIME CODES ==============
+const TIMECODES_FILE = path.join(DATA_DIR, 'supertube-timecodes.json');
+
+function loadTimeCodes() {
+    try {
+        if (fs.existsSync(TIMECODES_FILE)) {
+            return JSON.parse(fs.readFileSync(TIMECODES_FILE, 'utf8'));
+        }
+    } catch (e) {
+        console.error('Failed to load time codes:', e);
+    }
+    return [];
+}
+
+function saveTimeCodes(codes) {
+    fs.writeFileSync(TIMECODES_FILE, JSON.stringify(codes, null, 2));
+}
+
+// Generate a random time code (6 alphanumeric chars)
+function generateTimeCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
+
+// Get all time codes (owner)
+app.get('/api/owner/timecodes', verifyOwnerToken, (req, res) => {
+    const codes = loadTimeCodes();
+    res.json(codes);
+});
+
+// Create a time code (owner)
+app.post('/api/owner/timecodes', verifyOwnerToken, (req, res) => {
+    const { minutes, note } = req.body;
+    
+    if (!minutes || minutes < 1 || minutes > 1440) {
+        return res.status(400).json({ error: 'Minutes must be between 1 and 1440 (24 hours)' });
+    }
+    
+    const code = generateTimeCode();
+    const codes = loadTimeCodes();
+    
+    codes.push({
+        code,
+        minutes: parseInt(minutes),
+        note: note || '',
+        createdAt: new Date().toISOString(),
+        usedAt: null,
+        usedBy: null
+    });
+    
+    saveTimeCodes(codes);
+    logEvent('timecode_created', { code, minutes, note }, req);
+    
+    res.json({ success: true, code, minutes });
+});
+
+// Delete a time code (owner)
+app.delete('/api/owner/timecodes/:code', verifyOwnerToken, (req, res) => {
+    const { code } = req.params;
+    let codes = loadTimeCodes();
+    
+    const idx = codes.findIndex(c => c.code === code);
+    if (idx === -1) {
+        return res.status(404).json({ error: 'Time code not found' });
+    }
+    
+    codes.splice(idx, 1);
+    saveTimeCodes(codes);
+    logEvent('timecode_deleted', { code }, req);
+    
+    res.json({ success: true });
+});
+
+// Validate and redeem a time code (public API for SuperTube)
+app.post('/api/supertube/redeem-code', (req, res) => {
+    const { code, clientId } = req.body;
+    
+    if (!code) {
+        return res.status(400).json({ error: 'Code required' });
+    }
+    
+    const codes = loadTimeCodes();
+    const idx = codes.findIndex(c => c.code === code.toUpperCase() && !c.usedAt);
+    
+    if (idx === -1) {
+        return res.status(400).json({ error: 'Invalid or already used code' });
+    }
+    
+    const timeCode = codes[idx];
+    timeCode.usedAt = new Date().toISOString();
+    timeCode.usedBy = clientId || 'anonymous';
+    
+    saveTimeCodes(codes);
+    logEvent('timecode_redeemed', { code: timeCode.code, minutes: timeCode.minutes, clientId }, req);
+    
+    res.json({ 
+        success: true, 
+        minutes: timeCode.minutes,
+        expiresAt: new Date(Date.now() + timeCode.minutes * 60 * 1000).toISOString()
+    });
+});
+
 // ============== AI CHAT API ==============
 app.post('/api/ai/chat', async (req, res) => {
     const { messages, model } = req.body;

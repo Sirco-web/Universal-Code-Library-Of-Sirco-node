@@ -288,6 +288,7 @@
             <div class="sidebar-item" onclick="showPanel('settings')">⚙️ Settings</div>
             <div class="sidebar-item" onclick="showPanel('users')">👥 Users</div>
             <div class="sidebar-item" onclick="showPanel('newsletter')">📰 Newsletter</div>
+            <div class="sidebar-item" onclick="showPanel('timecodes')">⏱️ SuperTube Codes</div>
             <div class="sidebar-item" onclick="showPanel('bans')">🚫 Bans</div>
             <div class="sidebar-item" onclick="showPanel('events')">📋 Event Log</div>
             <div class="sidebar-item" onclick="showPanel('warnings')">⚠️ Warnings</div>
@@ -452,6 +453,42 @@
                 <div class="card">
                     <h3>All Posts <button class="refresh-btn" onclick="loadNewsletters()">🔄</button></h3>
                     <div id="newsletters-list"></div>
+                </div>
+            </div>
+
+            <!-- SuperTube Time Codes Panel -->
+            <div id="panel-timecodes" class="panel">
+                <h2>⏱️ SuperTube Time Codes</h2>
+                <p style="color:#9ca3af;margin-bottom:20px">Create time codes that grant users extended SuperTube access. Users get 10 minutes free, then need a code.</p>
+                
+                <!-- Create New Code -->
+                <div class="card">
+                    <h3>Create Time Code</h3>
+                    <div class="form-group">
+                        <label>Duration (minutes)</label>
+                        <select id="timecode-minutes" style="width:100%;padding:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff">
+                            <option value="10">10 minutes</option>
+                            <option value="20">20 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="60" selected>1 hour</option>
+                            <option value="120">2 hours</option>
+                            <option value="180">3 hours</option>
+                            <option value="360">6 hours</option>
+                            <option value="720">12 hours</option>
+                            <option value="1440">24 hours</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Note (optional)</label>
+                        <input type="text" id="timecode-note" placeholder="e.g., For John, Contest winner, etc.">
+                    </div>
+                    <button class="btn btn-success" onclick="createTimeCode()">🎟️ Generate Code</button>
+                </div>
+                
+                <!-- Active Codes -->
+                <div class="card">
+                    <h3>Active Codes <button class="refresh-btn" onclick="loadTimeCodes()">🔄</button></h3>
+                    <div id="timecodes-list"></div>
                 </div>
             </div>
 
@@ -1239,6 +1276,83 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // ============== TIME CODES ==============
+        async function loadTimeCodes() {
+            const container = document.getElementById('timecodes-list');
+            container.innerHTML = '<p style="color:#888">Loading...</p>';
+            
+            const codes = await api('/timecodes');
+            if (!codes || codes.length === 0) {
+                container.innerHTML = '<p style="color:#888">No time codes created yet</p>';
+                return;
+            }
+            
+            // Separate unused and used codes
+            const unused = codes.filter(c => !c.usedAt);
+            const used = codes.filter(c => c.usedAt);
+            
+            container.innerHTML = `
+                <h4 style="color:#4ecdc4;margin-bottom:10px">Unused Codes (${unused.length})</h4>
+                ${unused.length === 0 ? '<p style="color:#888;font-size:13px">No unused codes</p>' : unused.map(c => `
+                    <div style="background:rgba(78,205,196,0.1);border:1px solid #4ecdc4;border-radius:8px;padding:12px;margin-bottom:10px">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <div>
+                                <span style="font-family:monospace;font-size:1.5em;color:#4ecdc4;font-weight:bold;letter-spacing:2px">${c.code}</span>
+                                <span style="margin-left:15px;color:#fff">${c.minutes} minutes</span>
+                                ${c.note ? `<span style="margin-left:10px;color:#888">• ${escapeHtml(c.note)}</span>` : ''}
+                            </div>
+                            <div style="display:flex;gap:8px">
+                                <button class="btn btn-small" onclick="copyToClipboard('${c.code}')" style="background:#4a90d9">📋 Copy</button>
+                                <button class="btn btn-small btn-danger" onclick="deleteTimeCode('${c.code}')">🗑️</button>
+                            </div>
+                        </div>
+                        <div style="color:#666;font-size:11px;margin-top:5px">Created: ${new Date(c.createdAt).toLocaleString()}</div>
+                    </div>
+                `).join('')}
+                
+                <h4 style="color:#888;margin:20px 0 10px">Used Codes (${used.length})</h4>
+                ${used.length === 0 ? '<p style="color:#666;font-size:13px">No used codes</p>' : used.map(c => `
+                    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;margin-bottom:8px;opacity:0.6">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <div>
+                                <span style="font-family:monospace;color:#888;text-decoration:line-through">${c.code}</span>
+                                <span style="margin-left:10px;color:#666">${c.minutes} min</span>
+                                ${c.note ? `<span style="margin-left:10px;color:#555">• ${escapeHtml(c.note)}</span>` : ''}
+                            </div>
+                            <button class="btn btn-small btn-danger" onclick="deleteTimeCode('${c.code}')" style="opacity:0.5">🗑️</button>
+                        </div>
+                        <div style="color:#555;font-size:11px;margin-top:3px">Used: ${new Date(c.usedAt).toLocaleString()} by ${c.usedBy || 'unknown'}</div>
+                    </div>
+                `).join('')}
+            `;
+        }
+        
+        async function createTimeCode() {
+            const minutes = parseInt(document.getElementById('timecode-minutes').value);
+            const note = document.getElementById('timecode-note').value.trim();
+            
+            const result = await api('/timecodes', 'POST', { minutes, note });
+            if (result && result.success) {
+                document.getElementById('timecode-note').value = '';
+                loadTimeCodes();
+                alert(`✅ Code created: ${result.code}\n\nThis code grants ${result.minutes} minutes of SuperTube access.`);
+            }
+        }
+        
+        async function deleteTimeCode(code) {
+            if (!confirm(`Delete time code ${code}?`)) return;
+            await api(`/timecodes/${code}`, 'DELETE');
+            loadTimeCodes();
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Code copied to clipboard!');
+            }).catch(() => {
+                prompt('Copy this code:', text);
+            });
         }
 
         // Initial load
