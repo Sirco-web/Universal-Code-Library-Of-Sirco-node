@@ -197,8 +197,9 @@ document.addEventListener('DOMContentLoaded', () => {
     btnIframe.style.display = "none";
 
     // Use youtube-nocookie.com for better embedding compatibility
-    const autoplayParam = settings.autoplay ? '?autoplay=1' : '';
-    player.src = `https://www.youtube-nocookie.com/embed/${id}${autoplayParam}`;
+    // Enable JS API for pause/resume control
+    const autoplayParam = settings.autoplay ? 'autoplay=1&' : '';
+    player.src = `https://www.youtube-nocookie.com/embed/${id}?${autoplayParam}enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
 
     nowTitle.textContent = title || `Video ${id}`;
     nowChannel.textContent = channel || "";
@@ -268,8 +269,8 @@ document.addEventListener('DOMContentLoaded', () => {
     player.style.display = "block";
     btnNative.style.display = "inline-block";
     btnIframe.style.display = "none";
-    // Reload iframe
-    player.src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3`;
+    // Reload iframe with JS API enabled for pause/resume control
+    player.src = `https://www.youtube-nocookie.com/embed/${currentVideoId}?autoplay=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
   }
 
   // Normalize API data
@@ -337,10 +338,42 @@ document.addEventListener('DOMContentLoaded', () => {
     next.disabled=(start+pageSize)>=currentItems.length;
   }
 
-  // Fetch from our server API (keys hidden, responses cached on server)
+  // Client-side cache for instant repeated searches
+  const clientCache = {
+    search: {},
+    trending: {},
+    shorts: null,
+    CACHE_TIME: 5 * 60 * 1000 // 5 minutes
+  };
+
+  function isClientCacheValid(entry) {
+    return entry && entry.timestamp && (Date.now() - entry.timestamp < clientCache.CACHE_TIME);
+  }
+
+  // Show loading state
+  function showLoading() {
+    grid.innerHTML = '<div class="loading-spinner" style="grid-column: 1/-1; text-align: center; padding: 40px; color: #888;"><div style="font-size: 2em; animation: spin 1s linear infinite; display: inline-block;">⏳</div><p>Loading...</p></div>';
+  }
+
+  // Fetch from our server API (keys hidden, responses cached on server + client)
   async function fetchAPI(endpoint, params = {}) {
     const queryString = new URLSearchParams(params).toString();
     const url = `/api/supertube${endpoint}${queryString ? '?' + queryString : ''}`;
+    const cacheKey = url;
+    
+    // Check client cache first for INSTANT response
+    if (endpoint === '/search' && clientCache.search[cacheKey] && isClientCacheValid(clientCache.search[cacheKey])) {
+      console.log('⚡ Instant from client cache:', cacheKey);
+      return clientCache.search[cacheKey].data;
+    }
+    if (endpoint === '/trending' && clientCache.trending[cacheKey] && isClientCacheValid(clientCache.trending[cacheKey])) {
+      console.log('⚡ Instant from client cache:', cacheKey);
+      return clientCache.trending[cacheKey].data;
+    }
+    if (endpoint === '/shorts' && clientCache.shorts && isClientCacheValid(clientCache.shorts)) {
+      console.log('⚡ Instant from client cache: shorts');
+      return clientCache.shorts.data;
+    }
     
     const res = await fetch(url);
     
@@ -349,7 +382,18 @@ document.addEventListener('DOMContentLoaded', () => {
       throw new Error(error.error || `HTTP ${res.status}`);
     }
     
-    return res.json();
+    const data = await res.json();
+    
+    // Cache the result client-side for instant future access
+    if (endpoint === '/search') {
+      clientCache.search[cacheKey] = { data, timestamp: Date.now() };
+    } else if (endpoint === '/trending') {
+      clientCache.trending[cacheKey] = { data, timestamp: Date.now() };
+    } else if (endpoint === '/shorts') {
+      clientCache.shorts = { data, timestamp: Date.now() };
+    }
+    
+    return data;
   }
 
   // Load trending
@@ -367,12 +411,20 @@ document.addEventListener('DOMContentLoaded', () => {
       nativePlayer.pause(); // Ensure native player is stopped
 
       const geo = region.value || "US";
+      
+      // Show loading if not cached
+      const cacheKey = `/api/supertube/trending?geo=${geo}`;
+      if (!clientCache.trending[cacheKey] || !isClientCacheValid(clientCache.trending[cacheKey])) {
+        showLoading();
+      }
+      
       const data = await fetchAPI('/trending', { geo });
       currentItems = normalize(data);
       pageIndex = 0;
       renderPage();
     } catch (err) {
       console.error(err);
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #ff6b6b;">Failed to load trending. Try again.</div>';
     }
   }
 
@@ -389,6 +441,11 @@ document.addEventListener('DOMContentLoaded', () => {
       nowChannel.textContent = "";
       nativePlayer.pause();
 
+      // Show loading if not cached
+      if (!clientCache.shorts || !isClientCacheValid(clientCache.shorts)) {
+        showLoading();
+      }
+
       // Search for shorts specifically
       const data = await fetchAPI('/shorts');
       currentItems = normalize(data);
@@ -396,6 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderPage();
     } catch (err) {
       console.error(err);
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #ff6b6b;">Failed to load shorts. Try again.</div>';
     }
   }
 
@@ -414,6 +472,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.remove('player-open');
     document.querySelector('.player').style.display = "none";
 
+    // Show loading immediately (unless cached)
+    const cacheKey = `/api/supertube/search?query=${encodeURIComponent(query)}`;
+    if (!clientCache.search[cacheKey] || !isClientCacheValid(clientCache.search[cacheKey])) {
+      showLoading();
+    }
+
     try {
       const data = await fetchAPI('/search', { query });
       currentItems = normalize(data);
@@ -421,6 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderPage();
     } catch (err) {
       console.error(err);
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #ff6b6b;">Failed to search. Try again.</div>';
     }
   }
 
@@ -1517,19 +1582,35 @@ document.addEventListener('DOMContentLoaded', () => {
   function pauseAllMedia() {
     // Pause native player
     if (nativePlayer) nativePlayer.pause();
-    // Stop iframe by replacing src
-    if (player && player.src) {
-      player.dataset.pausedSrc = player.src;
-      player.src = '';
+    // Pause YouTube iframe using postMessage API
+    if (player && player.contentWindow) {
+      try {
+        player.contentWindow.postMessage(JSON.stringify({
+          event: 'command',
+          func: 'pauseVideo',
+          args: []
+        }), '*');
+      } catch (e) {
+        console.log('Could not pause iframe video');
+      }
     }
   }
   
   function resumeAllMedia() {
-    // Restore iframe if it was playing
-    if (player && player.dataset.pausedSrc) {
-      player.src = player.dataset.pausedSrc;
-      delete player.dataset.pausedSrc;
+    // Resume YouTube iframe using postMessage API
+    if (player && player.contentWindow) {
+      try {
+        player.contentWindow.postMessage(JSON.stringify({
+          event: 'command',
+          func: 'playVideo',
+          args: []
+        }), '*');
+      } catch (e) {
+        console.log('Could not resume iframe video');
+      }
     }
+    // Resume native player if it was playing
+    // Note: Don't auto-play native, let user click play
   }
   
   function lockForTimeCode() {
