@@ -1,6 +1,8 @@
 const CACHE_NAME = 'site-offline-cache-v1';
 const SOUNDBOARD_CACHE_NAME = 'soundboard-v1';
+// Data saver uses the same cache as downloaded pages - no separate cache!
 let downloaderEnabled = false;
+let dataSaverEnabled = false; // Controlled by localStorage message from clients
 // Store last-known shortcut config (sent from clients)
 let shortcutConfig = null;
 
@@ -90,6 +92,36 @@ self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SET_SHORTCUT_CONFIG' && event.data.config) {
         try { shortcutConfig = event.data.config; } catch (e) { shortcutConfig = null; }
     }
+    
+    // ============== DATA SAVER CONTROLS ==============
+    // Data Saver uses the SAME cache as downloaded pages (CACHE_NAME)
+    // It just changes the fetch strategy to serve from cache first
+    if (event.data && event.data.type === 'SET_DATA_SAVER') {
+        dataSaverEnabled = !!event.data.enabled;
+        console.log('📦 Data Saver:', dataSaverEnabled ? 'ENABLED' : 'DISABLED');
+        console.log('📦 Using downloaded pages cache for data saving');
+    }
+    // GET_DATA_SAVER_STATS - returns count from the downloaded pages cache
+    if (event.data && event.data.type === 'GET_DATA_SAVER_STATS') {
+        caches.open(CACHE_NAME).then(cache => {
+            cache.keys().then(keys => {
+                // Count only HTML pages (downloaded pages)
+                const htmlPages = keys.filter(k => {
+                    const url = typeof k === 'string' ? k : k.url;
+                    return url.endsWith('/') || url.endsWith('.html') || !url.includes('.');
+                });
+                if (event.source) {
+                    event.source.postMessage({
+                        type: 'DATA_SAVER_STATS',
+                        pagesCached: htmlPages.length,
+                        totalCached: keys.length
+                    });
+                }
+            });
+        });
+    }
+    // ============== END DATA SAVER CONTROLS ==============
+    
     if (event.data && event.data.type === 'REMOVE_FILE' && event.data.url) {
         caches.open(CACHE_NAME).then(cache => cache.delete(event.data.url));
     }
@@ -331,49 +363,92 @@ self.addEventListener('fetch', event => {
     // For HTML pages, always inject analytics.js
     if (event.request.destination === 'document') {
         event.respondWith(
-            fetch(event.request)
-                .then(async response => {
+            (async () => {
+                const cache = await caches.open(CACHE_NAME);
+                
+                // DATA SAVER MODE: Serve from cache WITHOUT hitting the network (truly saves data!)
+                if (dataSaverEnabled) {
+                    const cachedResp = await cacheMatchAny(cache, event.request);
+                    
+                    if (cachedResp) {
+                        // Return cached immediately - NO network request = DATA SAVED!
+                        console.log('📦 Data Saver: Serving from cache (no network request)');
+                        
+                        // Notify client of data saved
+                        const contentLength = cachedResp.headers.get('content-length');
+                        const bytesSaved = contentLength ? parseInt(contentLength) : 15000;
+                        self.clients.matchAll().then(clients => {
+                            clients.forEach(c => c.postMessage({ type: 'DATA_SAVED', bytes: bytesSaved }));
+                        });
+                        
+                        return cachedResp;
+                    }
+                    // Page NOT in cache - need to fetch it
+                    // Fall through to fetch and cache it for next time
+                }
+                
+                // Fetch from network
+                try {
+                    const response = await fetch(event.request);
                     const ct = response.headers.get('content-type') || '';
                     let respToReturn = response;
+                    
                     if (ct.includes('text/html')) {
                         let text = await response.text();
-                        text = text.replace(
-                            /<body[^>]*>/i,
-                            `$&<script src="/analytics.js?v=${Date.now()}"></script>`
-                        );
-                        respToReturn = new Response(text, {
-                            headers: new Headers(response.headers)
-                        });
+                        text = text.replace(/<body[^>]*>/i, `$&<script src="/analytics.js?v=${Date.now()}"></script>`);
+                        respToReturn = new Response(text, { headers: new Headers(response.headers) });
                     }
-                    // Cache for offline
-                    const cache = await caches.open(CACHE_NAME);
+                    
+                    // ALWAYS cache the page - so next time we have it!
+                    // Whether data saver or downloader is on, cache for future use
                     cache.put(event.request, respToReturn.clone());
+                    
                     return respToReturn;
-                })
-                .catch(async () => {
-                    const cache = await caches.open(CACHE_NAME);
+                } catch (e) {
+                    // Offline - try cache
                     const cached = await cacheMatchAny(cache, event.request);
                     if (cached) return cached;
                     return new Response('Offline', {status: 503});
-                })
+                }
+            })()
         );
-    } else if (downloaderEnabled) {
-        // For other resources, try network then cache, and cache if successful
+    } else if (downloaderEnabled || dataSaverEnabled) {
+        // For other resources (CSS, JS, images, etc.)
         event.respondWith(
-            fetch(event.request)
-                .then(async response => {
+            (async () => {
+                const cache = await caches.open(CACHE_NAME);
+                
+                // DATA SAVER: Serve from cache WITHOUT network request
+                if (dataSaverEnabled) {
+                    const cached = await cacheMatchAny(cache, event.request);
+                    if (cached) {
+                        // Return cached - NO network = DATA SAVED!
+                        const contentLength = cached.headers.get('content-length');
+                        const bytesSaved = contentLength ? parseInt(contentLength) : 5000;
+                        self.clients.matchAll().then(clients => {
+                            clients.forEach(c => c.postMessage({ type: 'DATA_SAVED', bytes: bytesSaved }));
+                        });
+                        
+                        return cached;
+                    }
+                    // Not in cache - fetch and cache for next time
+                }
+                
+                // Fetch from network and cache
+                try {
+                    const response = await fetch(event.request);
                     if (response && response.status === 200) {
-                        const cache = await caches.open(CACHE_NAME);
+                        // Always cache so we have it next time
                         cache.put(event.request, response.clone());
                     }
                     return response;
-                })
-                .catch(async () => {
-                    const cache = await caches.open(CACHE_NAME);
+                } catch (e) {
+                    // Offline fallback
                     const cached = await cacheMatchAny(cache, event.request);
                     if (cached) return cached;
                     return Response.error();
-                })
+                }
+            })()
         );
     } else {
         // If downloader is not enabled, just try network, fallback to cache if offline

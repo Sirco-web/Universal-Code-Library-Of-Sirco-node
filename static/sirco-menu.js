@@ -844,6 +844,203 @@
         .sirco-menu-panel ::-webkit-scrollbar-thumb:hover {
             background: #585b70;
         }
+
+        /* Settings Tab Styles */
+        .sirco-settings-content {
+            padding: 16px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .sirco-setting-card {
+            background: #313244;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .sirco-setting-card.data-saver {
+            border: 2px solid transparent;
+            transition: border-color 0.3s;
+        }
+        .sirco-setting-card.data-saver.active {
+            border-color: #a6e3a1;
+        }
+        .sirco-setting-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .sirco-setting-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #a6e3a1 0%, #94e2d5 100%);
+        }
+        .sirco-setting-icon svg {
+            width: 28px;
+            height: 28px;
+            fill: #1e1e2e;
+        }
+        .sirco-setting-icon.savings {
+            background: linear-gradient(135deg, #f9e2af 0%, #fab387 100%);
+        }
+        .sirco-setting-info h4 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
+            color: #cdd6f4;
+        }
+        .sirco-setting-info p {
+            margin: 0;
+            font-size: 12px;
+            color: #6c7086;
+        }
+        .sirco-toggle-switch {
+            position: relative;
+            width: 52px;
+            height: 28px;
+            margin-left: auto;
+        }
+        .sirco-toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .sirco-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #45475a;
+            border-radius: 28px;
+            transition: 0.3s;
+        }
+        .sirco-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background: #cdd6f4;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        .sirco-toggle-switch input:checked + .sirco-toggle-slider {
+            background: linear-gradient(135deg, #a6e3a1 0%, #94e2d5 100%);
+        }
+        .sirco-toggle-switch input:checked + .sirco-toggle-slider:before {
+            transform: translateX(24px);
+            background: #1e1e2e;
+        }
+        .sirco-data-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #45475a;
+        }
+        .sirco-stat-box {
+            background: #1e1e2e;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .sirco-stat-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #a6e3a1;
+            margin-bottom: 4px;
+        }
+        .sirco-stat-label {
+            font-size: 11px;
+            color: #6c7086;
+            text-transform: uppercase;
+        }
+        .sirco-savings-banner {
+            background: linear-gradient(135deg, #a6e3a1 0%, #94e2d5 100%);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #1e1e2e;
+        }
+        .sirco-savings-banner svg {
+            width: 24px;
+            height: 24px;
+            fill: #1e1e2e;
+        }
+        .sirco-savings-banner span {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .sirco-cache-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .sirco-cache-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .sirco-cache-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+        .sirco-cache-btn.clear {
+            background: #f38ba8;
+            color: #1e1e2e;
+        }
+        .sirco-cache-btn.clear svg {
+            fill: #1e1e2e;
+        }
+        .sirco-cache-btn.preload {
+            background: #89b4fa;
+            color: #1e1e2e;
+        }
+        .sirco-cache-btn.preload svg {
+            fill: #1e1e2e;
+        }
+        .sirco-cache-btn:hover {
+            opacity: 0.85;
+        }
+        .sirco-data-saver-features {
+            margin-top: 12px;
+        }
+        .sirco-feature-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            font-size: 13px;
+            color: #a6adc8;
+        }
+        .sirco-feature-item svg {
+            width: 16px;
+            height: 16px;
+            fill: #a6e3a1;
+        }
+        @keyframes sirco-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .sirco-cache-btn svg.spin {
+            animation: sirco-spin 1s linear infinite;
+        }
     `;
 
     // Inject styles
@@ -891,6 +1088,10 @@
             <button class="sirco-menu-tab" data-tab="shortcuts">
                 <svg viewBox="0 0 24 24"><path d="M15 7.5V2H9v5.5l3 3 3-3zM7.5 9H2v6h5.5l3-3-3-3zM9 16.5V22h6v-5.5l-3-3-3 3zM16.5 9l-3 3 3 3H22V9h-5.5z"/></svg>
                 <span>Shortcuts</span>
+            </button>
+            <button class="sirco-menu-tab" data-tab="settings">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                <span>Settings</span>
             </button>
         </div>
         <div class="sirco-menu-content">
@@ -1002,6 +1203,75 @@
                                 Hide menu on other pages
                             </label>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div class="sirco-tab-content" data-content="settings">
+                <div class="sirco-settings-content">
+                    <!-- Data Saver Card -->
+                    <div class="sirco-setting-card data-saver" id="sirco-data-saver-card">
+                        <div class="sirco-setting-header">
+                            <div class="sirco-setting-icon">
+                                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                            </div>
+                            <div class="sirco-setting-info">
+                                <h4>Data Saver</h4>
+                                <p>Skip network requests for cached pages</p>
+                            </div>
+                            <label class="sirco-toggle-switch">
+                                <input type="checkbox" id="sirco-data-saver-toggle">
+                                <span class="sirco-toggle-slider"></span>
+                            </label>
+                        </div>
+                        
+                        <div class="sirco-data-saver-features">
+                            <div class="sirco-feature-item">
+                                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                                <span>NO network requests for cached pages</span>
+                            </div>
+                            <div class="sirco-feature-item">
+                                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                                <span>Loads instantly from local cache</span>
+                            </div>
+                            <div class="sirco-feature-item">
+                                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                                <span>New pages still get cached</span>
+                            </div>
+                            <div class="sirco-feature-item">
+                                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                                <span>Works offline for visited pages</span>
+                            </div>
+                        </div>
+
+                        <div class="sirco-data-stats">
+                            <div class="sirco-stat-box">
+                                <div class="sirco-stat-value" id="sirco-data-saved">0 MB</div>
+                                <div class="sirco-stat-label">Data Saved</div>
+                            </div>
+                            <div class="sirco-stat-box">
+                                <div class="sirco-stat-value" id="sirco-pages-cached">0</div>
+                                <div class="sirco-stat-label">Pages Cached</div>
+                            </div>
+                        </div>
+
+                        <div class="sirco-cache-actions" style="justify-content: center;">
+                            <button class="sirco-cache-btn clear" id="sirco-refresh-stats">
+                                <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                                Refresh Stats
+                            </button>
+                        </div>
+                        
+                        <p style="font-size: 11px; color: #888; text-align: center; margin-top: 12px;">
+                            💡 Visit pages once to cache them, then Data Saver serves them without using any data!
+                        </p>
+                    </div>
+
+                    <!-- Savings Banner (shown when data saver is on) -->
+                    <div class="sirco-savings-banner" id="sirco-savings-banner" style="display: none;">
+                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                        <span id="sirco-savings-text">Data Saver is active - using downloaded pages!</span>
                     </div>
                 </div>
             </div>
@@ -1858,24 +2128,30 @@
             e.stopPropagation();
             e.stopImmediatePropagation();
             
+            console.log('🚨 PANIC SHORTCUT TRIGGERED!');
+            
             // Remove access cookie
             document.cookie = 'access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            document.cookie = 'access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=' + window.location.hostname;
             
             // Also clear from localStorage
             localStorage.removeItem('accessCookieId');
+            localStorage.removeItem('sirco_user');
             
             // Perform action
             if (config.action === 'goto') {
-                window.location.href = '/';
+                window.location.replace('/');
             } else if (config.action === 'google') {
-                window.location.href = 'https://www.google.com';
+                window.location.replace('https://www.google.com');
             } else if (config.action === 'custom' && config.customURL) {
                 const url = config.customURL.startsWith('http') ? config.customURL : 'https://' + config.customURL;
-                window.location.href = url;
+                window.location.replace(url);
             } else if (config.action === 'none') {
                 // Just remove cookie and stay
                 window.location.reload();
             }
+            
+            return false;
         }
     }
 
@@ -1884,6 +2160,45 @@
     
     // Also listen on window for extra coverage
     window.addEventListener('keydown', handleShortcut, true);
+    
+    // Listen on body too
+    document.body?.addEventListener('keydown', handleShortcut, true);
+    
+    // Add listener to all iframes on the page to catch shortcuts inside them
+    function addShortcutToIframes() {
+        document.querySelectorAll('iframe').forEach(iframe => {
+            try {
+                if (iframe.contentDocument) {
+                    iframe.contentDocument.removeEventListener('keydown', handleShortcut, true);
+                    iframe.contentDocument.addEventListener('keydown', handleShortcut, true);
+                }
+                if (iframe.contentWindow) {
+                    iframe.contentWindow.removeEventListener('keydown', handleShortcut, true);
+                    iframe.contentWindow.addEventListener('keydown', handleShortcut, true);
+                }
+            } catch (e) {
+                // Cross-origin iframe, can't add listener
+            }
+        });
+    }
+    
+    // Initial setup
+    addShortcutToIframes();
+    
+    // Re-add listeners when iframes are added to the page
+    const iframeObserver = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.addedNodes.length > 0) {
+                setTimeout(addShortcutToIframes, 100);
+                setTimeout(addShortcutToIframes, 500);
+                setTimeout(addShortcutToIframes, 1000);
+            }
+        }
+    });
+    iframeObserver.observe(document.body, { childList: true, subtree: true });
+    
+    // Periodically re-add listeners (for dynamically loaded iframes)
+    setInterval(addShortcutToIframes, 2000);
 
     // Close menu on escape (use capture)
     document.addEventListener('keydown', (e) => {
@@ -2031,5 +2346,318 @@
     // Send initial heartbeat and start interval
     sendHeartbeat();
     setInterval(sendHeartbeat, 5000);
+
+    // ============== DATA SAVER FUNCTIONALITY ==============
+    const DATA_SAVER_KEY = 'sirco_data_saver_enabled';
+    const DATA_STATS_KEY = 'sirco_data_saver_stats';
+    const DATA_SAVER_CACHE_NAME = 'sirco-data-saver-v1';
+    
+    // Get data saver stats
+    function getDataSaverStats() {
+        try {
+            const stats = localStorage.getItem(DATA_STATS_KEY);
+            return stats ? JSON.parse(stats) : { dataSaved: 0, pagesCached: 0, requestsBlocked: 0 };
+        } catch { return { dataSaved: 0, pagesCached: 0, requestsBlocked: 0 }; }
+    }
+    
+    function saveDataSaverStats(stats) {
+        try {
+            localStorage.setItem(DATA_STATS_KEY, JSON.stringify(stats));
+        } catch {}
+    }
+    
+    function isDataSaverEnabled() {
+        return localStorage.getItem(DATA_SAVER_KEY) === 'true';
+    }
+    
+    function setDataSaverEnabled(enabled) {
+        localStorage.setItem(DATA_SAVER_KEY, enabled ? 'true' : 'false');
+    }
+    
+    // Format bytes to human readable
+    function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    
+    // Update stats display
+    function updateDataSaverUI() {
+        const stats = getDataSaverStats();
+        const enabled = isDataSaverEnabled();
+        
+        const toggle = document.getElementById('sirco-data-saver-toggle');
+        const card = document.getElementById('sirco-data-saver-card');
+        const banner = document.getElementById('sirco-savings-banner');
+        const savedEl = document.getElementById('sirco-data-saved');
+        const cachedEl = document.getElementById('sirco-pages-cached');
+        const savingsText = document.getElementById('sirco-savings-text');
+        
+        if (toggle) toggle.checked = enabled;
+        if (card) card.classList.toggle('active', enabled);
+        if (banner) banner.style.display = enabled ? 'flex' : 'none';
+        if (savedEl) savedEl.textContent = formatBytes(stats.dataSaved);
+        if (cachedEl) cachedEl.textContent = stats.pagesCached.toString();
+        if (savingsText && enabled) {
+            savingsText.textContent = `Data Saver active - ${formatBytes(stats.dataSaved)} saved!`;
+        }
+    }
+    
+    // Register data saver service worker
+    async function registerDataSaverSW() {
+        // Use the existing analytics-sw.js - just enable data saver mode
+        if (!('serviceWorker' in navigator)) return;
+        
+        try {
+            // Make sure analytics-sw.js is registered
+            const reg = await navigator.serviceWorker.ready;
+            if (reg && reg.active) {
+                // Send message to enable data saver
+                reg.active.postMessage({ type: 'SET_DATA_SAVER', enabled: true });
+                console.log('📦 Data Saver ENABLED in analytics-sw.js');
+            }
+        } catch (e) {
+            console.log('Data Saver enable failed:', e);
+        }
+    }
+    
+    // Unregister data saver service worker
+    async function unregisterDataSaverSW() {
+        // Disable data saver mode in analytics-sw.js
+        if (!('serviceWorker' in navigator)) return;
+        
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            if (reg && reg.active) {
+                // Send message to disable data saver
+                reg.active.postMessage({ type: 'SET_DATA_SAVER', enabled: false });
+                console.log('📦 Data Saver DISABLED in analytics-sw.js');
+            }
+        } catch (e) {
+            console.log('Data Saver disable failed:', e);
+        }
+    }
+    
+    // Manual caching fallback (when SW not available)
+    const manualCache = new Map();
+    let interceptingFetch = false;
+    
+    function enableManualCaching() {
+        if (interceptingFetch) return;
+        interceptingFetch = true;
+        
+        const originalFetch = window.fetch;
+        window.fetch = async function(url, options = {}) {
+            // Skip non-GET and API requests
+            if (options.method && options.method !== 'GET') {
+                return originalFetch(url, options);
+            }
+            
+            const urlStr = typeof url === 'string' ? url : url.toString();
+            if (urlStr.includes('/api/') || urlStr.includes('/owner/')) {
+                return originalFetch(url, options);
+            }
+            
+            // Check manual cache
+            const cached = manualCache.get(urlStr);
+            if (cached && Date.now() - cached.time < 3600000) { // 1 hour cache
+                const stats = getDataSaverStats();
+                stats.dataSaved += cached.size || 1000;
+                saveDataSaverStats(stats);
+                updateDataSaverUI();
+                return new Response(cached.data, { headers: cached.headers });
+            }
+            
+            // Fetch and cache
+            const response = await originalFetch(url, options);
+            const clone = response.clone();
+            
+            try {
+                const data = await clone.text();
+                manualCache.set(urlStr, {
+                    data,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    time: Date.now(),
+                    size: data.length
+                });
+                
+                // Track
+                if (urlStr.endsWith('/') || urlStr.endsWith('.html')) {
+                    const stats = getDataSaverStats();
+                    stats.pagesCached++;
+                    saveDataSaverStats(stats);
+                    updateDataSaverUI();
+                }
+            } catch {}
+            
+            return response;
+        };
+        
+        // Also intercept XMLHttpRequest
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        const originalXHRSend = XMLHttpRequest.prototype.send;
+        
+        XMLHttpRequest.prototype.open = function(method, url, ...args) {
+            this._sircoUrl = url;
+            this._sircoMethod = method;
+            return originalXHROpen.call(this, method, url, ...args);
+        };
+        
+        XMLHttpRequest.prototype.send = function(...args) {
+            if (this._sircoMethod === 'GET' && !this._sircoUrl.includes('/api/')) {
+                const cached = manualCache.get(this._sircoUrl);
+                if (cached && Date.now() - cached.time < 3600000) {
+                    const stats = getDataSaverStats();
+                    stats.dataSaved += cached.size || 1000;
+                    saveDataSaverStats(stats);
+                    updateDataSaverUI();
+                    
+                    // Simulate response
+                    Object.defineProperty(this, 'responseText', { value: cached.data });
+                    Object.defineProperty(this, 'status', { value: 200 });
+                    Object.defineProperty(this, 'readyState', { value: 4 });
+                    
+                    setTimeout(() => {
+                        if (this.onreadystatechange) this.onreadystatechange();
+                        if (this.onload) this.onload();
+                    }, 0);
+                    return;
+                }
+            }
+            return originalXHRSend.call(this, ...args);
+        };
+        
+        // Lazy load images
+        document.querySelectorAll('img[src]').forEach(img => {
+            if (!img.loading) img.loading = 'lazy';
+        });
+        
+        // Observe for new images
+        const imgObserver = new MutationObserver(mutations => {
+            mutations.forEach(m => {
+                m.addedNodes.forEach(node => {
+                    if (node.tagName === 'IMG' && !node.loading) {
+                        node.loading = 'lazy';
+                    }
+                    if (node.querySelectorAll) {
+                        node.querySelectorAll('img').forEach(img => {
+                            if (!img.loading) img.loading = 'lazy';
+                        });
+                    }
+                });
+            });
+        });
+        imgObserver.observe(document.body, { childList: true, subtree: true });
+    }
+    
+    function disableManualCaching() {
+        interceptingFetch = false;
+        manualCache.clear();
+    }
+    
+    // Listen for SW messages
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', event => {
+            const stats = getDataSaverStats();
+            
+            if (event.data.type === 'DATA_SAVED') {
+                stats.dataSaved += event.data.bytes;
+                saveDataSaverStats(stats);
+                updateDataSaverUI();
+            }
+            
+            if (event.data.type === 'PAGE_CACHED') {
+                stats.pagesCached++;
+                saveDataSaverStats(stats);
+                updateDataSaverUI();
+            }
+            
+            // Handle analytics-sw.js message types
+            if (event.data.type === 'DATA_SAVER_CACHE_CLEARED' || event.data.type === 'CACHE_CLEARED') {
+                stats.pagesCached = 0;
+                saveDataSaverStats(stats);
+                updateDataSaverUI();
+            }
+            
+            if (event.data.type === 'DATA_SAVER_STATS') {
+                // Update pages cached from downloaded pages cache
+                stats.pagesCached = event.data.pagesCached || 0;
+                saveDataSaverStats(stats);
+                updateDataSaverUI();
+            }
+        });
+    }
+    
+    // Data Saver toggle handler
+    const dataSaverToggle = document.getElementById('sirco-data-saver-toggle');
+    if (dataSaverToggle) {
+        dataSaverToggle.addEventListener('change', async (e) => {
+            const enabled = e.target.checked;
+            setDataSaverEnabled(enabled);
+            
+            if (enabled) {
+                await registerDataSaverSW();
+                enableManualCaching();
+                console.log('📦 Data Saver ENABLED - using downloaded pages cache');
+            } else {
+                await unregisterDataSaverSW();
+                disableManualCaching();
+                console.log('📦 Data Saver DISABLED');
+            }
+            
+            updateDataSaverUI();
+            // Refresh stats to show downloaded pages count
+            refreshDataSaverStats();
+        });
+    }
+    
+    // Refresh stats button - gets count from downloaded pages cache
+    const refreshStatsBtn = document.getElementById('sirco-refresh-stats');
+    if (refreshStatsBtn) {
+        refreshStatsBtn.addEventListener('click', () => {
+            refreshDataSaverStats();
+        });
+    }
+    
+    // Function to refresh stats from service worker
+    function refreshDataSaverStats() {
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'GET_DATA_SAVER_STATS' });
+        }
+    }
+    
+    // Initialize data saver on page load
+    // Always sync data saver state with service worker
+    async function initializeDataSaver() {
+        const enabled = isDataSaverEnabled();
+        
+        // Wait for service worker to be ready
+        if ('serviceWorker' in navigator) {
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                if (reg && reg.active) {
+                    // Send current state to service worker
+                    reg.active.postMessage({ type: 'SET_DATA_SAVER', enabled: enabled });
+                    console.log('📦 Data Saver state synced:', enabled ? 'ON' : 'OFF');
+                    
+                    // Get stats from downloaded pages cache
+                    setTimeout(() => {
+                        reg.active.postMessage({ type: 'GET_DATA_SAVER_STATS' });
+                    }, 500);
+                }
+            } catch (e) {
+                console.log('Failed to sync data saver state:', e);
+            }
+        }
+        
+        if (enabled) {
+            enableManualCaching();
+        }
+        
+        updateDataSaverUI();
+    }
+    
+    // Call initialization
+    initializeDataSaver();
 
 })();
