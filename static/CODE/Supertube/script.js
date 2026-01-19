@@ -456,17 +456,44 @@ document.addEventListener('DOMContentLoaded', () => {
   const STORAGE_KEY = 'supertube_session';
   const TOKEN_COOKIE = 'supertube_access'; // Cookie name for access token
   
-  let sessionData = { usedSeconds: 0, serverTimeOffset: 0, hasChosen: false, pausedSeconds: 0 };
+  // Session data now tracks:
+  // - usedSeconds: For free trial mode
+  // - serverTimeOffset: To sync with server time
+  // - hasChosen: If user saw welcome popup
+  // - pausedAt: TIMESTAMP when paused (null = not paused)
+  // - totalPausedMs: Total milliseconds spent paused (persists across refreshes)
+  // - lastActiveTime: Last time user was actively using SuperTube
+  let sessionData = { 
+    usedSeconds: 0, 
+    serverTimeOffset: 0, 
+    hasChosen: false, 
+    pausedAt: null,           // Timestamp when paused (null = running)
+    totalPausedMs: 0,         // Total ms paused (added to token expiry)
+    lastActiveTime: null      // Last time user was on SuperTube and running
+  };
   let accessToken = null;
   let timeCheckInterval = null;
   let isTimeLocked = false;
   let serverTime = Date.now(); // Will be synced with server
   let isPageActive = true; // Track if user is on this page
-  let isPaused = false; // NOT saved - resets on page load
+  
+  // isPaused is now derived from sessionData.pausedAt
+  function isPaused() {
+    return sessionData.pausedAt !== null;
+  }
   
   // Track page visibility and focus
   document.addEventListener('visibilitychange', () => {
+    const wasActive = isPageActive;
     isPageActive = !document.hidden;
+    
+    // If becoming inactive and not paused, auto-pause the timer
+    if (wasActive && !isPageActive && !isPaused()) {
+      autoPause('left_page');
+    }
+    // If becoming active again and was auto-paused, DON'T auto-resume
+    // User must manually resume
+    
     updateTimerWidget();
   });
   
@@ -477,8 +504,22 @@ document.addEventListener('DOMContentLoaded', () => {
   
   window.addEventListener('blur', () => {
     isPageActive = false;
+    // Auto-pause when leaving focus
+    if (!isPaused()) {
+      autoPause('lost_focus');
+    }
     updateTimerWidget();
   });
+  
+  // Auto-pause function (doesn't require user interaction)
+  function autoPause(reason) {
+    if (isPaused()) return; // Already paused
+    
+    sessionData.pausedAt = getServerTime();
+    saveSession();
+    pauseAllMedia();
+    console.log('⏸️ Auto-paused timer:', reason);
+  }
   
   // Cookie helper functions
   function setCookie(name, value, expiresMs) {
@@ -528,8 +569,16 @@ document.addEventListener('DOMContentLoaded', () => {
           usedSeconds: data.usedSeconds || 0,
           serverTimeOffset: data.serverTimeOffset || 0,
           hasChosen: data.hasChosen || false,
-          pausedSeconds: data.pausedSeconds || 0
+          pausedAt: data.pausedAt || null,
+          totalPausedMs: data.totalPausedMs || 0,
+          lastActiveTime: data.lastActiveTime || null
         };
+        
+        // If user was away from page, calculate time passed and add to paused time
+        if (sessionData.lastActiveTime && !sessionData.pausedAt) {
+          // User left without pausing - auto-pause was triggered
+          // The pausedAt should have been set by autoPause
+        }
       }
       
       // Load access token from COOKIE (auto-expires!)
@@ -538,8 +587,16 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const token = JSON.parse(tokenData);
           // Cookie exists = not expired by browser
-          // But also verify with server time offset
-          if (token.expiresAt && getServerTime() < token.expiresAt) {
+          // Calculate effective expiry (original expiry + total paused time)
+          const effectiveExpiry = token.expiresAt + sessionData.totalPausedMs;
+          
+          // If currently paused, add time since pause started
+          let currentPausedMs = 0;
+          if (sessionData.pausedAt) {
+            currentPausedMs = getServerTime() - sessionData.pausedAt;
+          }
+          
+          if (getServerTime() < effectiveExpiry + currentPausedMs) {
             accessToken = token;
           } else {
             // Token expired according to server time - delete it
@@ -555,7 +612,14 @@ document.addEventListener('DOMContentLoaded', () => {
         accessToken = null;
       }
     } catch (e) {
-      sessionData = { usedSeconds: 0, serverTimeOffset: 0 };
+      sessionData = { 
+        usedSeconds: 0, 
+        serverTimeOffset: 0, 
+        hasChosen: false, 
+        pausedAt: null, 
+        totalPausedMs: 0,
+        lastActiveTime: null
+      };
       accessToken = null;
     }
   }
@@ -628,10 +692,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check if cookie exists (auto-expires when time is up)
     const cookieExists = getCookie(TOKEN_COOKIE);
     if (cookieExists && accessToken && accessToken.expiresAt) {
-      // Add paused seconds to extend expiry
-      const adjustedExpiry = accessToken.expiresAt + (sessionData.pausedSeconds * 1000);
-      const now = getServerTime();
-      if (now < adjustedExpiry) {
+      const remaining = getTimeRemainingSeconds();
+      if (remaining > 0) {
         return true;
       } else {
         // Expired - delete cookie
@@ -645,11 +707,34 @@ document.addEventListener('DOMContentLoaded', () => {
   
   function getTimeRemainingSeconds() {
     if (accessToken && accessToken.expiresAt) {
-      // Add paused seconds to extend expiry
-      const adjustedExpiry = accessToken.expiresAt + (sessionData.pausedSeconds * 1000);
-      const remaining = adjustedExpiry - getServerTime();
-      if (remaining > 0) return Math.floor(remaining / 1000);
+      const now = getServerTime();
+      
+      // Calculate effective expiry: original + total paused time
+      let effectiveExpiry = accessToken.expiresAt + sessionData.totalPausedMs;
+      
+      // If currently paused, freeze the timer at the pause point
+      if (isPaused()) {
+        // Time remaining = expiry - pausedAt + totalPausedMs before this pause
+        const timeWhenPaused = sessionData.pausedAt;
+        const remaining = accessToken.expiresAt + sessionData.totalPausedMs - timeWhenPaused;
+        // But we need to subtract the totalPausedMs that was already counted before this pause
+        // Actually simpler: remaining = expiresAt - (pausedAt - totalPausedMs)
+        // Wait, let me think... when paused at time T:
+        // - Token expires at E
+        // - Total paused before this = P
+        // - So effective runtime before pause = T - sessionStart - P
+        // - Time remaining when paused = E - T + P
+        // Which is what we have: effectiveExpiry - pausedAt
+        const pauseTimeRemaining = accessToken.expiresAt + sessionData.totalPausedMs - sessionData.pausedAt;
+        return Math.max(0, Math.floor(pauseTimeRemaining / 1000));
+      }
+      
+      // Not paused - calculate normally
+      const remaining = effectiveExpiry - now;
+      return Math.max(0, Math.floor(remaining / 1000));
     }
+    
+    // Free trial mode
     return Math.max(0, FREE_MINUTES * 60 - sessionData.usedSeconds);
   }
   
@@ -796,17 +881,11 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.body.appendChild(widget);
     
-    // Close dropdown when clicking outside - auto resume if paused
+    // Close dropdown when clicking outside - DON'T auto-resume (user must click resume)
     document.addEventListener('click', (e) => {
       const timer = document.getElementById('supertube-timer');
       const dropdown = document.getElementById('timer-dropdown');
       if (timer && dropdown && !timer.contains(e.target)) {
-        // Auto-resume when closing dropdown
-        if (isPaused) {
-          isPaused = false;
-          resumeAllMedia();
-          updateTimerWidget();
-        }
         dropdown.classList.remove('show');
       }
     });
@@ -820,21 +899,27 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   
   window.toggleTimerPause = function() {
-    isPaused = !isPaused;
-    updateTimerWidget();
+    const now = getServerTime();
     
-    const pauseBtn = document.getElementById('pause-btn');
-    if (pauseBtn) {
-      if (isPaused) {
-        pauseBtn.innerHTML = '<span class="icon">▶️</span><span>Resume Timer</span>';
-        pauseBtn.classList.add('active');
-        pauseAllMedia(); // Pause all videos when timer paused
-      } else {
-        pauseBtn.innerHTML = '<span class="icon">⏸️</span><span>Pause Timer</span>';
-        pauseBtn.classList.remove('active');
-        resumeAllMedia(); // Resume videos when timer resumed
-      }
+    if (isPaused()) {
+      // RESUME: Calculate how long we were paused and add to totalPausedMs
+      const pauseDuration = now - sessionData.pausedAt;
+      sessionData.totalPausedMs += pauseDuration;
+      sessionData.pausedAt = null; // Clear pause state
+      saveSession();
+      
+      resumeAllMedia();
+      console.log('▶️ Timer resumed. Paused for', Math.floor(pauseDuration / 1000), 'seconds');
+    } else {
+      // PAUSE: Record when we paused
+      sessionData.pausedAt = now;
+      saveSession();
+      
+      pauseAllMedia();
+      console.log('⏸️ Timer paused');
     }
+    
+    updateTimerWidget();
   };
   
   window.showAddCodePopup = function() {
@@ -904,7 +989,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (result.serverTime) {
           sessionData.serverTimeOffset = result.serverTime - Date.now();
         }
+        // Reset timer state for new code
         sessionData.usedSeconds = 0;
+        sessionData.pausedAt = null;
+        sessionData.totalPausedMs = 0;
         saveSession();
         
         document.querySelector('.add-code-popup').remove();
@@ -968,12 +1056,12 @@ document.addEventListener('DOMContentLoaded', () => {
       timeValue.classList.add('warning');
     }
     
-    // Status text
-    if (isPaused) {
+    // Status text - use isPaused() function now
+    if (isPaused()) {
       statusText.textContent = '⏸️ Paused';
       statusText.style.color = '#ffd93d';
     } else if (!isPageActive) {
-      statusText.textContent = '💤 Inactive';
+      statusText.textContent = '⏸️ Away (Paused)';
       statusText.style.color = '#888';
     } else {
       statusText.textContent = '▶️ Running';
@@ -991,7 +1079,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Pause button state
     if (pauseBtn) {
-      if (isPaused) {
+      if (isPaused()) {
         pauseBtn.innerHTML = '<span class="icon">▶️</span><span>Resume Timer</span>';
         pauseBtn.classList.add('active');
       } else {
@@ -1480,48 +1568,55 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial timer update
     updateTimerWidget();
     
+    // Update lastActiveTime
+    sessionData.lastActiveTime = getServerTime();
+    saveSession();
+    
     if (timeCheckInterval) clearInterval(timeCheckInterval);
     
     timeCheckInterval = setInterval(async () => {
-      // Always update timer display (live)
+      // Always update timer display
       updateTimerWidget();
       
-      // Check token expiry (even if offline)
-      // But add pausedSeconds to extend the expiry
+      // Check token expiry
       if (accessToken && accessToken.expiresAt) {
-        const adjustedExpiry = accessToken.expiresAt + (sessionData.pausedSeconds * 1000);
-        const now = getServerTime();
-        if (now >= adjustedExpiry) {
-          // Token expired - delete and redirect
-          deleteTokenAndRedirect();
-          return;
+        // Calculate effective expiry with paused time
+        let effectiveExpiry = accessToken.expiresAt + sessionData.totalPausedMs;
+        
+        // If currently paused, don't check expiry (timer is frozen)
+        if (!isPaused()) {
+          const now = getServerTime();
+          if (now >= effectiveExpiry) {
+            // Token expired - delete and redirect
+            deleteTokenAndRedirect();
+            return;
+          }
         }
       }
       
-      // Only count time if:
+      // Only count FREE TRIAL time if:
       // 1. Page is visible/focused (isPageActive)
       // 2. Not locked (isTimeLocked)
-      // 3. Not paused by user (isPaused)
-      if (isPageActive && !isTimeLocked && !isPaused) {
-        // If no access token, count against free trial
-        if (!accessToken) {
-          sessionData.usedSeconds++;
-          saveSession();
-        }
+      // 3. Not paused (isPaused())
+      // 4. Using free trial (no accessToken)
+      if (isPageActive && !isTimeLocked && !isPaused() && !accessToken) {
+        sessionData.usedSeconds++;
+        sessionData.lastActiveTime = getServerTime();
+        saveSession();
         
         // Check if time ran out (free trial ended)
         if (!hasTimeRemaining()) {
           lockForTimeCode();
         }
-      } else if (isPaused || !isPageActive) {
-        // Track paused/inactive time to extend token expiry
-        if (accessToken) {
-          sessionData.pausedSeconds++;
-          saveSession();
-        }
       }
       
-      // Periodically validate token with server (every 60 seconds when online)
+      // Update lastActiveTime when running
+      if (isPageActive && !isPaused()) {
+        sessionData.lastActiveTime = getServerTime();
+        // Don't save every second to reduce writes
+      }
+      
+      // Periodically validate token with server (every ~60 seconds when online)
       if (accessToken && navigator.onLine && Math.random() < 0.017) { // ~1/60 chance per second
         await validateTokenWithServer();
       }

@@ -1243,6 +1243,10 @@
                                 <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
                                 <span>Works offline for visited pages</span>
                             </div>
+                            <div class="sirco-feature-item">
+                                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                                <span>Reduces API calls by 5-12x</span>
+                            </div>
                         </div>
 
                         <div class="sirco-data-stats">
@@ -1271,7 +1275,18 @@
                     <!-- Savings Banner (shown when data saver is on) -->
                     <div class="sirco-savings-banner" id="sirco-savings-banner" style="display: none;">
                         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                        <span id="sirco-savings-text">Data Saver is active - using downloaded pages!</span>
+                        <span id="sirco-savings-text">Data Saver ON: Cache-first + API throttling active!</span>
+                    </div>
+
+                    <!-- API Polling Info -->
+                    <div class="sirco-polling-info" id="sirco-polling-info" style="display: none; padding: 8px 12px; background: rgba(30,144,255,0.1); border-radius: 8px; margin-top: 12px; font-size: 11px; color: #888;">
+                        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="#1e90ff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                            <span style="color: #1e90ff; font-weight: 600;">API Polling Intervals</span>
+                        </div>
+                        <div id="sirco-polling-values" style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                            <!-- Populated by JS -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1740,7 +1755,10 @@
 
     function startChatPolling() {
         stopChatPolling();
-        chatPollingInterval = setInterval(loadChatMessages, 3000);
+        // Use data saver interval if enabled (defined later, default to 3000)
+        const dataSaverEnabled = localStorage.getItem('sirco_data_saver_enabled') === 'true';
+        const chatInterval = dataSaverEnabled ? 15000 : 3000; // 15s vs 3s
+        chatPollingInterval = setInterval(loadChatMessages, chatInterval);
     }
 
     function stopChatPolling() {
@@ -2315,14 +2333,7 @@
         `;
     }
     
-    // Initial check and periodic polling
-    checkForNotifications();
-    checkUserStatus(); // Check for commands immediately
-    setInterval(checkForNotifications, 30000);
-    setInterval(checkUserStatus, 5000); // Check for commands every 5 seconds
-    
     // ============== ACTIVITY HEARTBEAT ==============
-    // Send heartbeat every 5 seconds to track user activity
     async function sendHeartbeat() {
         const user = getUserInfo();
         if (!user.clientId) return;
@@ -2343,9 +2354,69 @@
         }
     }
     
-    // Send initial heartbeat and start interval
+    // ============== DATA SAVER INTERVAL THROTTLING ==============
+    // Store interval IDs so we can clear and reset them when data saver toggles
+    let notificationIntervalId = null;
+    let userStatusIntervalId = null;
+    let heartbeatIntervalId = null;
+    
+    // Normal intervals (data saver OFF)
+    const NORMAL_INTERVALS = {
+        notifications: 30000,   // 30 seconds
+        userStatus: 5000,       // 5 seconds
+        heartbeat: 5000,        // 5 seconds
+        chatPolling: 3000       // 3 seconds
+    };
+    
+    // Data saver intervals (reduced frequency = less data)
+    const DATA_SAVER_INTERVALS = {
+        notifications: 120000,  // 2 minutes (4x less)
+        userStatus: 30000,      // 30 seconds (6x less)
+        heartbeat: 60000,       // 1 minute (12x less)
+        chatPolling: 15000      // 15 seconds (5x less)
+    };
+    
+    // Get current intervals based on data saver status
+    function getIntervals() {
+        const dataSaverEnabled = localStorage.getItem('sirco_data_saver_enabled') === 'true';
+        return dataSaverEnabled ? DATA_SAVER_INTERVALS : NORMAL_INTERVALS;
+    }
+    
+    // Setup all API polling intervals
+    function setupPollingIntervals() {
+        const intervals = getIntervals();
+        const isDataSaver = localStorage.getItem('sirco_data_saver_enabled') === 'true';
+        
+        // Clear existing intervals
+        if (notificationIntervalId) clearInterval(notificationIntervalId);
+        if (userStatusIntervalId) clearInterval(userStatusIntervalId);
+        if (heartbeatIntervalId) clearInterval(heartbeatIntervalId);
+        
+        // Set new intervals
+        notificationIntervalId = setInterval(checkForNotifications, intervals.notifications);
+        userStatusIntervalId = setInterval(checkUserStatus, intervals.userStatus);
+        heartbeatIntervalId = setInterval(sendHeartbeat, intervals.heartbeat);
+        
+        console.log(`📡 Polling intervals set (Data Saver ${isDataSaver ? 'ON' : 'OFF'}):`,
+            `notifications=${intervals.notifications/1000}s,`,
+            `userStatus=${intervals.userStatus/1000}s,`,
+            `heartbeat=${intervals.heartbeat/1000}s`);
+    }
+    
+    // Update chat polling interval (called when chat opens)
+    window.updateChatPollingInterval = function() {
+        const intervals = getIntervals();
+        if (chatPollingInterval) {
+            clearInterval(chatPollingInterval);
+            chatPollingInterval = setInterval(loadChatMessages, intervals.chatPolling);
+        }
+    };
+    
+    // Initial checks and setup intervals
+    checkForNotifications();
+    checkUserStatus();
     sendHeartbeat();
-    setInterval(sendHeartbeat, 5000);
+    setupPollingIntervals();
 
     // ============== DATA SAVER FUNCTIONALITY ==============
     const DATA_SAVER_KEY = 'sirco_data_saver_enabled';
@@ -2392,6 +2463,8 @@
         const savedEl = document.getElementById('sirco-data-saved');
         const cachedEl = document.getElementById('sirco-pages-cached');
         const savingsText = document.getElementById('sirco-savings-text');
+        const pollingInfo = document.getElementById('sirco-polling-info');
+        const pollingValues = document.getElementById('sirco-polling-values');
         
         if (toggle) toggle.checked = enabled;
         if (card) card.classList.toggle('active', enabled);
@@ -2399,7 +2472,21 @@
         if (savedEl) savedEl.textContent = formatBytes(stats.dataSaved);
         if (cachedEl) cachedEl.textContent = stats.pagesCached.toString();
         if (savingsText && enabled) {
-            savingsText.textContent = `Data Saver active - ${formatBytes(stats.dataSaved)} saved!`;
+            savingsText.textContent = `Data Saver ON: Cache-first + API throttling active!`;
+        }
+        
+        // Update polling info
+        if (pollingInfo && pollingValues) {
+            pollingInfo.style.display = enabled ? 'block' : 'none';
+            if (enabled) {
+                const intervals = getIntervals();
+                pollingValues.innerHTML = `
+                    <div>🔔 Notifications: <b>${intervals.notifications/1000}s</b></div>
+                    <div>👤 User Status: <b>${intervals.userStatus/1000}s</b></div>
+                    <div>💓 Heartbeat: <b>${intervals.heartbeat/1000}s</b></div>
+                    <div>💬 Chat: <b>${intervals.chatPolling/1000}s</b></div>
+                `;
+            }
         }
     }
     
@@ -2603,6 +2690,13 @@
                 await unregisterDataSaverSW();
                 disableManualCaching();
                 console.log('📦 Data Saver DISABLED');
+            }
+            
+            // Reset polling intervals with new timing
+            setupPollingIntervals();
+            // Also update chat polling if active
+            if (typeof updateChatPollingInterval === 'function') {
+                updateChatPollingInterval();
             }
             
             updateDataSaverUI();

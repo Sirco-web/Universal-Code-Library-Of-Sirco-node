@@ -226,11 +226,16 @@ function getLocationFromIP(ip) {
 }
 
 function getClientIP(req) {
-    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+    let ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
            req.headers['x-real-ip'] || 
            req.connection?.remoteAddress || 
            req.socket?.remoteAddress || 
            'unknown';
+    // Normalize IPv4-mapped IPv6 addresses (::ffff:192.168.1.1 -> 192.168.1.1)
+    if (ip && ip.startsWith('::ffff:')) {
+        ip = ip.slice(7);
+    }
+    return ip;
 }
 
 function logEvent(type, data, req) {
@@ -507,8 +512,10 @@ app.use((req, res, next) => {
     
     // Check IP ban
     const bannedIPs = loadBannedIPs();
-    if (bannedIPs.some(entry => (typeof entry === 'string' ? entry : entry.ip) === ip)) {
-        logWarning('banned_ip_blocked', { ip, path }, req);
+    const bannedIPEntry = bannedIPs.find(entry => (typeof entry === 'string' ? entry : entry.ip) === ip);
+    if (bannedIPEntry) {
+        const reason = (typeof bannedIPEntry === 'object' && bannedIPEntry.reason) ? bannedIPEntry.reason : 'No reason provided';
+        logWarning('banned_ip_blocked', { ip, path, reason }, req);
         return res.status(403).send(`
             <!DOCTYPE html>
             <html><head><title>Banned</title></head>
@@ -517,18 +524,24 @@ app.use((req, res, next) => {
                     <h1 style="color:#ff6b6b;font-size:3em">🚫</h1>
                     <h2>Access Denied</h2>
                     <p style="color:#888">Your IP address has been banned from this service.</p>
+                    <p style="color:#ff6b6b">Reason: ${reason}</p>
                 </div>
             </body></html>
         `);
     }
     
-    // Check user ban via cookies
+    // Check user ban via cookies (check both accessCookieId and clientId)
     const accessCookieId = req.cookies?.accessCookieId;
-    if (accessCookieId) {
+    const sircoClientId = req.cookies?.sirco_client_id;
+    if (accessCookieId || sircoClientId) {
         const bannedUsers = loadBannedUsers();
-        const bannedUser = bannedUsers.find(u => u.accessCookieId === accessCookieId);
+        const bannedUser = bannedUsers.find(u => 
+            (accessCookieId && u.accessCookieId === accessCookieId) ||
+            (sircoClientId && u.clientId === sircoClientId) ||
+            (accessCookieId && u.clientId === accessCookieId)
+        );
         if (bannedUser) {
-            logWarning('banned_user_blocked', { accessCookieId, path }, req);
+            logWarning('banned_user_blocked', { accessCookieId, sircoClientId, path }, req);
             return res.status(403).send(`
                 <!DOCTYPE html>
                 <html><head><title>Banned</title></head>
@@ -721,17 +734,18 @@ app.get('/api/owner/users', verifyOwnerToken, (req, res) => {
 
 // Ban user
 app.post('/api/owner/ban-user', verifyOwnerToken, (req, res) => {
-    const { clientId, username, reason } = req.body;
+    const { clientId, accessCookieId, username, reason } = req.body;
     
     let bannedUsers = loadBannedUsers();
     const entry = {
         clientId,
+        accessCookieId: accessCookieId || clientId, // Use accessCookieId if provided, fallback to clientId
         username,
         reason,
         bannedAt: new Date().toISOString()
     };
     
-    if (!bannedUsers.find(u => u.clientId === clientId)) {
+    if (!bannedUsers.find(u => u.accessCookieId === entry.accessCookieId || u.clientId === clientId)) {
         bannedUsers.push(entry);
         saveBannedUsers(bannedUsers);
     }
@@ -754,24 +768,43 @@ app.post('/api/owner/unban-user', verifyOwnerToken, (req, res) => {
 
 // Ban IP
 app.post('/api/owner/ban-ip', verifyOwnerToken, (req, res) => {
-    const { ip, reason } = req.body;
+    let { ip, reason } = req.body;
+    
+    // Normalize IPv4-mapped IPv6 addresses
+    if (ip && ip.startsWith('::ffff:')) {
+        ip = ip.slice(7);
+    }
     
     let bannedIPs = loadBannedIPs();
-    if (!bannedIPs.includes(ip)) {
-        bannedIPs.push(ip);
+    const entry = {
+        ip,
+        reason: reason || 'No reason provided',
+        bannedAt: new Date().toISOString()
+    };
+    
+    // Check if already banned (handle both old string format and new object format)
+    const alreadyBanned = bannedIPs.some(e => (typeof e === 'string' ? e : e.ip) === ip);
+    if (!alreadyBanned) {
+        bannedIPs.push(entry);
         saveBannedIPs(bannedIPs);
     }
     
-    logEvent('ip_banned', { ip, reason }, req);
+    logEvent('ip_banned', entry, req);
     res.json({ success: true });
 });
 
 // Unban IP
 app.post('/api/owner/unban-ip', verifyOwnerToken, (req, res) => {
-    const { ip } = req.body;
+    let { ip } = req.body;
+    
+    // Normalize IPv4-mapped IPv6 addresses
+    if (ip && ip.startsWith('::ffff:')) {
+        ip = ip.slice(7);
+    }
     
     let bannedIPs = loadBannedIPs();
-    bannedIPs = bannedIPs.filter(i => i !== ip);
+    // Handle both old string format and new object format
+    bannedIPs = bannedIPs.filter(e => (typeof e === 'string' ? e : e.ip) !== ip);
     saveBannedIPs(bannedIPs);
     
     logEvent('ip_unbanned', { ip }, req);
