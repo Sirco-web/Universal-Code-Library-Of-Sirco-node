@@ -990,6 +990,216 @@ app.get('/api/owner/all-activity', verifyOwnerToken, (req, res) => {
     res.json(result);
 });
 
+// ============== OWNER USER MANAGEMENT ==============
+
+// Change user's username
+app.post('/api/owner/change-username', verifyOwnerToken, (req, res) => {
+    const { clientId, newUsername } = req.body;
+    
+    if (!clientId || !newUsername) {
+        return res.status(400).json({ error: 'clientId and newUsername required' });
+    }
+    
+    if (newUsername.length < 3 || newUsername.length > 20) {
+        return res.status(400).json({ error: 'Username must be 3-20 characters' });
+    }
+    
+    if (!/^[a-zA-Z0-9_-]+$/.test(newUsername)) {
+        return res.status(400).json({ error: 'Username can only contain letters, numbers, underscores, and hyphens' });
+    }
+    
+    const users = loadUsers();
+    
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Check if new username is taken
+    const existingUser = Object.values(users).find(u => 
+        u.username.toLowerCase() === newUsername.toLowerCase() && u.clientId !== clientId
+    );
+    if (existingUser) {
+        return res.status(400).json({ error: 'Username already taken' });
+    }
+    
+    const oldUsername = users[clientId].username;
+    users[clientId].username = newUsername;
+    users[clientId].usernameChangedAt = new Date().toISOString();
+    users[clientId].usernameChangedBy = 'owner';
+    saveUsers(users);
+    
+    logEvent('username_changed_by_owner', { clientId, oldUsername, newUsername }, req);
+    res.json({ success: true, oldUsername, newUsername });
+});
+
+// Change user's password
+app.post('/api/owner/change-password', verifyOwnerToken, (req, res) => {
+    const { clientId, newPassword } = req.body;
+    
+    if (!clientId || !newPassword) {
+        return res.status(400).json({ error: 'clientId and newPassword required' });
+    }
+    
+    if (newPassword.length < 4) {
+        return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    }
+    
+    const users = loadUsers();
+    
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    users[clientId].passwordHash = hashPassword(newPassword);
+    users[clientId].passwordChangedAt = new Date().toISOString();
+    users[clientId].passwordChangedBy = 'owner';
+    saveUsers(users);
+    
+    logEvent('password_changed_by_owner', { clientId, username: users[clientId].username }, req);
+    res.json({ success: true });
+});
+
+// Delete user account
+const GLITCHED_USERS_FILE = path.join(DATA_DIR, 'glitched-users.json');
+
+function loadGlitchedUsers() {
+    if (fs.existsSync(GLITCHED_USERS_FILE)) {
+        try { return JSON.parse(fs.readFileSync(GLITCHED_USERS_FILE, 'utf8')); } catch {}
+    }
+    return [];
+}
+
+function saveGlitchedUsers(users) {
+    try {
+        fs.writeFileSync(GLITCHED_USERS_FILE, JSON.stringify(users, null, 2));
+    } catch (e) {
+        console.error('Failed to save glitched users:', e.message);
+    }
+}
+
+app.post('/api/owner/delete-user', verifyOwnerToken, (req, res) => {
+    const { clientId, reason } = req.body;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const users = loadUsers();
+    
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const deletedUser = users[clientId];
+    
+    // Save to glitched users (for recovery if needed)
+    const glitched = loadGlitchedUsers();
+    glitched.push({
+        ...deletedUser,
+        deletedAt: new Date().toISOString(),
+        deletedReason: reason || 'Owner deleted',
+        canRecover: true
+    });
+    saveGlitchedUsers(glitched);
+    
+    // Mark user as deleted (don't remove yet - keep userCode reserved)
+    users[clientId].deleted = true;
+    users[clientId].deletedAt = new Date().toISOString();
+    users[clientId].deletedReason = reason || 'Owner deleted';
+    saveUsers(users);
+    
+    // Queue command to clear their access on next check-in
+    queueUserCommand(clientId, 'account_deleted', { reason: reason || 'Account deleted by administrator' });
+    
+    logEvent('user_deleted', { clientId, username: deletedUser.username, userCode: deletedUser.userCode, reason }, req);
+    res.json({ success: true, message: 'User account marked for deletion' });
+});
+
+// Get glitched users (deleted users that can be recovered)
+app.get('/api/owner/glitched-users', verifyOwnerToken, (req, res) => {
+    const glitched = loadGlitchedUsers();
+    res.json(glitched);
+});
+
+// Recover glitched user
+app.post('/api/owner/recover-user', verifyOwnerToken, (req, res) => {
+    const { userCode, clientId } = req.body;
+    
+    const glitched = loadGlitchedUsers();
+    let userToRecover = null;
+    let index = -1;
+    
+    for (let i = 0; i < glitched.length; i++) {
+        if ((userCode && glitched[i].userCode === userCode) || 
+            (clientId && glitched[i].clientId === clientId)) {
+            userToRecover = glitched[i];
+            index = i;
+            break;
+        }
+    }
+    
+    if (!userToRecover) {
+        return res.status(404).json({ error: 'Glitched user not found' });
+    }
+    
+    // Restore user
+    const users = loadUsers();
+    const recoveredUser = { ...userToRecover };
+    delete recoveredUser.deletedAt;
+    delete recoveredUser.deletedReason;
+    delete recoveredUser.canRecover;
+    delete recoveredUser.deleted;
+    recoveredUser.recoveredAt = new Date().toISOString();
+    
+    users[recoveredUser.clientId] = recoveredUser;
+    saveUsers(users);
+    
+    // Remove from glitched list
+    glitched.splice(index, 1);
+    saveGlitchedUsers(glitched);
+    
+    logEvent('user_recovered', { clientId: recoveredUser.clientId, userCode: recoveredUser.userCode }, req);
+    res.json({ success: true, user: recoveredUser });
+});
+
+// View user's synced data (filtered - no sensitive stuff)
+app.get('/api/owner/user-data/:clientId', verifyOwnerToken, (req, res) => {
+    const { clientId } = req.params;
+    const users = loadUsers();
+    const user = users[clientId];
+    
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Filter out sensitive data that owner shouldn't see
+    const HIDDEN_KEYS = [
+        'supertube_access', 'accessToken', 'token', 'password', 'passwordHash',
+        'sirco_session', 'session_token'
+    ];
+    
+    const filteredData = {};
+    if (user.syncedData) {
+        for (const [key, value] of Object.entries(user.syncedData)) {
+            if (!HIDDEN_KEYS.some(hk => key.toLowerCase().includes(hk.toLowerCase()))) {
+                filteredData[key] = value;
+            }
+        }
+    }
+    
+    res.json({
+        user: {
+            clientId: user.clientId,
+            username: user.username,
+            userCode: user.userCode,
+            createdAt: user.createdAt,
+            lastSeen: user.lastSeen,
+            hasPassword: !!user.passwordHash
+        },
+        syncedData: filteredData
+    });
+});
+
 // ============== USER ACTIVITY HEARTBEAT ==============
 
 // User sends heartbeat with activity info
@@ -1095,9 +1305,79 @@ app.post('/api/verify-pin', (req, res) => {
     return res.json({ valid: false });
 });
 
-// Generate client ID and register user
+// Check if user is banned (for activation page)
+app.get('/api/check-banned', (req, res) => {
+    const ip = getClientIP(req);
+    const bannedIPs = loadBannedIPs();
+    const bannedUsers = loadBannedUsers();
+    
+    // Check if IP is banned
+    const ipBan = bannedIPs.find(b => b.ip === ip);
+    if (ipBan) {
+        return res.json({ 
+            banned: true, 
+            reason: ipBan.reason || 'IP banned',
+            bannedAt: ipBan.bannedAt 
+        });
+    }
+    
+    // Check if accessCookieId is associated with a banned user
+    const accessCookieId = req.query.accessCookieId;
+    if (accessCookieId) {
+        const bannedUser = bannedUsers.find(b => b.accessCookieId === accessCookieId);
+        if (bannedUser) {
+            return res.json({ 
+                banned: true, 
+                reason: bannedUser.reason || 'User banned',
+                bannedAt: bannedUser.bannedAt 
+            });
+        }
+    }
+    
+    // Check if clientId is banned
+    const clientId = req.query.clientId;
+    if (clientId) {
+        const bannedUser = bannedUsers.find(b => b.clientId === clientId);
+        if (bannedUser) {
+            return res.json({ 
+                banned: true, 
+                reason: bannedUser.reason || 'User banned',
+                bannedAt: bannedUser.bannedAt 
+            });
+        }
+    }
+    
+    return res.json({ banned: false });
+});
+
+// Check if username looks like random characters (ban evasion detection)
+function isRandomUsername(username) {
+    // Check for patterns that look like random strings
+    const lowerUsername = username.toLowerCase();
+    
+    // More than 3 consecutive same characters
+    if (/(.)\1{3,}/.test(lowerUsername)) return { isRandom: true, reason: 'repeated_chars' };
+    
+    // Long strings of consonants (no vowels)
+    if (/[bcdfghjklmnpqrstvwxz]{5,}/i.test(username)) return { isRandom: true, reason: 'no_vowels' };
+    
+    // Mostly numbers with few letters
+    const numbers = (username.match(/\d/g) || []).length;
+    const letters = (username.match(/[a-zA-Z]/g) || []).length;
+    if (numbers > letters * 2 && numbers >= 4) return { isRandom: true, reason: 'too_many_numbers' };
+    
+    // UUID-like pattern
+    if (/[a-f0-9]{8,}/i.test(username)) return { isRandom: true, reason: 'uuid_like' };
+    
+    // All caps alternating with numbers like "A1B2C3D4"
+    if (/^([A-Z]\d){3,}$/i.test(username)) return { isRandom: true, reason: 'alternating_pattern' };
+    
+    return { isRandom: false };
+}
+
+// Generate client ID and register user (now requires password)
 app.post('/api/register-user', (req, res) => {
-    const { username, accessCookieId } = req.body;
+    const { username, accessCookieId, password } = req.body;
     
     if (!username || username.length < 3 || username.length > 20) {
         return res.status(400).json({ error: 'Username must be 3-20 characters' });
@@ -1105,6 +1385,22 @@ app.post('/api/register-user', (req, res) => {
     
     if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
         return res.status(400).json({ error: 'Username can only contain letters, numbers, underscores, and hyphens' });
+    }
+    
+    // Check for random username (potential ban evasion)
+    const randomCheck = isRandomUsername(username);
+    if (randomCheck.isRandom) {
+        logWarning('random_username_attempt', { username, reason: randomCheck.reason }, req);
+        return res.status(400).json({ 
+            error: 'invalid_username',
+            message: 'Your username looks like random characters. Please choose a real username that you can remember. Random usernames may result in a ban for ban evasion.',
+            reason: randomCheck.reason
+        });
+    }
+    
+    // Password is now required
+    if (!password || password.length < 4) {
+        return res.status(400).json({ error: 'Password must be at least 4 characters' });
     }
     
     const users = loadUsers();
@@ -1129,11 +1425,14 @@ app.post('/api/register-user', (req, res) => {
         username,
         userCode,
         accessCookieId,
+        passwordHash: hashPassword(password), // Password now required at registration
+        passwordSetAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
         creationIP: ip,
         lastIP: ip,
         lastSeen: new Date().toISOString(),
-        userAgent: req.headers['user-agent']
+        userAgent: req.headers['user-agent'],
+        syncedData: {} // For auto-sync feature
     };
     
     saveUsers(users);
@@ -1181,20 +1480,63 @@ app.post('/api/account/set-password', (req, res) => {
     res.json({ success: true });
 });
 
-// Login to account (verify password)
+// Login to account (verify password) - also supports username login
 app.post('/api/account/login', (req, res) => {
-    const { userCode, password } = req.body;
+    const { userCode, username, password } = req.body;
     
-    if (!userCode || !password) {
-        return res.status(400).json({ error: 'userCode and password required' });
+    if ((!userCode && !username) || !password) {
+        return res.status(400).json({ error: 'userCode/username and password required' });
     }
     
     const users = loadUsers();
-    const user = Object.values(users).find(u => u.userCode === userCode);
+    let user = null;
+    
+    // Find by userCode or username
+    if (userCode) {
+        user = Object.values(users).find(u => u.userCode === userCode.toUpperCase().trim());
+    } else if (username) {
+        user = Object.values(users).find(u => u.username.toLowerCase() === username.toLowerCase().trim());
+    }
     
     if (!user) {
-        logEvent('login_failed', { userCode, reason: 'user_not_found' }, req);
+        logEvent('login_failed', { userCode, username, reason: 'user_not_found' }, req);
         return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Check if user is banned - ban evasion detection
+    const bannedUsers = loadBannedUsers();
+    const isBanned = bannedUsers.find(b => 
+        b.clientId === user.clientId || 
+        b.accessCookieId === user.accessCookieId ||
+        b.username === user.username
+    );
+    
+    if (isBanned) {
+        // Ban this device/IP too for ban evasion
+        const ip = getClientIP(req);
+        let bannedIPs = loadBannedIPs();
+        const alreadyBanned = bannedIPs.some(e => (typeof e === 'string' ? e : e.ip) === ip);
+        if (!alreadyBanned) {
+            bannedIPs.push({
+                ip,
+                reason: `Ban evasion - attempted login to banned account: ${user.username}`,
+                bannedAt: new Date().toISOString()
+            });
+            saveBannedIPs(bannedIPs);
+        }
+        
+        logWarning('ban_evasion_attempt', { 
+            userCode: user.userCode, 
+            username: user.username, 
+            ip,
+            originalBan: isBanned
+        }, req);
+        
+        return res.status(403).json({ 
+            error: 'banned',
+            message: 'This account is banned. Attempting to sign in to a banned account on a new device will also ban that device.',
+            reason: isBanned.reason || 'No reason provided'
+        });
     }
     
     if (!user.passwordHash) {
@@ -1202,11 +1544,16 @@ app.post('/api/account/login', (req, res) => {
     }
     
     if (user.passwordHash !== hashPassword(password)) {
-        logEvent('login_failed', { userCode, reason: 'wrong_password' }, req);
+        logEvent('login_failed', { userCode: user.userCode, reason: 'wrong_password' }, req);
         return res.status(401).json({ error: 'Incorrect password' });
     }
     
-    logEvent('login_success', { userCode, clientId: user.clientId }, req);
+    // Update last login info
+    user.lastLoginAt = new Date().toISOString();
+    user.lastIP = getClientIP(req);
+    saveUsers(users);
+    
+    logEvent('login_success', { userCode: user.userCode, clientId: user.clientId }, req);
     
     res.json({ 
         success: true, 
@@ -1215,7 +1562,8 @@ app.post('/api/account/login', (req, res) => {
             username: user.username,
             userCode: user.userCode,
             accessCookieId: user.accessCookieId,
-            createdAt: user.createdAt
+            createdAt: user.createdAt,
+            syncedData: user.syncedData || {} // Return synced data on login
         }
     });
 });
@@ -1238,6 +1586,150 @@ app.get('/api/account/has-password', (req, res) => {
     }
     
     res.json({ hasPassword: !!user.passwordHash, exists: true });
+});
+
+// ============== DATA SYNC ==============
+
+// Keys that should NEVER be synced (sensitive data)
+const NEVER_SYNC_KEYS = [
+    'supertube_access', 'accessToken', 'token', 'password', 'passwordHash',
+    'sirco_session', 'session_token', 'access', 'accessCookieId', 'sirco_client_id',
+    'banned', 'banned_permanent', 'supertube_session', 'sirco_owner_token'
+];
+
+// Sync user data to server
+app.post('/api/account/sync', (req, res) => {
+    const { clientId, data } = req.body;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const users = loadUsers();
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Filter out sensitive keys
+    const filteredData = {};
+    if (data && typeof data === 'object') {
+        for (const [key, value] of Object.entries(data)) {
+            const keyLower = key.toLowerCase();
+            if (!NEVER_SYNC_KEYS.some(nsk => keyLower.includes(nsk.toLowerCase()))) {
+                filteredData[key] = value;
+            }
+        }
+    }
+    
+    // Merge with existing synced data
+    users[clientId].syncedData = {
+        ...(users[clientId].syncedData || {}),
+        ...filteredData
+    };
+    users[clientId].lastSyncedAt = new Date().toISOString();
+    saveUsers(users);
+    
+    res.json({ success: true, syncedKeys: Object.keys(filteredData) });
+});
+
+// Get synced data from server
+app.get('/api/account/sync', (req, res) => {
+    const { clientId } = req.query;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const users = loadUsers();
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({ 
+        success: true, 
+        data: users[clientId].syncedData || {},
+        lastSyncedAt: users[clientId].lastSyncedAt
+    });
+});
+
+// User change their own password
+app.post('/api/account/change-password', (req, res) => {
+    const { clientId, currentPassword, newPassword } = req.body;
+    
+    if (!clientId || !currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'clientId, currentPassword, and newPassword required' });
+    }
+    
+    if (newPassword.length < 4) {
+        return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    }
+    
+    const users = loadUsers();
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (users[clientId].passwordHash !== hashPassword(currentPassword)) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+    
+    users[clientId].passwordHash = hashPassword(newPassword);
+    users[clientId].passwordChangedAt = new Date().toISOString();
+    saveUsers(users);
+    
+    logEvent('password_changed', { clientId, username: users[clientId].username }, req);
+    res.json({ success: true });
+});
+
+// User change their own username
+app.post('/api/account/change-username', (req, res) => {
+    const { clientId, password, newUsername } = req.body;
+    
+    if (!clientId || !password || !newUsername) {
+        return res.status(400).json({ error: 'clientId, password, and newUsername required' });
+    }
+    
+    if (newUsername.length < 3 || newUsername.length > 20) {
+        return res.status(400).json({ error: 'Username must be 3-20 characters' });
+    }
+    
+    if (!/^[a-zA-Z0-9_-]+$/.test(newUsername)) {
+        return res.status(400).json({ error: 'Username can only contain letters, numbers, underscores, and hyphens' });
+    }
+    
+    // Check for random username
+    const randomCheck = isRandomUsername(newUsername);
+    if (randomCheck.isRandom) {
+        return res.status(400).json({ 
+            error: 'invalid_username',
+            message: 'Your username looks like random characters. Please choose a real username.'
+        });
+    }
+    
+    const users = loadUsers();
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (users[clientId].passwordHash !== hashPassword(password)) {
+        return res.status(401).json({ error: 'Password is incorrect' });
+    }
+    
+    // Check if new username is taken
+    const existingUser = Object.values(users).find(u => 
+        u.username.toLowerCase() === newUsername.toLowerCase() && u.clientId !== clientId
+    );
+    if (existingUser) {
+        return res.status(400).json({ error: 'Username already taken' });
+    }
+    
+    const oldUsername = users[clientId].username;
+    users[clientId].username = newUsername;
+    users[clientId].usernameChangedAt = new Date().toISOString();
+    saveUsers(users);
+    
+    logEvent('username_changed', { clientId, oldUsername, newUsername }, req);
+    res.json({ success: true, oldUsername, newUsername });
 });
 
 // Export account data (encrypted .uni file)
@@ -1378,6 +1870,7 @@ app.post('/api/check-status', (req, res) => {
                     if (!bannedUsers.find(u => u.clientId === clientId)) {
                         bannedUsers.push({
                             clientId,
+                            accessCookieId,
                             username: cmd.data.username || username,
                             reason: cmd.data.reason || 'Banned by owner',
                             bannedAt: new Date().toISOString()
@@ -1400,19 +1893,34 @@ app.post('/api/check-status', (req, res) => {
                     return res.json({ status: 'access_revoked' });
                 case 'refresh':
                     return res.json({ status: 'refresh_required' });
+                case 'account_deleted':
+                    // Account was deleted - clear their data
+                    return res.json({ 
+                        status: 'account_deleted', 
+                        reason: cmd.data.reason || 'Your account has been deleted'
+                    });
             }
         }
     }
     
     // Check if user is banned
     const bannedUsers = loadBannedUsers();
-    const isBanned = bannedUsers.find(u => u.clientId === clientId);
+    const isBanned = bannedUsers.find(u => u.clientId === clientId || u.accessCookieId === accessCookieId);
     
     if (isBanned) {
         return res.json({ 
             status: 'banned', 
             reason: isBanned.reason,
             bannedAt: isBanned.bannedAt
+        });
+    }
+    
+    // Check if user account was deleted
+    const users = loadUsers();
+    if (clientId && users[clientId]?.deleted) {
+        return res.json({ 
+            status: 'account_deleted', 
+            reason: users[clientId].deletedReason || 'Your account has been deleted'
         });
     }
     
@@ -1432,7 +1940,7 @@ app.post('/api/check-status', (req, res) => {
     }
     
     // Sync user - if user doesn't exist on this server but client has valid ID, create them
-    const users = loadUsers();
+    // (reuse users variable from above)
     if (clientId && !users[clientId]) {
         // Generate user code for synced user
         let userCode = generateUserCode();

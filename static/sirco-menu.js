@@ -2429,9 +2429,14 @@
                     showBannedOverlay(data.reason);
                     break;
                 case 'access_revoked':
+                    // Only remove access cookie, NOT username/password/data
                     document.cookie = 'access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-                    localStorage.clear();
+                    document.cookie = 'accessCookieId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
                     forceRedirect('/404.html');
+                    break;
+                case 'account_deleted':
+                    // Account was deleted - clear everything and show message
+                    showAccountDeletedOverlay(data.reason);
                     break;
                 case 'refresh_required':
                     window.location.reload();
@@ -2463,6 +2468,73 @@
         }
     }
     
+    // Sync user data to server
+    async function syncUserData() {
+        const user = getUserInfo();
+        if (!user.clientId) return;
+        
+        // Keys that should never be synced
+        const NEVER_SYNC_KEYS = [
+            'supertube_access', 'accessToken', 'token', 'password', 'passwordHash',
+            'sirco_session', 'session_token', 'access', 'accessCookieId', 
+            'sirco_client_id', 'banned', 'supertube_session', 'sirco_owner_token',
+            'clientId', 'userCode', 'username' // These are stored separately
+        ];
+        
+        // Collect localStorage data
+        const localStorageData = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!NEVER_SYNC_KEYS.includes(key)) {
+                try {
+                    localStorageData[key] = localStorage.getItem(key);
+                } catch (e) {}
+            }
+        }
+        
+        // Collect cookies
+        const cookieData = {};
+        document.cookie.split(';').forEach(c => {
+            const [key, val] = c.trim().split('=');
+            if (key && !NEVER_SYNC_KEYS.includes(key)) {
+                cookieData[key] = val;
+            }
+        });
+        
+        try {
+            await fetch('/api/account/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientId: user.clientId,
+                    localStorage: localStorageData,
+                    cookies: cookieData
+                })
+            });
+        } catch (e) {
+            // Offline - sync later
+        }
+    }
+    
+    // Sync data periodically (every 5 minutes, or every 15 minutes if data saver is on)
+    let lastSyncTime = 0;
+    function scheduleSyncIfNeeded() {
+        const dataSaver = localStorage.getItem('sirco_data_saver') === 'true';
+        const syncInterval = dataSaver ? 15 * 60 * 1000 : 5 * 60 * 1000; // 15 or 5 minutes
+        
+        const now = Date.now();
+        if (now - lastSyncTime >= syncInterval) {
+            lastSyncTime = now;
+            syncUserData();
+        }
+    }
+    
+    // Initial sync and schedule regular syncs
+    if (window === window.top) {
+        setTimeout(syncUserData, 5000); // First sync after 5 seconds
+        setInterval(scheduleSyncIfNeeded, 60000); // Check every minute
+    }
+    
     function showBannedOverlay(reason) {
         document.body.innerHTML = `
             <div style="
@@ -2489,6 +2561,56 @@
                     <p style="color: #ff6b6b; font-weight: bold;">
                         Reason: ${reason || 'No reason provided'}
                     </p>
+                </div>
+            </div>
+        `;
+    }
+    
+    function showAccountDeletedOverlay(reason) {
+        // Clear all user data
+        localStorage.clear();
+        document.cookie = 'access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'accessCookieId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'sirco_client_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        
+        document.body.innerHTML = `
+            <div style="
+                min-height: 100vh;
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            ">
+                <div style="
+                    background: rgba(100,100,100,0.1);
+                    padding: 40px;
+                    border-radius: 20px;
+                    text-align: center;
+                    max-width: 500px;
+                    border: 2px solid rgba(100,100,100,0.3);
+                ">
+                    <div style="font-size: 60px; margin-bottom: 20px;">🗑️</div>
+                    <h1 style="color: #888; margin-bottom: 15px;">Account Deleted</h1>
+                    <p style="color: #ccc; margin-bottom: 20px;">
+                        Your account has been deleted by an administrator.
+                    </p>
+                    <p style="color: #aaa; font-weight: bold; margin-bottom: 25px;">
+                        Reason: ${reason || 'No reason provided'}
+                    </p>
+                    <p style="color: #666; font-size: 14px;">
+                        You will need to create a new account to continue using this service.
+                    </p>
+                    <button onclick="window.location.href='/activate'" style="
+                        margin-top: 20px;
+                        background: linear-gradient(135deg, #1e90ff, #00bfff);
+                        color: white;
+                        border: none;
+                        padding: 12px 30px;
+                        border-radius: 25px;
+                        font-size: 1em;
+                        cursor: pointer;
+                    ">Create New Account</button>
                 </div>
             </div>
         `;

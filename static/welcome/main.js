@@ -25,6 +25,10 @@ function checkUserRegistration() {
 }
 
 function showRegistrationModal() {
+    // Remove signin overlay if exists
+    const signinOverlay = document.getElementById('signin-overlay');
+    if (signinOverlay) signinOverlay.remove();
+    
     // Create modal overlay
     const overlay = document.createElement('div');
     overlay.id = 'registration-overlay';
@@ -52,21 +56,39 @@ function showRegistrationModal() {
                 box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             ">
                 <div style="font-size: 50px; margin-bottom: 15px;">👋</div>
-                <h2 style="color: #333; margin-bottom: 10px;">Welcome!</h2>
+                <h2 style="color: #333; margin-bottom: 10px;">Create Account</h2>
                 <p style="color: #666; margin-bottom: 25px;">
-                    Please choose a username to continue. This will be your identity on Code Universe.
+                    Set up your Code Universe account.
                 </p>
-                <div style="margin-bottom: 20px;">
-                    <input type="text" id="register-username" placeholder="Enter username" style="
+                <div style="margin-bottom: 15px;">
+                    <input type="text" id="register-username" placeholder="Username" style="
                         width: 100%;
                         padding: 15px;
                         border: 2px solid #e0e0e0;
                         border-radius: 10px;
                         font-size: 16px;
                         text-align: center;
+                        margin-bottom: 10px;
                     " maxlength="20">
+                    <input type="password" id="register-password" placeholder="Password (min 4 chars)" style="
+                        width: 100%;
+                        padding: 15px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 16px;
+                        text-align: center;
+                        margin-bottom: 10px;
+                    " minlength="4">
+                    <input type="password" id="register-confirm-password" placeholder="Confirm Password" style="
+                        width: 100%;
+                        padding: 15px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 16px;
+                        text-align: center;
+                    ">
                     <p style="color: #999; font-size: 12px; margin-top: 5px;">
-                        3-20 characters, letters, numbers, underscores, hyphens only
+                        Username: 3-20 chars, letters, numbers, underscores, hyphens only
                     </p>
                 </div>
                 <div id="register-error" style="
@@ -86,9 +108,25 @@ function showRegistrationModal() {
                     border-radius: 10px;
                     font-size: 16px;
                     cursor: pointer;
+                    margin-bottom: 15px;
                 ">
                     Create Account
                 </button>
+                <div style="border-top: 1px solid #e0e0e0; padding-top: 15px; margin-top: 10px;">
+                    <p style="color: #666; margin-bottom: 10px;">Already have an account?</p>
+                    <button onclick="showSignInModal()" style="
+                        width: 100%;
+                        padding: 12px;
+                        background: transparent;
+                        color: #667eea;
+                        border: 2px solid #667eea;
+                        border-radius: 10px;
+                        font-size: 14px;
+                        cursor: pointer;
+                    ">
+                        Sign In
+                    </button>
+                </div>
             </div>
         </div>
     `;
@@ -103,14 +141,24 @@ function showRegistrationModal() {
                 if (e.key === 'Enter') registerUser();
             });
         }
+        const passInput = document.getElementById('register-confirm-password');
+        if (passInput) {
+            passInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') registerUser();
+            });
+        }
     }, 100);
 }
 
 async function registerUser() {
     const input = document.getElementById('register-username');
+    const passwordInput = document.getElementById('register-password');
+    const confirmInput = document.getElementById('register-confirm-password');
     const btn = document.getElementById('register-btn');
     const errorDiv = document.getElementById('register-error');
     const username = input.value.trim();
+    const password = passwordInput.value;
+    const confirmPassword = confirmInput.value;
 
     // Validate username
     if (username.length < 3 || username.length > 20) {
@@ -121,6 +169,19 @@ async function registerUser() {
 
     if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
         errorDiv.textContent = 'Only letters, numbers, underscores, and hyphens allowed';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    // Validate password
+    if (password.length < 4) {
+        errorDiv.textContent = 'Password must be at least 4 characters';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        errorDiv.textContent = 'Passwords do not match';
         errorDiv.style.display = 'block';
         return;
     }
@@ -136,7 +197,7 @@ async function registerUser() {
         const res = await fetch('/api/register-user', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, accessCookieId })
+            body: JSON.stringify({ username, password, accessCookieId })
         });
 
         const data = await res.json();
@@ -189,6 +250,177 @@ function showWelcomeToast(username) {
     `;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 5000);
+}
+
+// ============== SIGN IN MODAL ==============
+function showSignInModal() {
+    // Remove registration overlay if exists
+    const regOverlay = document.getElementById('registration-overlay');
+    if (regOverlay) regOverlay.remove();
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'signin-overlay';
+    overlay.innerHTML = `
+        <div style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999999;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        ">
+            <div style="
+                background: white;
+                padding: 40px;
+                border-radius: 20px;
+                text-align: center;
+                max-width: 450px;
+                width: 90%;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            ">
+                <div style="font-size: 50px; margin-bottom: 15px;">🔐</div>
+                <h2 style="color: #333; margin-bottom: 10px;">Sign In</h2>
+                <p style="color: #666; margin-bottom: 25px;">
+                    Sign in with your username or user code.
+                </p>
+                <div style="margin-bottom: 15px;">
+                    <input type="text" id="signin-username" placeholder="Username or User Code" style="
+                        width: 100%;
+                        padding: 15px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 16px;
+                        text-align: center;
+                        margin-bottom: 10px;
+                    ">
+                    <input type="password" id="signin-password" placeholder="Password" style="
+                        width: 100%;
+                        padding: 15px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 16px;
+                        text-align: center;
+                    ">
+                </div>
+                <div id="signin-error" style="
+                    background: #f8d7da;
+                    color: #721c24;
+                    padding: 10px;
+                    border-radius: 8px;
+                    margin-bottom: 15px;
+                    display: none;
+                "></div>
+                <button onclick="signInUser()" id="signin-btn" style="
+                    width: 100%;
+                    padding: 15px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    margin-bottom: 15px;
+                ">
+                    Sign In
+                </button>
+                <div style="border-top: 1px solid #e0e0e0; padding-top: 15px; margin-top: 10px;">
+                    <p style="color: #666; margin-bottom: 10px;">Don't have an account?</p>
+                    <button onclick="showRegistrationModal()" style="
+                        width: 100%;
+                        padding: 12px;
+                        background: transparent;
+                        color: #667eea;
+                        border: 2px solid #667eea;
+                        border-radius: 10px;
+                        font-size: 14px;
+                        cursor: pointer;
+                    ">
+                        Create Account
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Focus input and allow Enter key
+    setTimeout(() => {
+        const input = document.getElementById('signin-username');
+        if (input) input.focus();
+        const passInput = document.getElementById('signin-password');
+        if (passInput) {
+            passInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') signInUser();
+            });
+        }
+    }, 100);
+}
+
+async function signInUser() {
+    const usernameInput = document.getElementById('signin-username');
+    const passwordInput = document.getElementById('signin-password');
+    const btn = document.getElementById('signin-btn');
+    const errorDiv = document.getElementById('signin-error');
+    const usernameOrCode = usernameInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!usernameOrCode || !password) {
+        errorDiv.textContent = 'Please enter username/code and password';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Signing in...';
+    errorDiv.style.display = 'none';
+
+    try {
+        const accessCookieId = localStorage.getItem('accessCookieId') || generateId();
+        localStorage.setItem('accessCookieId', accessCookieId);
+
+        const res = await fetch('/api/account/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                usernameOrCode,
+                password,
+                accessCookieId
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            // Save user data
+            localStorage.setItem('clientId', data.clientId);
+            localStorage.setItem('username', data.username);
+            if (data.userCode) localStorage.setItem('userCode', data.userCode);
+            
+            // Remove overlay
+            const overlay = document.getElementById('signin-overlay');
+            if (overlay) overlay.remove();
+
+            // Show welcome toast
+            showWelcomeToast(data.username);
+            
+            // Reload page to apply new session
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            errorDiv.textContent = data.error || 'Sign in failed';
+            errorDiv.style.display = 'block';
+        }
+    } catch (err) {
+        errorDiv.textContent = 'Connection error. Please try again.';
+        errorDiv.style.display = 'block';
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
 }
 
 // ============== PASSWORD CHECK ==============

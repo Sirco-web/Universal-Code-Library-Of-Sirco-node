@@ -225,11 +225,33 @@
       }
     })();
 
-    // Check for banned status
-    (function checkBanned() {
+    // Check for banned status from server
+    (async function checkBanned() {
+      // First check localStorage for quick ban flag
       if (localStorage.getItem('banned')) {
         showError('You are banned from accessing this service.');
         return;
+      }
+      
+      // Then check server for IP ban
+      try {
+        const clientId = localStorage.getItem('sirco_client_id') || '';
+        const accessCookieId = localStorage.getItem('accessCookieId') || '';
+        const res = await fetch(`/api/check-banned?clientId=${encodeURIComponent(clientId)}&accessCookieId=${encodeURIComponent(accessCookieId)}`);
+        const data = await res.json();
+        
+        if (data.banned) {
+          // Wait for showBannedOverlay to be defined (in case script runs before function is defined)
+          setTimeout(() => {
+            if (typeof showBannedOverlay === 'function') {
+              showBannedOverlay(data.reason);
+            } else {
+              showError('You are banned from accessing this service.');
+            }
+          }, 100);
+        }
+      } catch (e) {
+        console.error('Failed to check ban status:', e);
       }
     })();
 
@@ -296,6 +318,19 @@
       btn.innerHTML = '<span class="loader"></span> Activating...';
 
       try {
+        // Check if user is banned before allowing activation
+        const clientId = localStorage.getItem('sirco_client_id') || '';
+        const accessCookieId = localStorage.getItem('accessCookieId') || '';
+        const banCheck = await fetch(`/api/check-banned?clientId=${encodeURIComponent(clientId)}&accessCookieId=${encodeURIComponent(accessCookieId)}`);
+        const banResult = await banCheck.json();
+        
+        if (banResult.banned) {
+          showBannedOverlay(banResult.reason);
+          btn.disabled = false;
+          btn.textContent = '✅ I Agree - Activate';
+          return;
+        }
+
         // Set access cookie
         const expirationDate = new Date();
         expirationDate.setDate(expirationDate.getDate() + activationDays);
@@ -396,6 +431,53 @@
     document.getElementById('pinInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') verifyPin();
     });
+
+    function showBannedOverlay(reason) {
+      // Create banned overlay
+      const overlay = document.createElement('div');
+      overlay.id = 'bannedOverlay';
+      overlay.innerHTML = `
+        <div style="
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          z-index: 99999;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        ">
+          <div style="
+            background: rgba(255, 50, 50, 0.1);
+            border: 2px solid #ff3333;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            text-align: center;
+          ">
+            <div style="font-size: 80px; margin-bottom: 20px;">🚫</div>
+            <h1 style="color: #ff3333; margin: 0 0 20px 0; font-size: 32px;">You're Banned</h1>
+            <p style="color: #ccc; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+              You have been banned from this site and cannot create a new account.
+            </p>
+            <p style="color: #888; font-size: 14px; margin-bottom: 30px;">
+              Reason: ${reason || 'Policy violation'}
+            </p>
+            <p style="color: #666; font-size: 12px;">
+              If you believe this is a mistake, please contact the site administrator.
+            </p>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      
+      // Hide all sections
+      document.querySelectorAll('.card').forEach(c => c.style.display = 'none');
+    }
   </script>
 </body>
 </html>
