@@ -2243,6 +2243,137 @@
         }
     }
     
+    // ============== SITE STATUS / ANNOUNCEMENT POPUP ==============
+    let announcementShown = false;
+    const ANNOUNCEMENT_DISMISSED_KEY = 'sirco_announcement_dismissed';
+    
+    async function checkSiteStatus() {
+        try {
+            const res = await fetch('/api/site-status');
+            if (!res.ok) return;
+            const data = await res.json();
+            
+            // Handle 401-popup (announcement)
+            if (data.status === '401-popup' && data.message) {
+                // Check if this specific announcement was already dismissed
+                const dismissed = localStorage.getItem(ANNOUNCEMENT_DISMISSED_KEY);
+                if (dismissed !== data.message && !announcementShown) {
+                    showAnnouncementPopup(data.message);
+                    announcementShown = true;
+                }
+            }
+        } catch (e) {
+            // Offline - continue normally
+        }
+    }
+    
+    function showAnnouncementPopup(message) {
+        // Remove existing popup if any
+        const existing = document.getElementById('sirco-announcement-popup');
+        if (existing) existing.remove();
+        
+        const popup = document.createElement('div');
+        popup.id = 'sirco-announcement-popup';
+        popup.innerHTML = `
+            <style>
+                #sirco-announcement-popup {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0,0,0,0.8);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 999999;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    animation: announceFadeIn 0.3s ease;
+                }
+                @keyframes announceFadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                .announce-box {
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    padding: 30px 40px;
+                    border-radius: 16px;
+                    text-align: center;
+                    max-width: 500px;
+                    margin: 20px;
+                    border: 2px solid rgba(30, 144, 255, 0.3);
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                    animation: announceSlide 0.4s ease;
+                }
+                @keyframes announceSlide {
+                    from { transform: translateY(-30px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+                .announce-icon {
+                    font-size: 50px;
+                    margin-bottom: 15px;
+                }
+                .announce-title {
+                    color: #1e90ff;
+                    font-size: 1.5em;
+                    margin: 0 0 15px 0;
+                }
+                .announce-message {
+                    color: #fff;
+                    font-size: 1.1em;
+                    line-height: 1.6;
+                    margin-bottom: 25px;
+                }
+                .announce-btn {
+                    background: linear-gradient(135deg, #1e90ff, #00bfff);
+                    color: white;
+                    border: none;
+                    padding: 12px 30px;
+                    border-radius: 25px;
+                    font-size: 1em;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: transform 0.2s, box-shadow 0.2s;
+                }
+                .announce-btn:hover {
+                    transform: scale(1.05);
+                    box-shadow: 0 5px 20px rgba(30, 144, 255, 0.4);
+                }
+            </style>
+            <div class="announce-box">
+                <div class="announce-icon">📢</div>
+                <h2 class="announce-title">Announcement</h2>
+                <div class="announce-message">${escapeHtml(message)}</div>
+                <button class="announce-btn" id="sirco-announce-dismiss">Got it!</button>
+            </div>
+        `;
+        
+        document.body.appendChild(popup);
+        
+        // Close on button click
+        document.getElementById('sirco-announce-dismiss').addEventListener('click', () => {
+            localStorage.setItem(ANNOUNCEMENT_DISMISSED_KEY, message);
+            popup.remove();
+        });
+        
+        // Close on backdrop click
+        popup.addEventListener('click', (e) => {
+            if (e.target === popup) {
+                localStorage.setItem(ANNOUNCEMENT_DISMISSED_KEY, message);
+                popup.remove();
+            }
+        });
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Check site status on load
+    checkSiteStatus();
+    
     // Check for realtime commands from owner (ban, redirect, refresh, revoke)
     async function checkUserStatus() {
         const user = getUserInfo();
