@@ -534,7 +534,8 @@ document.addEventListener('DOMContentLoaded', () => {
     hasChosen: false, 
     pausedAt: null,           // Timestamp when paused (null = running)
     totalPausedMs: 0,         // Total ms paused (added to token expiry)
-    lastActiveTime: null      // Last time user was on SuperTube and running
+    lastActiveTime: null,     // Last time user was on SuperTube and running
+    _autoPaused: false        // True if paused automatically (will auto-resume)
   };
   let accessToken = null;
   let timeCheckInterval = null;
@@ -548,22 +549,35 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Track page visibility and focus
+  // Timer auto-pauses when leaving tab and auto-resumes when returning
   document.addEventListener('visibilitychange', () => {
     const wasActive = isPageActive;
     isPageActive = !document.hidden;
     
-    // If becoming inactive and not paused, auto-pause the timer
-    if (wasActive && !isPageActive && !isPaused()) {
-      autoPause('left_page');
+    if (wasActive && !isPageActive) {
+      // Leaving page - auto-pause
+      if (!isPaused()) {
+        autoPause('left_page');
+      }
+    } else if (!wasActive && isPageActive) {
+      // Returning to page - auto-resume
+      if (isPaused() && sessionData._autoPaused) {
+        autoResume('returned_to_page');
+      }
     }
-    // If becoming active again and was auto-paused, DON'T auto-resume
-    // User must manually resume
     
     updateTimerWidget();
   });
   
   window.addEventListener('focus', () => {
+    const wasActive = isPageActive;
     isPageActive = true;
+    
+    // Auto-resume if we were auto-paused
+    if (!wasActive && isPaused() && sessionData._autoPaused) {
+      autoResume('window_focus');
+    }
+    
     updateTimerWidget();
   });
   
@@ -581,9 +595,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isPaused()) return; // Already paused
     
     sessionData.pausedAt = getServerTime();
+    sessionData._autoPaused = true; // Mark as auto-paused (will auto-resume)
     saveSession();
     pauseAllMedia();
     console.log('⏸️ Auto-paused timer:', reason);
+  }
+  
+  // Auto-resume function (when returning to page)
+  function autoResume(reason) {
+    if (!isPaused()) return; // Not paused
+    
+    const now = getServerTime();
+    const pauseDuration = now - sessionData.pausedAt;
+    sessionData.totalPausedMs += pauseDuration;
+    sessionData.pausedAt = null;
+    sessionData._autoPaused = false; // Clear auto-pause flag
+    saveSession();
+    
+    resumeAllMedia();
+    console.log('▶️ Auto-resumed timer:', reason, 'Paused for', Math.floor(pauseDuration / 1000), 'seconds');
   }
   
   // Cookie helper functions
@@ -636,7 +666,8 @@ document.addEventListener('DOMContentLoaded', () => {
           hasChosen: data.hasChosen || false,
           pausedAt: data.pausedAt || null,
           totalPausedMs: data.totalPausedMs || 0,
-          lastActiveTime: data.lastActiveTime || null
+          lastActiveTime: data.lastActiveTime || null,
+          _autoPaused: data._autoPaused || false
         };
         
         // If user was away from page, calculate time passed and add to paused time
@@ -683,7 +714,8 @@ document.addEventListener('DOMContentLoaded', () => {
         hasChosen: false, 
         pausedAt: null, 
         totalPausedMs: 0,
-        lastActiveTime: null
+        lastActiveTime: null,
+        _autoPaused: false
       };
       accessToken = null;
     }
@@ -971,17 +1003,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const pauseDuration = now - sessionData.pausedAt;
       sessionData.totalPausedMs += pauseDuration;
       sessionData.pausedAt = null; // Clear pause state
+      sessionData._autoPaused = false; // Manual resume clears auto-pause flag
       saveSession();
       
       resumeAllMedia();
       console.log('▶️ Timer resumed. Paused for', Math.floor(pauseDuration / 1000), 'seconds');
     } else {
-      // PAUSE: Record when we paused
+      // PAUSE: Record when we paused (manual pause)
       sessionData.pausedAt = now;
+      sessionData._autoPaused = false; // Manual pause won't auto-resume
       saveSession();
       
       pauseAllMedia();
-      console.log('⏸️ Timer paused');
+      console.log('⏸️ Timer paused (manual)');
     }
     
     updateTimerWidget();
@@ -1100,6 +1134,40 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(toast);
     
     setTimeout(() => toast.remove(), 3000);
+  }
+  
+  // Non-blocking welcome banner for first-time visitors
+  function showWelcomeBanner() {
+    const banner = document.createElement('div');
+    banner.id = 'welcome-banner';
+    banner.style.cssText = `
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      padding: 15px 25px;
+      border-radius: 12px;
+      font-size: 14px;
+      z-index: 9998;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      max-width: 90%;
+    `;
+    banner.innerHTML = `
+      <span>🎉 Welcome! You have ${FREE_MINUTES} free minutes. <a href="#" onclick="window.showAddCodePopup(); document.getElementById('welcome-banner').remove(); return false;" style="color:#fff; text-decoration:underline;">Add time code</a> for more.</span>
+      <button onclick="this.parentElement.remove()" style="background:transparent; border:none; color:#fff; font-size:18px; cursor:pointer; padding:0;">×</button>
+    `;
+    document.body.appendChild(banner);
+    
+    // Auto-hide after 10 seconds
+    setTimeout(() => {
+      const el = document.getElementById('welcome-banner');
+      if (el) el.remove();
+    }, 10000);
   }
   
   function updateTimerWidget() {
@@ -1627,6 +1695,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load session data
     loadSession();
     
+    // If page loaded while was auto-paused, resume immediately
+    if (sessionData._autoPaused && isPaused() && isPageActive) {
+      autoResume('page_reload');
+    }
+    
+    // If returning to page and was paused from leaving, resume
+    if (sessionData.pausedAt && sessionData._autoPaused && isPageActive) {
+      autoResume('session_restore');
+    }
+    
     // Create timer widget (always visible)
     createTimerWidget();
     
@@ -1635,15 +1713,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const valid = await validateTokenWithServer();
       if (!valid) return; // Already redirected
       
-      // Has valid token - no popup needed
+      // Has valid token - no popup needed, timer runs immediately
       sessionData.hasChosen = true;
+      isTimeLocked = false;
       saveSession();
     }
     
-    // SHOW WELCOME POPUP IMMEDIATELY if user hasn't chosen yet
+    // For new visitors - skip welcome popup, start timer immediately
+    // Show a non-blocking info banner instead
     if (!sessionData.hasChosen && !accessToken) {
-      isTimeLocked = true;
-      createWelcomePopup();
+      // Auto-start free trial - no blocking popup
+      sessionData.hasChosen = true;
+      isTimeLocked = false;
+      saveSession();
+      
+      // Show non-blocking welcome toast
+      showWelcomeBanner();
     }
     
     // Initial timer update
