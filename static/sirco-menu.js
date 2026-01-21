@@ -2243,8 +2243,19 @@
         }
     }
     
+    // ============== FORCE REDIRECT (bypasses beforeunload dialogs) ==============
+    function forceRedirect(url) {
+        // Remove all beforeunload handlers to bypass "unsaved changes" dialogs
+        window.onbeforeunload = null;
+        // Remove event listeners added via addEventListener
+        window.removeEventListener('beforeunload', () => {});
+        // Some sites use these too
+        if (window.onunload) window.onunload = null;
+        // Force the redirect
+        window.location.replace(url);
+    }
+    
     // ============== SITE STATUS / ANNOUNCEMENT POPUP ==============
-    let announcementShown = false;
     const ANNOUNCEMENT_DISMISSED_KEY = 'sirco_announcement_dismissed';
     
     async function checkSiteStatus() {
@@ -2254,12 +2265,21 @@
             const data = await res.json();
             
             // Handle 401-popup (announcement)
-            if (data.status === '401-popup' && data.message) {
+            if (data.status === '401-popup' && data.message && data.message.trim()) {
                 // Check if this specific announcement was already dismissed
                 const dismissed = localStorage.getItem(ANNOUNCEMENT_DISMISSED_KEY);
-                if (dismissed !== data.message && !announcementShown) {
-                    showAnnouncementPopup(data.message);
-                    announcementShown = true;
+                const currentMessage = data.message.trim();
+                
+                console.log('📢 Announcement check:', { dismissed, currentMessage, match: dismissed === currentMessage });
+                
+                // Only show if not dismissed OR if it's a different message
+                if (!dismissed || dismissed !== currentMessage) {
+                    // Save to localStorage IMMEDIATELY so other pages know we've seen it
+                    localStorage.setItem(ANNOUNCEMENT_DISMISSED_KEY, currentMessage);
+                    console.log('📢 Showing announcement popup');
+                    showAnnouncementPopup(currentMessage);
+                } else {
+                    console.log('📢 Announcement already dismissed, not showing');
                 }
             }
         } catch (e) {
@@ -2272,8 +2292,12 @@
         const existing = document.getElementById('sirco-announcement-popup');
         if (existing) existing.remove();
         
+        // Normalize the message for consistent storage
+        const normalizedMessage = message.trim();
+        
         const popup = document.createElement('div');
         popup.id = 'sirco-announcement-popup';
+        popup.dataset.message = normalizedMessage; // Store for dismiss handler
         popup.innerHTML = `
             <style>
                 #sirco-announcement-popup {
@@ -2343,23 +2367,27 @@
             <div class="announce-box">
                 <div class="announce-icon">📢</div>
                 <h2 class="announce-title">Announcement</h2>
-                <div class="announce-message">${escapeHtml(message)}</div>
+                <div class="announce-message">${escapeHtml(normalizedMessage)}</div>
                 <button class="announce-btn" id="sirco-announce-dismiss">Got it!</button>
             </div>
         `;
         
         document.body.appendChild(popup);
         
-        // Close on button click
+        // Close on button click - use normalized message from dataset
         document.getElementById('sirco-announce-dismiss').addEventListener('click', () => {
-            localStorage.setItem(ANNOUNCEMENT_DISMISSED_KEY, message);
+            const msg = popup.dataset.message;
+            localStorage.setItem(ANNOUNCEMENT_DISMISSED_KEY, msg);
+            console.log('📢 Announcement dismissed, saved to localStorage:', msg);
             popup.remove();
         });
         
         // Close on backdrop click
         popup.addEventListener('click', (e) => {
             if (e.target === popup) {
-                localStorage.setItem(ANNOUNCEMENT_DISMISSED_KEY, message);
+                const msg = popup.dataset.message;
+                localStorage.setItem(ANNOUNCEMENT_DISMISSED_KEY, msg);
+                console.log('📢 Announcement dismissed (backdrop), saved to localStorage:', msg);
                 popup.remove();
             }
         });
@@ -2371,8 +2399,10 @@
         return div.innerHTML;
     }
     
-    // Check site status on load
-    checkSiteStatus();
+    // Check site status on load (only in top window, not iframes)
+    if (window === window.top) {
+        checkSiteStatus();
+    }
     
     // Check for realtime commands from owner (ban, redirect, refresh, revoke)
     async function checkUserStatus() {
@@ -2401,13 +2431,13 @@
                 case 'access_revoked':
                     document.cookie = 'access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
                     localStorage.clear();
-                    window.location.href = '/404.html';
+                    forceRedirect('/404.html');
                     break;
                 case 'refresh_required':
                     window.location.reload();
                     break;
                 case 'redirect':
-                    window.location.href = data.url;
+                    forceRedirect(data.url);
                     break;
                 case 'ok':
                     if (data.clearBanned) {
