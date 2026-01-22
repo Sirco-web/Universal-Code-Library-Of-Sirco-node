@@ -1809,11 +1809,24 @@ app.post('/api/account/sync', (req, res) => {
     
     const users = loadUsers();
     
+    // Try to find existing user by clientId OR by accessCookieId
+    let actualClientId = clientId;
+    let existingUser = users[clientId];
+    
+    // If not found by clientId, try to find by accessCookieId
+    if (!existingUser) {
+        existingUser = Object.values(users).find(u => u.accessCookieId === clientId);
+        if (existingUser) {
+            actualClientId = existingUser.clientId; // Use the real clientId
+        }
+    }
+    
     // Auto-create user if they don't exist (for anonymous tracking)
-    if (!users[clientId]) {
+    if (!existingUser) {
         const ip = getClientIP(req);
         users[clientId] = {
             clientId,
+            accessCookieId: clientId, // Store for future lookups
             username: 'Anonymous-' + clientId.substring(0, 6),
             userCode: null, // Will be assigned on proper registration
             createdAt: new Date().toISOString(),
@@ -1824,6 +1837,7 @@ app.post('/api/account/sync', (req, res) => {
             syncedData: {},
             isAnonymous: true // Mark as anonymous until they register
         };
+        actualClientId = clientId;
     }
     
     // Combine data from all possible formats (backward compatible)
@@ -1849,11 +1863,11 @@ app.post('/api/account/sync', (req, res) => {
             // Always update from client sync (client is source of truth for access)
             const fiftyYears = Date.now() + (50 * 365 * 24 * 60 * 60 * 1000);
             if (expiresDate.getTime() > fiftyYears) {
-                users[clientId].accessNeverExpires = true;
-                users[clientId].accessExpires = null;
+                users[actualClientId].accessNeverExpires = true;
+                users[actualClientId].accessExpires = null;
             } else {
-                users[clientId].accessExpires = expiresDate.toISOString();
-                users[clientId].accessNeverExpires = false;
+                users[actualClientId].accessExpires = expiresDate.toISOString();
+                users[actualClientId].accessNeverExpires = false;
             }
         }
         delete allData._accessExpires; // Don't store in syncedData
@@ -1869,16 +1883,16 @@ app.post('/api/account/sync', (req, res) => {
     }
     
     // Merge with existing synced data
-    users[clientId].syncedData = {
-        ...(users[clientId].syncedData || {}),
+    users[actualClientId].syncedData = {
+        ...(users[actualClientId].syncedData || {}),
         ...filteredData
     };
-    users[clientId].lastSyncedAt = new Date().toISOString();
-    users[clientId].lastSeen = new Date().toISOString();
-    users[clientId].lastIP = getClientIP(req);
+    users[actualClientId].lastSyncedAt = new Date().toISOString();
+    users[actualClientId].lastSeen = new Date().toISOString();
+    users[actualClientId].lastIP = getClientIP(req);
     saveUsers(users);
     
-    res.json({ success: true, syncedKeys: Object.keys(filteredData) });
+    res.json({ success: true, syncedKeys: Object.keys(filteredData), clientId: actualClientId });
 });
 
 // Get synced data from server
@@ -1904,12 +1918,7 @@ app.get('/api/account/sync', (req, res) => {
 // ============== OWNER STORAGE MANAGEMENT ==============
 
 // Get user storage (owner only)
-app.get('/api/owner/user-storage', (req, res) => {
-    const token = req.headers['x-owner-token'];
-    if (token !== OWNER_TOKEN) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-    
+app.get('/api/owner/user-storage', verifyOwnerToken, (req, res) => {
     const { clientId } = req.query;
     if (!clientId) {
         return res.status(400).json({ error: 'clientId required' });
@@ -1927,12 +1936,7 @@ app.get('/api/owner/user-storage', (req, res) => {
 });
 
 // Set/update user storage key (owner only)
-app.post('/api/owner/user-storage', (req, res) => {
-    const token = req.headers['x-owner-token'];
-    if (token !== OWNER_TOKEN) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-    
+app.post('/api/owner/user-storage', verifyOwnerToken, (req, res) => {
     const { clientId, key, value } = req.body;
     if (!clientId || !key) {
         return res.status(400).json({ error: 'clientId and key required' });
@@ -1956,12 +1960,7 @@ app.post('/api/owner/user-storage', (req, res) => {
 });
 
 // Delete user storage key (owner only)
-app.post('/api/owner/user-storage/delete', (req, res) => {
-    const token = req.headers['x-owner-token'];
-    if (token !== OWNER_TOKEN) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-    
+app.post('/api/owner/user-storage/delete', verifyOwnerToken, (req, res) => {
     const { clientId, key } = req.body;
     if (!clientId || !key) {
         return res.status(400).json({ error: 'clientId and key required' });

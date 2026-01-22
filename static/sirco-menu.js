@@ -106,8 +106,13 @@
 
     // Get current user info
     function getUserInfo() {
+        // Try multiple sources for clientId
+        const clientId = localStorage.getItem('clientId') 
+            || localStorage.getItem('sirco_client_id')
+            || localStorage.getItem('accessCookieId') // Fallback to accessCookieId as identifier
+            || null;
         return {
-            clientId: localStorage.getItem('clientId') || null,
+            clientId,
             username: localStorage.getItem('username') || 'Anonymous',
             accessCookieId: localStorage.getItem('accessCookieId') || null
         };
