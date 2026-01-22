@@ -175,6 +175,33 @@
             display: flex;
             flex-direction: column;
         }
+        .fullscreen .fullscreen-close-btn {
+            display: block !important;
+        }
+        .fullscreen-close-btn {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            z-index: 3001;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 20px;
+            line-height: 36px;
+            text-align: center;
+            cursor: pointer;
+            color: #333;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+        }
+        .fullscreen-close-btn:hover {
+            background: #ff6b6b;
+            color: #fff;
+            transform: scale(1.1);
+        }
         .fullscreen #preview-frame, .fullscreen .code-editor {
             min-height: 80vh !important;
             height: 100% !important;
@@ -206,9 +233,11 @@
         </div>
         <div class="editors" id="editors">
             <!-- Editors will be rendered here -->
+            <button class="fullscreen-close-btn" onclick="exitFullscreen('editors')" title="Exit Fullscreen">✕</button>
         </div>
         <button id="run-btn" class="run-btn">Run ▶️</button>
         <section class="preview-section" id="preview-section">
+            <button class="fullscreen-close-btn" onclick="exitFullscreen('preview-section')" title="Exit Fullscreen">✕</button>
             <h2>Live Preview</h2>
             <iframe id="preview-frame"></iframe>
         </section>
@@ -451,6 +480,11 @@
         } else {
             if (document.fullscreenElement) document.exitFullscreen();
         }
+    }
+    function exitFullscreen(elemId) {
+        const elem = document.getElementById(elemId);
+        elem.classList.remove('fullscreen');
+        if (document.fullscreenElement) document.exitFullscreen();
     }
     // Listen for exiting fullscreen and remove .fullscreen class
     ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(eventType => {
