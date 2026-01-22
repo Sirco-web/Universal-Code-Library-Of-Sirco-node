@@ -129,7 +129,11 @@
             document.getElementById("pinSection").classList.add("hidden");
         }
 
-        function setCookieAfterAgreement() {
+        function generateId() {
+            return 'xxxx-xxxx-xxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
+        }
+
+        async function setCookieAfterAgreement() {
             const durationInSeconds = parseInt(document.getElementById("providerName").dataset.duration);
             const expirationDate = new Date();
             expirationDate.setTime(expirationDate.getTime() + durationInSeconds * 1000);
@@ -137,6 +141,35 @@
             
             // Store expiration in localStorage for heartbeat syncing
             localStorage.setItem('sirco_access_expires', expirationDate.toISOString());
+
+            // Generate access cookie ID for tracking (if not already exists)
+            let accessCookieId = localStorage.getItem('accessCookieId');
+            if (!accessCookieId) {
+                accessCookieId = generateId();
+                localStorage.setItem('accessCookieId', accessCookieId);
+            }
+
+            // Get provider name for logging
+            const urlParams = new URLSearchParams(window.location.search);
+            const providerId = urlParams.get('id') || 'unknown';
+
+            // Log activation to server
+            const clientId = localStorage.getItem('sirco_client_id') || '';
+            try {
+                await fetch('/api/collect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'provider_activation',
+                        providerId,
+                        days: durationInSeconds / 86400,
+                        accessCookieId,
+                        clientId
+                    })
+                });
+            } catch (e) {
+                console.error('Failed to log activation:', e);
+            }
 
             document.getElementById("container").innerHTML = `
                 <h1>Activation Successful!</h1>

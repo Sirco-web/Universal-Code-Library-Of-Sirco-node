@@ -427,6 +427,7 @@ app.use((req, res, next) => {
         '/welcome',    // Welcome page (where users get the cookie)
         '/agree',      // Agreement page
         '/activate',   // Activation page
+        '/provider',   // Provider activation page
         '/api/'        // API endpoints
     ];
     
