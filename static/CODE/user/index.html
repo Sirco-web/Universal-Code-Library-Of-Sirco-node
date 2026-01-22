@@ -71,45 +71,30 @@ scheduleNextCheck();</script></head>
 <button id="copy-user-id" style="margin-top: 10px; background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">📋 Copy User ID</button>
 </div>
 
-<!-- Account Export/Import Section -->
-<div id="account-section" style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #86efac;">
-<h3 style="margin-top:0; color: #166534;">🔐 Account Backup</h3>
-<p style="font-size:13px; color:#444; margin-bottom:15px;">
-    Export your account as an encrypted .uni file to restore it on another device.
-</p>
-
-<!-- Password Section -->
-<div id="password-section" style="margin-bottom:15px;">
-    <div id="no-password-warning" style="display:none; background:#fef3c7; padding:10px; border-radius:4px; margin-bottom:10px; border:1px solid #fcd34d;">
-        ⚠️ No password set! Set a password first to export your account.
-        <button id="set-pw-btn" style="margin-left:10px; background:#f59e0b; color:white; border:none; padding:5px 12px; border-radius:4px; cursor:pointer;">Set Password</button>
+<!-- Password Management Section -->
+<div id="password-section" style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #86efac;">
+<h3 style="margin-top:0; color: #166534;">🔐 Password Management</h3>
+<div id="password-status" style="margin-bottom:15px;">
+    <div id="no-password-warning" style="display:none; background:#fef3c7; padding:10px; border-radius:4px; border:1px solid #fcd34d;">
+        ⚠️ No password set! Set a password to secure your account.
     </div>
-    <div id="has-password-info" style="display:none; background:#d1fae5; padding:10px; border-radius:4px; margin-bottom:10px; border:1px solid #6ee7b7;">
-        ✅ Password is set. You can export your account.
+    <div id="has-password-info" style="display:none; background:#d1fae5; padding:10px; border-radius:4px; border:1px solid #6ee7b7;">
+        ✅ Password is set.
     </div>
 </div>
-
-<!-- Export -->
-<div style="display:flex; gap:10px; margin-bottom:10px;">
-    <input type="password" id="export-password" placeholder="Enter password to export" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
-    <button id="export-account-btn" style="background:#22c55e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">📤 Export Account</button>
+<button id="change-password-btn" style="background:#667eea; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">🔑 Change Password</button>
+<div id="password-message" style="margin-top:10px; color:#166534;"></div>
 </div>
 
-<!-- Import -->
-<div style="display:flex; gap:10px; align-items:center;">
-    <input type="file" id="import-account-file" accept=".uni" style="flex:1;">
-    <button id="import-account-btn" style="background:#3b82f6; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">📥 Import Account</button>
-</div>
-
-<div id="account-message" style="margin-top:10px; color:#166534;"></div>
-</div>
-
-<!-- Set Password Modal -->
+<!-- Set/Change Password Modal -->
 <div id="set-password-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
     <div style="background:white; padding:30px; border-radius:12px; max-width:400px; width:90%;">
-        <h3 style="margin-top:0;">🔐 Set Account Password</h3>
-        <input type="password" id="modal-password" placeholder="Enter password" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:4px;">
-        <input type="password" id="modal-confirm-password" placeholder="Confirm password" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:4px;">
+        <h3 id="modal-title" style="margin-top:0;">🔐 Set Account Password</h3>
+        <div id="current-password-row" style="display:none;">
+            <input type="password" id="modal-current-password" placeholder="Current password" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:4px;">
+        </div>
+        <input type="password" id="modal-password" placeholder="New password" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:4px;">
+        <input type="password" id="modal-confirm-password" placeholder="Confirm new password" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:4px;">
         <div id="modal-password-error" style="color:red; font-size:12px; margin-bottom:10px;"></div>
         <div style="display:flex; gap:10px;">
             <button id="modal-save-pw" style="flex:1; background:#22c55e; color:white; border:none; padding:10px; border-radius:4px; cursor:pointer;">Save Password</button>
@@ -234,15 +219,13 @@ scheduleNextCheck();</script></head>
             saveBtn.textContent = 'Save';
         });
         
-        // ============== ACCOUNT EXPORT/IMPORT ==============
-        const accountMsg = document.getElementById('account-message');
+        // ============== PASSWORD MANAGEMENT ==============
+        const passwordMsg = document.getElementById('password-message');
         const noPasswordWarning = document.getElementById('no-password-warning');
         const hasPasswordInfo = document.getElementById('has-password-info');
-        const exportPasswordInput = document.getElementById('export-password');
-        const exportAccountBtn = document.getElementById('export-account-btn');
-        const importAccountFile = document.getElementById('import-account-file');
-        const importAccountBtn = document.getElementById('import-account-btn');
         const setPasswordModal = document.getElementById('set-password-modal');
+        const changePasswordBtn = document.getElementById('change-password-btn');
+        let hasPassword = false;
         
         // Check if user has password
         async function checkAccountPassword() {
@@ -250,12 +233,15 @@ scheduleNextCheck();</script></head>
             try {
                 const res = await fetch(`/api/account/has-password?clientId=${clientId}`);
                 const data = await res.json();
+                hasPassword = data.hasPassword;
                 if (data.hasPassword) {
                     hasPasswordInfo.style.display = 'block';
                     noPasswordWarning.style.display = 'none';
+                    changePasswordBtn.textContent = '🔑 Change Password';
                 } else {
                     hasPasswordInfo.style.display = 'none';
                     noPasswordWarning.style.display = 'block';
+                    changePasswordBtn.textContent = '🔐 Set Password';
                 }
             } catch (e) {
                 // Offline
@@ -263,8 +249,23 @@ scheduleNextCheck();</script></head>
         }
         checkAccountPassword();
         
-        // Set password button in warning
-        document.getElementById('set-pw-btn').addEventListener('click', () => {
+        // Change password button
+        changePasswordBtn.addEventListener('click', () => {
+            const modalTitle = document.getElementById('modal-title');
+            const currentPwRow = document.getElementById('current-password-row');
+            
+            if (hasPassword) {
+                modalTitle.textContent = '🔑 Change Password';
+                currentPwRow.style.display = 'block';
+            } else {
+                modalTitle.textContent = '🔐 Set Password';
+                currentPwRow.style.display = 'none';
+            }
+            
+            document.getElementById('modal-password').value = '';
+            document.getElementById('modal-confirm-password').value = '';
+            document.getElementById('modal-current-password').value = '';
+            document.getElementById('modal-password-error').textContent = '';
             setPasswordModal.style.display = 'flex';
         });
         
@@ -275,6 +276,7 @@ scheduleNextCheck();</script></head>
         
         // Save password from modal
         document.getElementById('modal-save-pw').addEventListener('click', async () => {
+            const currentPw = document.getElementById('modal-current-password').value;
             const pw = document.getElementById('modal-password').value;
             const confirmPw = document.getElementById('modal-confirm-password').value;
             const modalError = document.getElementById('modal-password-error');
@@ -289,127 +291,35 @@ scheduleNextCheck();</script></head>
             }
             
             try {
-                const res = await fetch('/api/account/set-password', {
+                let endpoint, body;
+                if (hasPassword) {
+                    // Changing existing password
+                    endpoint = '/api/account/change-password';
+                    body = { clientId, currentPassword: currentPw, newPassword: pw };
+                } else {
+                    // Setting new password
+                    endpoint = '/api/account/set-password';
+                    body = { clientId, password: pw };
+                }
+                
+                const res = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ clientId, password: pw })
+                    body: JSON.stringify(body)
                 });
                 const data = await res.json();
                 if (data.success) {
                     setPasswordModal.style.display = 'none';
                     checkAccountPassword();
-                    alert('✅ Password set successfully!');
+                    passwordMsg.style.color = '#166534';
+                    passwordMsg.textContent = hasPassword ? '✅ Password changed!' : '✅ Password set!';
+                    setTimeout(() => { passwordMsg.textContent = ''; }, 3000);
                 } else {
-                    modalError.textContent = data.error || 'Failed to set password';
+                    modalError.textContent = data.error || 'Failed';
                 }
             } catch (e) {
                 modalError.textContent = 'Network error';
             }
-        });
-        
-        // Export account
-        exportAccountBtn.addEventListener('click', async () => {
-            const password = exportPasswordInput.value;
-            if (!password) {
-                accountMsg.style.color = 'red';
-                accountMsg.textContent = 'Please enter your password to export';
-                return;
-            }
-            
-            exportAccountBtn.disabled = true;
-            exportAccountBtn.textContent = 'Exporting...';
-            
-            try {
-                const res = await fetch('/api/account/export', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ clientId, password })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    // Download the file
-                    const blob = new Blob([data.data], { type: 'application/octet-stream' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = data.filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    
-                    accountMsg.style.color = '#166534';
-                    accountMsg.textContent = '✅ Account exported! Keep your .uni file safe.';
-                    exportPasswordInput.value = '';
-                } else {
-                    accountMsg.style.color = 'red';
-                    accountMsg.textContent = data.error || 'Export failed';
-                }
-            } catch (e) {
-                accountMsg.style.color = 'red';
-                accountMsg.textContent = 'Network error';
-            }
-            
-            exportAccountBtn.disabled = false;
-            exportAccountBtn.textContent = '📤 Export Account';
-        });
-        
-        // Import account
-        importAccountBtn.addEventListener('click', async () => {
-            const file = importAccountFile.files[0];
-            if (!file) {
-                accountMsg.style.color = 'red';
-                accountMsg.textContent = 'Please select a .uni file to import';
-                return;
-            }
-            
-            if (!file.name.endsWith('.uni')) {
-                accountMsg.style.color = 'red';
-                accountMsg.textContent = 'Invalid file type. Please select a .uni file';
-                return;
-            }
-            
-            importAccountBtn.disabled = true;
-            importAccountBtn.textContent = 'Importing...';
-            
-            try {
-                const encryptedData = await file.text();
-                
-                const res = await fetch('/api/account/import', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        encryptedData, 
-                        currentClientId: clientId 
-                    })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    // Update local storage with imported account
-                    localStorage.setItem('clientId', data.user.clientId);
-                    localStorage.setItem('username', data.user.username);
-                    localStorage.setItem('userCode', data.user.userCode);
-                    if (data.user.accessCookieId) {
-                        localStorage.setItem('accessCookieId', data.user.accessCookieId);
-                    }
-                    
-                    accountMsg.style.color = '#166534';
-                    accountMsg.textContent = '✅ Account imported! Reloading...';
-                    
-                    setTimeout(() => window.location.reload(), 1500);
-                } else {
-                    accountMsg.style.color = 'red';
-                    accountMsg.textContent = data.error || 'Import failed';
-                }
-            } catch (e) {
-                accountMsg.style.color = 'red';
-                accountMsg.textContent = 'Error reading file';
-            }
-            
-            importAccountBtn.disabled = false;
-            importAccountBtn.textContent = '📥 Import Account';
         });
     })();
 
@@ -450,7 +360,7 @@ scheduleNextCheck();</script></head>
             }, {});
         }
         function getUserCookies() {
-            // Exclude only sensitive keys and internal metadata, but include all others (including game saves)
+            // Exclude sensitive keys and internal metadata - editing these can break the site
             const exclude = [
             'cookie_saver_email',
             'cookie_saver_name',
@@ -473,16 +383,19 @@ scheduleNextCheck();</script></head>
             'classic_mode',
             'dark_mode',
             'chat_history',
-            // Security-sensitive keys - NEVER show these
+            // Security-sensitive keys - NEVER show these (editing breaks site)
             'owner_token',
             'clientId',
             'accessCookieId',
+            'userCode',
             'banned',
             'banReason',
             'game_dictionary_recent',
             'game_dictionary_recent_enabled',
             'sirco_menu_hidden',
-            'sirco_menu_position'
+            'sirco_menu_position',
+            'sirco_menu_active_tab',
+            'sirco_data_saver_stats'
             ];
             const all = getAllCookies();
             const filtered = {};
@@ -492,7 +405,7 @@ scheduleNextCheck();</script></head>
             return filtered;
         }
         function getUserLocalStorage() {
-            // Exclude only sensitive keys, but include all others
+            // Exclude sensitive keys - editing these can break the site
             const exclude = [
             'cookie_saver_email',
             'cookie_saver_name',
@@ -515,16 +428,19 @@ scheduleNextCheck();</script></head>
             'classic_mode',
             'dark_mode',
             'chat_history',
-            // Security-sensitive keys - NEVER show these
+            // Security-sensitive keys - NEVER show these (editing breaks site)
             'owner_token',
             'clientId',
             'accessCookieId',
+            'userCode',
             'banned',
             'banReason',
             'game_dictionary_recent',
             'game_dictionary_recent_enabled',
             'sirco_menu_hidden',
-            'sirco_menu_position'
+            'sirco_menu_position',
+            'sirco_menu_active_tab',
+            'sirco_data_saver_stats'
             ];
             const filtered = {};
             Object.keys(localStorage).forEach(key => {

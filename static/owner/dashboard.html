@@ -390,6 +390,11 @@
                         <button class="btn btn-primary" onclick="showRedirectModal()">🔗 Redirect User</button>
                         <button class="btn" style="background:#ffc107;color:#000" onclick="instantRefresh()">🔄 Force Refresh</button>
                         <button class="btn btn-danger" style="background:#8b0000" onclick="instantRevoke()">❌ Revoke Access</button>
+                        <button class="btn btn-danger" style="background:#dc143c" onclick="deleteUserAccount()">🗑️ Delete Account</button>
+                    </div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px">
+                        <button class="btn" style="background:#667eea;color:#fff" onclick="changeUserUsername()">✏️ Change Username</button>
+                        <button class="btn" style="background:#764ba2;color:#fff" onclick="changeUserPassword()">🔑 Change Password</button>
                     </div>
                     <div class="form-group">
                         <label>Redirect to URL:</label>
@@ -837,6 +842,88 @@
             
             await api('/send-command', 'POST', { clientId, command: 'revoke' });
             alert('✅ User access will be revoked on next check-in');
+        }
+        
+        // Delete user account
+        async function deleteUserAccount() {
+            const clientId = document.getElementById('action-clientId').value;
+            if (!clientId) {
+                alert('Enter a Client ID first');
+                return;
+            }
+            
+            const username = prompt('Enter the username of the account to delete:');
+            if (!username) return;
+            
+            if (!confirm(`⚠️ DANGER: Are you sure you want to permanently delete the account "${username}"?\n\nThis action CANNOT be undone!`)) return;
+            if (!confirm(`Last chance! Type 'DELETE' to confirm deletion of "${username}"`)) return;
+            
+            try {
+                const result = await api('/delete-user', 'POST', { username });
+                if (result.success) {
+                    alert(`✅ Account "${username}" has been permanently deleted`);
+                } else {
+                    alert(`❌ Error: ${result.error || 'Failed to delete account'}`);
+                }
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            }
+        }
+        
+        // Change user username
+        async function changeUserUsername() {
+            const clientId = document.getElementById('action-clientId').value;
+            if (!clientId) {
+                alert('Enter a Client ID first');
+                return;
+            }
+            
+            const oldUsername = prompt('Enter the CURRENT username:');
+            if (!oldUsername) return;
+            
+            const newUsername = prompt('Enter the NEW username:');
+            if (!newUsername) return;
+            
+            if (!confirm(`Change username from "${oldUsername}" to "${newUsername}"?`)) return;
+            
+            try {
+                const result = await api('/change-username', 'POST', { oldUsername, newUsername });
+                if (result.success) {
+                    alert(`✅ Username changed from "${oldUsername}" to "${newUsername}"`);
+                } else {
+                    alert(`❌ Error: ${result.error || 'Failed to change username'}`);
+                }
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            }
+        }
+        
+        // Change user password
+        async function changeUserPassword() {
+            const clientId = document.getElementById('action-clientId').value;
+            if (!clientId) {
+                alert('Enter a Client ID first');
+                return;
+            }
+            
+            const username = prompt('Enter the username:');
+            if (!username) return;
+            
+            const newPassword = prompt('Enter the NEW password:');
+            if (!newPassword) return;
+            
+            if (!confirm(`Set new password for "${username}"?`)) return;
+            
+            try {
+                const result = await api('/change-password', 'POST', { username, newPassword });
+                if (result.success) {
+                    alert(`✅ Password changed for "${username}"`);
+                } else {
+                    alert(`❌ Error: ${result.error || 'Failed to change password'}`);
+                }
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            }
         }
 
         async function loadEvents() {
