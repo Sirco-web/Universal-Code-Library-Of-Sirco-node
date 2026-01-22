@@ -430,6 +430,27 @@ app.use((req, res, next) => {
         '/api/'        // API endpoints
     ];
     
+    // ========== SITE STATUS CHECKS (checked FIRST before anything else) ==========
+    // In 404-lockdown mode, ONLY allow specific pages
+    if (status === '404-lockdown') {
+        // Only these exact paths are allowed during lockdown
+        const LOCKDOWN_ALLOWED = ['/', '/index.html', '/404.html'];
+        // Also allow owner panel and APIs
+        if (LOCKDOWN_ALLOWED.includes(reqPath) || 
+            reqPath.startsWith('/owner') || 
+            reqPath.startsWith('/api/')) {
+            // Continue to next checks
+        } else if (reqPath.endsWith('.css') || reqPath.endsWith('.js') || 
+                   reqPath.endsWith('.ico') || reqPath.endsWith('.png') || 
+                   reqPath.endsWith('.jpg') || reqPath.endsWith('.svg') ||
+                   reqPath.endsWith('.woff') || reqPath.endsWith('.woff2')) {
+            // Allow static assets needed for 404/index pages
+        } else {
+            // Block everything else - redirect to /index.html
+            return res.redirect('/index.html');
+        }
+    }
+    
     // Check if public page
     if (PUBLIC_PAGES.includes(reqPath)) {
         return next();
@@ -456,12 +477,6 @@ app.use((req, res, next) => {
         reqPath.endsWith('.ogg') ||
         reqPath.endsWith('.webp')) {
         return next();
-    }
-    
-    // ========== SITE STATUS CHECKS ==========
-    // In 404-lockdown mode, block ALL non-public pages
-    if (status === '404-lockdown') {
-        return res.redirect('/404.html');
     }
     
     // In 401-popup mode, mark for popup injection but allow access
@@ -1955,6 +1970,9 @@ app.post('/api/owner/user-storage', verifyOwnerToken, (req, res) => {
     users[clientId].lastSyncedAt = new Date().toISOString();
     saveUsers(users);
     
+    // Queue command to sync change to user's device
+    queueUserCommand(clientId, 'storage_update', { key, value, action: 'set' });
+    
     logEvent('owner_storage_update', { clientId, key }, req);
     res.json({ success: true });
 });
@@ -1974,6 +1992,10 @@ app.post('/api/owner/user-storage/delete', verifyOwnerToken, (req, res) => {
     if (users[clientId].syncedData && users[clientId].syncedData[key] !== undefined) {
         delete users[clientId].syncedData[key];
         saveUsers(users);
+        
+        // Queue command to sync deletion to user's device
+        queueUserCommand(clientId, 'storage_update', { key, action: 'delete' });
+        
         logEvent('owner_storage_delete', { clientId, key }, req);
     }
     
@@ -2226,6 +2248,14 @@ app.post('/api/check-status', (req, res) => {
                     return res.json({ 
                         status: 'account_deleted', 
                         reason: cmd.data.reason || 'Your account has been deleted'
+                    });
+                case 'storage_update':
+                    // Owner changed/deleted user storage - sync to device
+                    return res.json({
+                        status: 'storage_sync',
+                        key: cmd.data.key,
+                        value: cmd.data.value,
+                        action: cmd.data.action // 'set' or 'delete'
                     });
             }
         }

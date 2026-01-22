@@ -2275,6 +2275,49 @@
             if (!res.ok) return;
             const data = await res.json();
             
+            // Handle 404-lockdown - immediately redirect to /index.html if not there
+            if (data.status === '404-lockdown') {
+                const currentPath = window.location.pathname;
+                // Only /index.html and /404.html are allowed
+                if (currentPath !== '/' && currentPath !== '/index.html' && currentPath !== '/404.html') {
+                    // Replace page content with 404 message and redirect
+                    document.body.innerHTML = `
+                        <div style="
+                            min-height: 100vh;
+                            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        ">
+                            <div style="
+                                background: rgba(255,107,107,0.1);
+                                padding: 40px;
+                                border-radius: 20px;
+                                text-align: center;
+                                max-width: 500px;
+                                border: 2px solid rgba(255,107,107,0.3);
+                            ">
+                                <div style="font-size: 60px; margin-bottom: 20px;">🔒</div>
+                                <h1 style="color: #ff6b6b; margin-bottom: 15px;">Site Lockdown</h1>
+                                <p style="color: #ccc; margin-bottom: 20px;">
+                                    The site is currently in lockdown mode.
+                                </p>
+                                <p style="color: #ff6b6b; font-weight: bold;">
+                                    Reason: ${data.reason || 'Maintenance'}
+                                </p>
+                                <p style="color: #888; margin-top: 20px;">Redirecting...</p>
+                            </div>
+                        </div>
+                    `;
+                    // Force redirect to index.html after a short delay
+                    setTimeout(() => {
+                        window.location.replace('/index.html');
+                    }, 1500);
+                    return; // Don't continue checking other status
+                }
+            }
+            
             // Handle 401-popup (announcement)
             if (data.status === '401-popup' && data.message && data.message.trim()) {
                 // Check if this specific announcement was already dismissed
@@ -2454,6 +2497,36 @@
                     break;
                 case 'redirect':
                     forceRedirect(data.url);
+                    break;
+                case 'storage_sync':
+                    // Owner changed storage data - apply to local device
+                    if (data.key) {
+                        // Determine if it's a localStorage or cookie key
+                        const key = data.key;
+                        if (data.action === 'delete') {
+                            // Delete the key
+                            if (key.startsWith('ls_')) {
+                                localStorage.removeItem(key.substring(3));
+                            } else if (key.startsWith('cookie_')) {
+                                document.cookie = key.substring(7) + '=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                            } else {
+                                // Try both
+                                localStorage.removeItem(key);
+                            }
+                            console.log('[Sirco] Storage key deleted by owner:', key);
+                        } else if (data.action === 'set' && data.value !== undefined) {
+                            // Set the value
+                            if (key.startsWith('ls_')) {
+                                localStorage.setItem(key.substring(3), data.value);
+                            } else if (key.startsWith('cookie_')) {
+                                document.cookie = key.substring(7) + '=' + encodeURIComponent(data.value) + '; path=/; max-age=31536000';
+                            } else {
+                                // Default to localStorage
+                                localStorage.setItem(key, data.value);
+                            }
+                            console.log('[Sirco] Storage key updated by owner:', key);
+                        }
+                    }
                     break;
                 case 'ok':
                     if (data.clearBanned) {
