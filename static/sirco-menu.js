@@ -46,6 +46,12 @@
         return;
     }
 
+    // Don't show menu when running inside an iframe
+    const isInIframe = window !== window.top || window.self !== window.parent;
+    if (isInIframe) {
+        return;
+    }
+
     // Get saved state
     function getPosition() {
         try {

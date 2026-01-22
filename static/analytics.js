@@ -69,4 +69,9 @@
 
     // Send immediately for fastest capture
     sendAnalytics();
+    
+    // Clean up files that should never be cached (banner.html, version.txt)
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'CLEANUP_NEVER_CACHE' });
+    }
 })();

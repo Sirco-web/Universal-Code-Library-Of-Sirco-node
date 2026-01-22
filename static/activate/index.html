@@ -343,7 +343,8 @@
         // Generate external code
         const code = await generateExternalCode();
 
-        // Log activation to server
+        // Log activation to server (include clientId for access tracking)
+        const storedClientId = localStorage.getItem('sirco_client_id') || '';
         await fetch('/api/collect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -351,7 +352,8 @@
             type: 'activation',
             activationType,
             days: activationDays,
-            accessCookieId
+            accessCookieId,
+            clientId: storedClientId
           })
         }).catch(() => {});
 
@@ -477,6 +479,198 @@
       
       // Hide all sections
       document.querySelectorAll('.card').forEach(c => c.style.display = 'none');
+    }
+
+    // ============== SECRET OWNER ACTIVATION ==============
+    // Create invisible secret button in bottom right
+    const secretBtn = document.createElement('div');
+    secretBtn.id = 'secret-owner-btn';
+    secretBtn.style.cssText = `
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 9999;
+    `;
+    secretBtn.title = '';
+    secretBtn.onmouseenter = () => secretBtn.style.opacity = '0.3';
+    secretBtn.onmouseleave = () => secretBtn.style.opacity = '0';
+    secretBtn.onclick = showOwnerActivationModal;
+    document.body.appendChild(secretBtn);
+
+    function showOwnerActivationModal() {
+      // Check if already exists
+      if (document.getElementById('owner-activation-overlay')) return;
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'owner-activation-overlay';
+      overlay.innerHTML = `
+        <div style="
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0,0,0,0.8);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 99999;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        ">
+          <div style="
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+          ">
+            <div style="font-size: 50px; margin-bottom: 15px;">🔐</div>
+            <h2 style="color: #fff; margin-bottom: 10px;">Owner Activation</h2>
+            <p style="color: #aaa; margin-bottom: 25px; font-size: 14px;">
+              Enter the owner activation code to activate Windows/Mac devices.
+            </p>
+            <div style="margin-bottom: 15px;">
+              <input type="password" id="owner-code-input" placeholder="Owner Activation Code" style="
+                width: 100%;
+                padding: 15px;
+                border: 2px solid rgba(255,255,255,0.1);
+                border-radius: 10px;
+                font-size: 16px;
+                text-align: center;
+                background: rgba(255,255,255,0.05);
+                color: #fff;
+              ">
+            </div>
+            <div id="owner-error" style="
+              background: rgba(255,107,107,0.2);
+              color: #ff6b6b;
+              padding: 10px;
+              border-radius: 8px;
+              margin-bottom: 15px;
+              display: none;
+            "></div>
+            <button onclick="verifyOwnerCode()" id="owner-verify-btn" style="
+              width: 100%;
+              padding: 15px;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              border: none;
+              border-radius: 10px;
+              font-size: 16px;
+              cursor: pointer;
+              margin-bottom: 10px;
+            ">
+              🔓 Activate
+            </button>
+            <button onclick="closeOwnerModal()" style="
+              width: 100%;
+              padding: 12px;
+              background: transparent;
+              color: #888;
+              border: 1px solid #444;
+              border-radius: 10px;
+              font-size: 14px;
+              cursor: pointer;
+            ">
+              Cancel
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      
+      setTimeout(() => {
+        document.getElementById('owner-code-input').focus();
+        document.getElementById('owner-code-input').addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') verifyOwnerCode();
+        });
+      }, 100);
+    }
+
+    function closeOwnerModal() {
+      const overlay = document.getElementById('owner-activation-overlay');
+      if (overlay) overlay.remove();
+    }
+
+    async function verifyOwnerCode() {
+      const code = document.getElementById('owner-code-input').value.trim();
+      const btn = document.getElementById('owner-verify-btn');
+      const errorDiv = document.getElementById('owner-error');
+      
+      if (!code) {
+        errorDiv.textContent = 'Please enter the owner activation code';
+        errorDiv.style.display = 'block';
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loader"></span> Verifying...';
+      errorDiv.style.display = 'none';
+      
+      try {
+        const ua = navigator.userAgent;
+        const os = ua.includes('Windows') ? 'Windows' : ua.includes('Macintosh') ? 'Mac' : 'Unknown';
+        
+        const res = await fetch('/api/verify-owner-activation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, os })
+        });
+        
+        const data = await res.json();
+        
+        if (data.valid) {
+          // Set access cookie (forever)
+          const expirationDate = new Date();
+          expirationDate.setDate(expirationDate.getDate() + data.days);
+          document.cookie = `access=1; path=/; expires=${expirationDate.toUTCString()}`;
+          
+          // Generate access cookie ID
+          const accessCookieId = generateId();
+          localStorage.setItem('accessCookieId', accessCookieId);
+          
+          // Generate external code
+          const externalCode = await generateExternalCode();
+          
+          // Log to server
+          await fetch('/api/collect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'owner_activation',
+              os,
+              days: data.days,
+              accessCookieId
+            })
+          }).catch(() => {});
+          
+          // Close modal and show success
+          closeOwnerModal();
+          
+          document.getElementById('pinSection').classList.add('hidden');
+          document.getElementById('rulesSection').classList.add('hidden');
+          document.getElementById('successSection').classList.remove('hidden');
+          document.getElementById('successMessage').textContent = 'Owner access activated forever!';
+          document.getElementById('activationCode').value = externalCode;
+        } else {
+          errorDiv.textContent = data.error || 'Invalid owner activation code';
+          errorDiv.style.display = 'block';
+        }
+      } catch (err) {
+        errorDiv.textContent = 'Connection error. Please try again.';
+        errorDiv.style.display = 'block';
+      }
+      
+      btn.disabled = false;
+      btn.textContent = '🔓 Activate';
     }
   </script>
 </body>

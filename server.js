@@ -671,18 +671,20 @@ app.get('/api/owner/settings', verifyOwnerToken, (req, res) => {
         permActivationPin: serverSettings.permActivationPin,
         dynamicFolderName: serverSettings.dynamicFolderName,
         adminApiPassword: serverSettings.adminApiPassword,
+        ownerActivationCode: serverSettings.ownerActivationCode,
         ownerPassword: '********' // Never send actual password
     });
 });
 
 // Update settings
 app.post('/api/owner/settings', verifyOwnerToken, (req, res) => {
-    const { tempActivationPin, permActivationPin, dynamicFolderName, adminApiPassword, ownerPassword } = req.body;
+    const { tempActivationPin, permActivationPin, dynamicFolderName, adminApiPassword, ownerPassword, ownerActivationCode } = req.body;
     
     const oldFolderName = serverSettings.dynamicFolderName;
     
-    if (tempActivationPin) serverSettings.tempActivationPin = tempActivationPin;
-    if (permActivationPin) serverSettings.permActivationPin = permActivationPin;
+    if (tempActivationPin !== undefined) serverSettings.tempActivationPin = tempActivationPin;
+    if (permActivationPin !== undefined) serverSettings.permActivationPin = permActivationPin;
+    if (ownerActivationCode !== undefined) serverSettings.ownerActivationCode = ownerActivationCode;
     if (dynamicFolderName && dynamicFolderName !== oldFolderName) {
         serverSettings.dynamicFolderName = dynamicFolderName;
         logEvent('folder_rename', { from: oldFolderName, to: dynamicFolderName }, req);
@@ -874,6 +876,116 @@ app.get('/api/owner/search-user', verifyOwnerToken, (req, res) => {
     } else {
         res.json({ found: false });
     }
+});
+
+// Get user access expiration
+app.get('/api/owner/user-access', verifyOwnerToken, (req, res) => {
+    const { clientId } = req.query;
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const users = loadUsers();
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = users[clientId];
+    res.json({
+        clientId,
+        username: user.username,
+        accessExpires: user.accessExpires || null,
+        accessNeverExpires: user.accessNeverExpires || false,
+        createdAt: user.createdAt
+    });
+});
+
+// Update user access expiration
+app.post('/api/owner/user-access', verifyOwnerToken, (req, res) => {
+    const { clientId, accessExpires, neverExpires, addDays, removeDays } = req.body;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const users = loadUsers();
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Handle different update types
+    if (neverExpires === true) {
+        users[clientId].accessNeverExpires = true;
+        users[clientId].accessExpires = null;
+    } else if (neverExpires === false) {
+        users[clientId].accessNeverExpires = false;
+    }
+    
+    // Set specific expiration date
+    if (accessExpires) {
+        const date = new Date(accessExpires);
+        if (isNaN(date.getTime())) {
+            return res.status(400).json({ error: 'Invalid date format' });
+        }
+        users[clientId].accessExpires = date.toISOString();
+        users[clientId].accessNeverExpires = false;
+    }
+    
+    // Add days to current expiration
+    if (addDays && !isNaN(parseInt(addDays))) {
+        const currentExpires = users[clientId].accessExpires ? new Date(users[clientId].accessExpires) : new Date();
+        currentExpires.setDate(currentExpires.getDate() + parseInt(addDays));
+        users[clientId].accessExpires = currentExpires.toISOString();
+        users[clientId].accessNeverExpires = false;
+    }
+    
+    // Remove days from current expiration
+    if (removeDays && !isNaN(parseInt(removeDays))) {
+        const currentExpires = users[clientId].accessExpires ? new Date(users[clientId].accessExpires) : new Date();
+        currentExpires.setDate(currentExpires.getDate() - parseInt(removeDays));
+        users[clientId].accessExpires = currentExpires.toISOString();
+        users[clientId].accessNeverExpires = false;
+    }
+    
+    saveUsers(users);
+    logEvent('access_expiration_updated', { 
+        clientId, 
+        accessExpires: users[clientId].accessExpires,
+        accessNeverExpires: users[clientId].accessNeverExpires
+    }, req);
+    
+    res.json({ 
+        success: true, 
+        accessExpires: users[clientId].accessExpires,
+        accessNeverExpires: users[clientId].accessNeverExpires
+    });
+});
+
+// Revoke user access immediately (set expiration to now)
+app.post('/api/owner/revoke-access', verifyOwnerToken, (req, res) => {
+    const { clientId } = req.body;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const users = loadUsers();
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    users[clientId].accessExpires = new Date().toISOString();
+    users[clientId].accessNeverExpires = false;
+    users[clientId].accessRevoked = true;
+    users[clientId].accessRevokedAt = new Date().toISOString();
+    saveUsers(users);
+    
+    // Also queue revoke command
+    queueUserCommand(clientId, 'revoke', {});
+    
+    logEvent('access_revoked', { clientId }, req);
+    
+    res.json({ success: true, message: 'Access revoked' });
 });
 
 // Send real-time command to user (executes on their next check-in, which is every few seconds)
@@ -1305,6 +1417,23 @@ app.post('/api/verify-pin', (req, res) => {
     return res.json({ valid: false });
 });
 
+// Verify owner activation code (for Windows/Mac activation)
+app.post('/api/verify-owner-activation', (req, res) => {
+    const { code } = req.body;
+    
+    if (!serverSettings.ownerActivationCode) {
+        return res.json({ valid: false, error: 'Owner activation code not set' });
+    }
+    
+    if (code === serverSettings.ownerActivationCode) {
+        logEvent('owner_activation_verified', { os: req.body.os || 'unknown' }, req);
+        return res.json({ valid: true, type: 'owner', days: 36500 }); // Forever access
+    }
+    
+    logWarning('invalid_owner_activation_attempt', { code: '[redacted]' }, req);
+    return res.json({ valid: false });
+});
+
 // Check if user is banned (for activation page)
 app.get('/api/check-banned', (req, res) => {
     const ip = getClientIP(req);
@@ -1592,9 +1721,18 @@ app.get('/api/account/has-password', (req, res) => {
 
 // Keys that should NEVER be synced (sensitive data)
 const NEVER_SYNC_KEYS = [
+    // Auth & security
     'supertube_access', 'accessToken', 'token', 'password', 'passwordHash',
     'sirco_session', 'session_token', 'access', 'accessCookieId', 'sirco_client_id',
-    'banned', 'banned_permanent', 'supertube_session', 'sirco_owner_token'
+    'owner_token', 'sirco_owner_token', 'clientId', 'userCode',
+    // Ban/moderation
+    'banned', 'banned_permanent', 'banReason',
+    // Internal UI state (no need to sync)
+    'sirco_menu_hidden', 'sirco_menu_position', 'sirco_menu_active_tab', 'sirco_menu_size',
+    'sirco_data_saver_enabled', 'sirco_data_saver_stats',
+    'game_dictionary_recent', 'game_dictionary_recent_enabled',
+    'readNewsletters', 'startup-time', 'supertube_session',
+    'sirco_announcement_dismissed', 'chat_history'
 ];
 
 // Sync user data to server
@@ -1650,6 +1788,86 @@ app.get('/api/account/sync', (req, res) => {
         data: users[clientId].syncedData || {},
         lastSyncedAt: users[clientId].lastSyncedAt
     });
+});
+
+// ============== OWNER STORAGE MANAGEMENT ==============
+
+// Get user storage (owner only)
+app.get('/api/owner/user-storage', (req, res) => {
+    const token = req.headers['x-owner-token'];
+    if (token !== OWNER_TOKEN) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const { clientId } = req.query;
+    if (!clientId) {
+        return res.status(400).json({ error: 'clientId required' });
+    }
+    
+    const users = loadUsers();
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({ 
+        success: true, 
+        data: users[clientId].syncedData || {}
+    });
+});
+
+// Set/update user storage key (owner only)
+app.post('/api/owner/user-storage', (req, res) => {
+    const token = req.headers['x-owner-token'];
+    if (token !== OWNER_TOKEN) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const { clientId, key, value } = req.body;
+    if (!clientId || !key) {
+        return res.status(400).json({ error: 'clientId and key required' });
+    }
+    
+    const users = loadUsers();
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (!users[clientId].syncedData) {
+        users[clientId].syncedData = {};
+    }
+    
+    users[clientId].syncedData[key] = value;
+    users[clientId].lastSyncedAt = new Date().toISOString();
+    saveUsers(users);
+    
+    logEvent('owner_storage_update', { clientId, key }, req);
+    res.json({ success: true });
+});
+
+// Delete user storage key (owner only)
+app.post('/api/owner/user-storage/delete', (req, res) => {
+    const token = req.headers['x-owner-token'];
+    if (token !== OWNER_TOKEN) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const { clientId, key } = req.body;
+    if (!clientId || !key) {
+        return res.status(400).json({ error: 'clientId and key required' });
+    }
+    
+    const users = loadUsers();
+    if (!users[clientId]) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (users[clientId].syncedData && users[clientId].syncedData[key] !== undefined) {
+        delete users[clientId].syncedData[key];
+        saveUsers(users);
+        logEvent('owner_storage_delete', { clientId, key }, req);
+    }
+    
+    res.json({ success: true });
 });
 
 // User change their own password
@@ -2676,6 +2894,28 @@ app.post('/api/collect', (req, res) => {
         }
     }
     
+    // Handle activation tracking - save access expiration to user record
+    if (req.body.type === 'activation' && req.body.days) {
+        const clientId = req.body.clientId || userId;
+        if (clientId) {
+            const users = loadUsers();
+            if (users[clientId]) {
+                const expirationDate = new Date();
+                if (req.body.days >= 36500) {
+                    // Permanent access
+                    users[clientId].accessNeverExpires = true;
+                    users[clientId].accessExpires = null;
+                } else {
+                    expirationDate.setDate(expirationDate.getDate() + parseInt(req.body.days));
+                    users[clientId].accessExpires = expirationDate.toISOString();
+                    users[clientId].accessNeverExpires = false;
+                }
+                users[clientId].lastActivation = new Date().toISOString();
+                saveUsers(users);
+            }
+        }
+    }
+    
     const data = {
         os: req.body.os || 'Unknown',
         browser: req.body.browser || 'Unknown',
@@ -3035,7 +3275,8 @@ app.get('/404-status', (req, res) => {
             .then(r => r.json())
             .then(data => {
                 const el = document.getElementById('currentStatus');
-                el.textContent = data.status.toUpperCase().replace('-', ' ').replace('401 POPUP', 'ANNOUNCEMENT');
+                const statusText = (data.status || 'normal').toUpperCase().replace('-', ' ').replace('401 POPUP', 'ANNOUNCEMENT');
+                el.textContent = statusText;
                 el.className = 'status ' + (data.status === 'normal' ? 'normal' : 
                     data.status === '404-lockdown' ? 'lockdown' : 'popup');
                 // Show current message/reason if set
@@ -3045,6 +3286,10 @@ app.get('/404-status', (req, res) => {
                 if (data.reason) {
                     document.getElementById('lockdownReason').value = data.reason;
                 }
+            })
+            .catch(err => {
+                console.error('Failed to fetch status:', err);
+                document.getElementById('currentStatus').textContent = 'ERROR';
             });
         
         // Status option selection
@@ -3078,32 +3323,32 @@ app.get('/404-status', (req, res) => {
             const message = document.getElementById('announcementMessage').value;
             const reason = document.getElementById('lockdownReason').value;
             const btn = document.getElementById('submitBtn');
-            const msg = document.getElementById('message');
+            const msgEl = document.getElementById('message');
             
             btn.disabled = true;
             btn.textContent = 'Processing...';
             
             try {
-                const res = await fetch('/api/site-status', {
+                const response = await fetch('/api/site-status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: selectedStatus, ownerPin: pin, message, reason })
                 });
                 
-                const data = await res.json();
+                const data = await response.json();
                 
-                if (res.ok) {
-                    msg.className = 'message success';
-                    msg.textContent = data.message;
+                if (response.ok) {
+                    msgEl.className = 'message success';
+                    msgEl.textContent = data.message;
                     // Reload to show new status
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    msg.className = 'message error';
-                    msg.textContent = data.error;
+                    msgEl.className = 'message error';
+                    msgEl.textContent = data.error;
                 }
             } catch (e) {
-                msg.className = 'message error';
-                msg.textContent = 'Failed to update status';
+                msgEl.className = 'message error';
+                msgEl.textContent = 'Failed to update status';
             }
             
             btn.disabled = false;

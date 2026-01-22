@@ -337,6 +337,11 @@
                         <label>Permanent Activation Pin (forever)</label>
                         <input type="text" id="perm-pin" placeholder="Enter perm pin">
                     </div>
+                    <div class="form-group">
+                        <label>🔐 Owner Activation Code (for Windows/Mac)</label>
+                        <input type="text" id="owner-activation-code" placeholder="Secret code for owner activation">
+                        <small style="color:#aaa">This code is used via the secret button on the activation page to activate Windows/Mac devices</small>
+                    </div>
                 </div>
                 <div class="card">
                     <h3>Dynamic Folder</h3>
@@ -405,6 +410,78 @@
                     </div>
                 </div>
                 
+                <!-- Access Expiration Management -->
+                <div class="card" id="access-panel" style="display:none">
+                    <h3>⏰ Access Expiration for <span id="access-username"></span></h3>
+                    <input type="hidden" id="access-clientId">
+                    
+                    <div style="background:rgba(255,255,255,0.05);padding:15px;border-radius:8px;margin-bottom:15px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+                            <div>
+                                <label style="color:#9ca3af;font-size:0.85em">Current Status:</label>
+                                <div id="access-status" style="font-size:1.2em;font-weight:600;color:#10b981">Loading...</div>
+                            </div>
+                            <div>
+                                <label style="color:#9ca3af;font-size:0.85em">Expires:</label>
+                                <div id="access-expires-display" style="font-size:1.1em">—</div>
+                            </div>
+                            <div>
+                                <label style="color:#9ca3af;font-size:0.85em">Time Left:</label>
+                                <div id="access-time-left" style="font-size:1.1em">—</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Set Expiration Date & Time:</label>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <input type="datetime-local" id="access-expires-input" style="flex:1;min-width:200px">
+                            <button class="btn btn-primary" onclick="setAccessExpiration()">Set Date</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Quick Adjust:</label>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap">
+                            <button class="btn" style="background:#10b981;color:#fff" onclick="addAccessDays(1)">+1 Day</button>
+                            <button class="btn" style="background:#10b981;color:#fff" onclick="addAccessDays(7)">+1 Week</button>
+                            <button class="btn" style="background:#10b981;color:#fff" onclick="addAccessDays(30)">+1 Month</button>
+                            <button class="btn" style="background:#10b981;color:#fff" onclick="addAccessDays(365)">+1 Year</button>
+                            <button class="btn" style="background:#ef4444;color:#fff" onclick="addAccessDays(-1)">-1 Day</button>
+                            <button class="btn" style="background:#ef4444;color:#fff" onclick="addAccessDays(-7)">-1 Week</button>
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px">
+                        <button class="btn" style="background:#8b5cf6;color:#fff" onclick="setNeverExpires()">♾️ Never Expires</button>
+                        <button class="btn btn-danger" onclick="revokeAccessNow()">🚫 Revoke Access Now</button>
+                        <button class="btn" style="background:#6b7280;color:#fff" onclick="loadAccessExpiration()">🔄 Refresh</button>
+                    </div>
+                </div>
+                
+                <!-- User Storage Management -->
+                <div class="card" id="storage-panel" style="display:none">
+                    <h3>💾 User Storage for <span id="storage-username"></span></h3>
+                    <input type="hidden" id="storage-clientId">
+                    <div style="display:flex;gap:10px;margin-bottom:15px">
+                        <button class="btn btn-primary" onclick="loadUserStorage()">🔄 Refresh</button>
+                        <button class="btn" style="background:#28a745;color:#fff" onclick="showAddStorageModal()">➕ Add New Key</button>
+                    </div>
+                    <h4 style="margin-top:15px">🍪 Synced Data (Cookies/LocalStorage)</h4>
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th>Key</th>
+                                <th>Value</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-storage-table">
+                            <tr><td colspan="3">Search for a user first</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
                 <div class="card">
                     <h3>All Users</h3>
                     <table class="log-table">
@@ -412,7 +489,7 @@
                             <tr>
                                 <th>Username</th>
                                 <th>User Code</th>
-                                <th>Client ID</th>
+                                <th>Access</th>
                                 <th>Created</th>
                                 <th>Last Seen</th>
                                 <th>IP</th>
@@ -449,15 +526,15 @@
                 
                 <!-- Newsletter Stats -->
                 <div class="card">
-                    <h3>Subscribers <button class="refresh-btn" onclick="loadNewsletterSubs()">🔄</button></h3>
+                    <h3>Subscribers <button class="refresh-btn" onclick="loadNewsletterSubscribers()">🔄</button></h3>
                     <div id="newsletter-subs-count" style="margin-bottom:10px;color:#4a90d9;font-size:1.2em">0 subscribers</div>
-                    <div id="newsletter-subs-list" style="max-height:150px;overflow-y:auto"></div>
+                    <div id="newsletter-subscribers" style="max-height:150px;overflow-y:auto"></div>
                 </div>
                 
                 <!-- Existing Newsletters -->
                 <div class="card">
-                    <h3>All Posts <button class="refresh-btn" onclick="loadNewsletters()">🔄</button></h3>
-                    <div id="newsletters-list"></div>
+                    <h3>All Posts <button class="refresh-btn" onclick="loadNewsletterPosts()">🔄</button></h3>
+                    <div id="newsletter-list"></div>
                 </div>
             </div>
 
@@ -545,7 +622,10 @@
 
             <!-- Warnings Panel -->
             <div id="panel-warnings" class="panel">
-                <h2>⚠️ Warnings <button class="refresh-btn" onclick="loadWarnings()">🔄</button></h2>
+                <h2>⚠️ Security Warnings <button class="refresh-btn" onclick="loadWarnings()">🔄</button></h2>
+                <p style="color:#ffc107;margin-bottom:15px;padding:10px;background:rgba(255,193,7,0.1);border-radius:8px">
+                    🚨 Monitors for Windows/Mac devices attempting to access or steal activation tokens from the activation page.
+                </p>
                 <div class="card">
                     <table class="log-table">
                         <thead>
@@ -706,6 +786,7 @@
                 document.getElementById('perm-pin').value = settings.permActivationPin || '';
                 document.getElementById('folder-name').value = settings.dynamicFolderName || 'CODE';
                 document.getElementById('admin-api-password').value = settings.adminApiPassword || '';
+                document.getElementById('owner-activation-code').value = settings.ownerActivationCode || '';
             }
         }
 
@@ -715,6 +796,7 @@
                 permActivationPin: document.getElementById('perm-pin').value,
                 dynamicFolderName: document.getElementById('folder-name').value,
                 adminApiPassword: document.getElementById('admin-api-password').value,
+                ownerActivationCode: document.getElementById('owner-activation-code').value,
             };
             
             const newPassword = document.getElementById('owner-password').value;
@@ -737,11 +819,34 @@
                 return;
             }
 
-            tbody.innerHTML = users.map(u => `
+            tbody.innerHTML = users.map(u => {
+                // Format access status for table
+                let accessStatus = '';
+                if (u.accessNeverExpires) {
+                    accessStatus = '<span style="color:#8b5cf6;font-size:11px">♾️ Forever</span>';
+                } else if (u.accessExpires) {
+                    const expires = new Date(u.accessExpires);
+                    const now = new Date();
+                    const diff = expires - now;
+                    if (diff <= 0) {
+                        accessStatus = '<span style="color:#ef4444;font-size:11px">❌ Expired</span>';
+                    } else {
+                        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                        if (days > 365) {
+                            accessStatus = `<span style="color:#10b981;font-size:11px">✅ ${Math.floor(days/365)}y</span>`;
+                        } else {
+                            accessStatus = `<span style="color:#10b981;font-size:11px">✅ ${days}d</span>`;
+                        }
+                    }
+                } else {
+                    accessStatus = '<span style="color:#6b7280;font-size:11px">—</span>';
+                }
+                
+                return `
                 <tr>
                     <td><a href="#" onclick="showUserDetail('${u.clientId}');return false" style="color:#4a90d9;text-decoration:none">${u.username}</a></td>
                     <td><code style="font-size:11px;color:#4a90d9">${u.userCode || 'N/A'}</code></td>
-                    <td><code style="font-size:11px">${u.clientId?.slice(0,8)}...</code></td>
+                    <td>${accessStatus}</td>
                     <td>${new Date(u.createdAt).toLocaleDateString()}</td>
                     <td>${u.lastSeen ? new Date(u.lastSeen).toLocaleString() : 'Never'}</td>
                     <td>${u.lastIP || u.creationIP || 'Unknown'}</td>
@@ -750,7 +855,7 @@
                         <button class="btn btn-danger" onclick="selectUser('${u.clientId}', '${u.username}')">⚡</button>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
         // Search user by code or username
@@ -771,6 +876,24 @@
             
             if (result.found) {
                 const u = result.user;
+                // Format access expiration info
+                let accessInfo = '';
+                if (u.accessNeverExpires) {
+                    accessInfo = '<span style="color:#8b5cf6">♾️ Never Expires</span>';
+                } else if (u.accessExpires) {
+                    const expires = new Date(u.accessExpires);
+                    const now = new Date();
+                    const diff = expires - now;
+                    if (diff <= 0) {
+                        accessInfo = '<span style="color:#ef4444">❌ Expired</span>';
+                    } else {
+                        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                        accessInfo = `<span style="color:#10b981">✅ Active (${days} days left)</span>`;
+                    }
+                } else {
+                    accessInfo = '<span style="color:#f59e0b">❓ Unknown</span>';
+                }
+                
                 resultDiv.innerHTML = `
                     <div style="background:rgba(16,185,129,0.2);padding:15px;border-radius:8px">
                         <strong>✅ User Found!</strong><br>
@@ -778,7 +901,8 @@
                         <strong>Code:</strong> ${u.userCode || 'N/A'}<br>
                         <strong>Client ID:</strong> <code>${u.clientId}</code><br>
                         <strong>Last IP:</strong> ${u.lastIP || 'Unknown'}<br>
-                        <strong>Last Seen:</strong> ${u.lastSeen ? new Date(u.lastSeen).toLocaleString() : 'Never'}
+                        <strong>Last Seen:</strong> ${u.lastSeen ? new Date(u.lastSeen).toLocaleString() : 'Never'}<br>
+                        <strong>Access:</strong> ${accessInfo}
                     </div>
                 `;
                 selectUser(u.clientId, u.username);
@@ -793,8 +917,159 @@
             document.getElementById('action-clientId').value = clientId;
             document.getElementById('action-username').textContent = username;
             document.getElementById('quick-actions-panel').style.display = 'block';
+            
+            // Also show storage panel
+            document.getElementById('storage-clientId').value = clientId;
+            document.getElementById('storage-username').textContent = username;
+            document.getElementById('storage-panel').style.display = 'block';
+            loadUserStorage();
+            
+            // Show access expiration panel
+            document.getElementById('access-clientId').value = clientId;
+            document.getElementById('access-username').textContent = username;
+            document.getElementById('access-panel').style.display = 'block';
+            loadAccessExpiration();
+            
             document.getElementById('quick-actions-panel').scrollIntoView({ behavior: 'smooth' });
         }
+        
+        // ============== ACCESS EXPIRATION MANAGEMENT ==============
+        async function loadAccessExpiration() {
+            const clientId = document.getElementById('access-clientId').value;
+            if (!clientId) return;
+            
+            try {
+                const result = await api(`/user-access?clientId=${encodeURIComponent(clientId)}`);
+                
+                const statusEl = document.getElementById('access-status');
+                const expiresEl = document.getElementById('access-expires-display');
+                const timeLeftEl = document.getElementById('access-time-left');
+                const inputEl = document.getElementById('access-expires-input');
+                
+                if (result.accessNeverExpires) {
+                    statusEl.textContent = '♾️ Never Expires';
+                    statusEl.style.color = '#8b5cf6';
+                    expiresEl.textContent = 'Permanent';
+                    timeLeftEl.textContent = '∞';
+                    inputEl.value = '';
+                } else if (result.accessExpires) {
+                    const expires = new Date(result.accessExpires);
+                    const now = new Date();
+                    const diff = expires - now;
+                    
+                    if (diff <= 0) {
+                        statusEl.textContent = '❌ Expired';
+                        statusEl.style.color = '#ef4444';
+                        timeLeftEl.textContent = 'Expired';
+                    } else {
+                        statusEl.textContent = '✅ Active';
+                        statusEl.style.color = '#10b981';
+                        timeLeftEl.textContent = formatTimeRemaining(diff);
+                    }
+                    
+                    expiresEl.textContent = expires.toLocaleString();
+                    // Set the input value for editing
+                    inputEl.value = expires.toISOString().slice(0, 16);
+                } else {
+                    statusEl.textContent = '❓ Unknown';
+                    statusEl.style.color = '#f59e0b';
+                    expiresEl.textContent = 'Not set';
+                    timeLeftEl.textContent = '—';
+                    inputEl.value = '';
+                }
+            } catch (e) {
+                console.error('Failed to load access:', e);
+            }
+        }
+        
+        function formatTimeRemaining(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (days > 365) {
+                const years = Math.floor(days / 365);
+                return `${years} year${years > 1 ? 's' : ''}, ${days % 365} days`;
+            }
+            if (days > 0) {
+                return `${days} day${days > 1 ? 's' : ''}, ${hours % 24}h`;
+            }
+            if (hours > 0) {
+                return `${hours}h ${minutes % 60}m`;
+            }
+            if (minutes > 0) {
+                return `${minutes}m ${seconds % 60}s`;
+            }
+            return `${seconds}s`;
+        }
+        
+        async function setAccessExpiration() {
+            const clientId = document.getElementById('access-clientId').value;
+            const dateInput = document.getElementById('access-expires-input').value;
+            
+            if (!clientId || !dateInput) {
+                alert('Please select a date and time');
+                return;
+            }
+            
+            const result = await api('/user-access', 'POST', { 
+                clientId, 
+                accessExpires: new Date(dateInput).toISOString() 
+            });
+            
+            if (result.success) {
+                alert('✅ Access expiration updated!');
+                loadAccessExpiration();
+            }
+        }
+        
+        async function addAccessDays(days) {
+            const clientId = document.getElementById('access-clientId').value;
+            if (!clientId) return;
+            
+            const endpoint = days > 0 ? 
+                { addDays: Math.abs(days) } : 
+                { removeDays: Math.abs(days) };
+            
+            const result = await api('/user-access', 'POST', { clientId, ...endpoint });
+            
+            if (result.success) {
+                const action = days > 0 ? 'added' : 'removed';
+                alert(`✅ ${Math.abs(days)} day${Math.abs(days) > 1 ? 's' : ''} ${action}!`);
+                loadAccessExpiration();
+            }
+        }
+        
+        async function setNeverExpires() {
+            const clientId = document.getElementById('access-clientId').value;
+            if (!clientId) return;
+            
+            if (!confirm('Set access to never expire? User will have permanent access.')) return;
+            
+            const result = await api('/user-access', 'POST', { clientId, neverExpires: true });
+            
+            if (result.success) {
+                alert('✅ Access set to never expire!');
+                loadAccessExpiration();
+            }
+        }
+        
+        async function revokeAccessNow() {
+            const clientId = document.getElementById('access-clientId').value;
+            if (!clientId) return;
+            
+            if (!confirm('⚠️ Revoke access immediately? User will need to re-activate.')) return;
+            
+            const result = await api('/revoke-access', 'POST', { clientId });
+            
+            if (result.success) {
+                alert('✅ Access revoked! User will be logged out on next check-in.');
+                loadAccessExpiration();
+            }
+        }
+        
+        // ============== END ACCESS EXPIRATION ==============
         
         // Instant ban (queues command for immediate effect)
         async function instantBan() {
@@ -920,6 +1195,132 @@
                     alert(`✅ Password changed for "${username}"`);
                 } else {
                     alert(`❌ Error: ${result.error || 'Failed to change password'}`);
+                }
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            }
+        }
+        
+        // ============== USER STORAGE MANAGEMENT ==============
+        async function loadUserStorage() {
+            const clientId = document.getElementById('storage-clientId').value;
+            if (!clientId) {
+                alert('No user selected');
+                return;
+            }
+            
+            const tbody = document.getElementById('user-storage-table');
+            tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+            
+            try {
+                const result = await api(`/user-storage?clientId=${clientId}`);
+                if (result.success && result.data) {
+                    const keys = Object.keys(result.data);
+                    if (keys.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3">No synced data</td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = keys.map(key => {
+                        const value = result.data[key];
+                        const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                        const truncated = displayValue.length > 100 ? displayValue.substring(0, 100) + '...' : displayValue;
+                        return `
+                            <tr>
+                                <td><strong>${escapeHtml(key)}</strong></td>
+                                <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis" title="${escapeHtml(displayValue)}">${escapeHtml(truncated)}</td>
+                                <td>
+                                    <button class="btn btn-primary" style="padding:5px 10px;font-size:12px" onclick="editStorageKey('${escapeHtml(key)}')">✏️ Edit</button>
+                                    <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="deleteStorageKey('${escapeHtml(key)}')">🗑️ Delete</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3">No synced data</td></tr>';
+                }
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="3">Error loading data</td></tr>';
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function showAddStorageModal() {
+            const clientId = document.getElementById('storage-clientId').value;
+            if (!clientId) {
+                alert('No user selected');
+                return;
+            }
+            
+            const key = prompt('Enter key name:');
+            if (!key) return;
+            
+            const value = prompt('Enter value (JSON for objects):');
+            if (value === null) return;
+            
+            saveStorageKey(key, value);
+        }
+        
+        async function editStorageKey(key) {
+            const clientId = document.getElementById('storage-clientId').value;
+            
+            // Get current value
+            const result = await api(`/user-storage?clientId=${clientId}`);
+            const currentValue = result.data?.[key];
+            const displayValue = typeof currentValue === 'object' ? JSON.stringify(currentValue, null, 2) : String(currentValue || '');
+            
+            const newValue = prompt(`Edit value for "${key}":`, displayValue);
+            if (newValue === null) return;
+            
+            saveStorageKey(key, newValue);
+        }
+        
+        async function saveStorageKey(key, value) {
+            const clientId = document.getElementById('storage-clientId').value;
+            
+            // Try to parse as JSON
+            let parsedValue = value;
+            try {
+                parsedValue = JSON.parse(value);
+            } catch (e) {
+                // Keep as string
+            }
+            
+            try {
+                const result = await api('/user-storage', 'POST', { 
+                    clientId, 
+                    key, 
+                    value: parsedValue 
+                });
+                
+                if (result.success) {
+                    alert(`✅ Key "${key}" saved`);
+                    loadUserStorage();
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            }
+        }
+        
+        async function deleteStorageKey(key) {
+            const clientId = document.getElementById('storage-clientId').value;
+            
+            if (!confirm(`Delete key "${key}"?`)) return;
+            
+            try {
+                const result = await api('/user-storage/delete', 'POST', { clientId, key });
+                if (result.success) {
+                    alert(`✅ Key "${key}" deleted`);
+                    loadUserStorage();
+                } else {
+                    alert(`❌ Error: ${result.error}`);
                 }
             } catch (e) {
                 alert(`❌ Error: ${e.message}`);
@@ -1294,7 +1695,8 @@
                             </p>
                             <p style="margin:10px 0 0 0;color:#ccc;font-size:13px">${escapeHtml(p.content.substring(0, 150))}${p.content.length > 150 ? '...' : ''}</p>
                         </div>
-                        <div style="display:flex;gap:5px;flex-shrink:0">
+                        <div style="display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap">
+                            <button class="btn btn-small" onclick="editNewsletter('${p.id}')" style="background:#667eea">✏️ Edit</button>
                             <button class="btn btn-small" onclick="toggleNewsletterPublish('${p.id}', ${!p.published})" style="background:${p.published ? '#ffc107' : '#4ecdc4'};color:#000">
                                 ${p.published ? 'Unpublish' : 'Publish'}
                             </button>
@@ -1305,22 +1707,95 @@
             `).join('');
         }
         
+        async function editNewsletter(id) {
+            const posts = await api('/newsletters');
+            const post = posts.find(p => p.id === id);
+            if (!post) {
+                alert('Newsletter not found');
+                return;
+            }
+            
+            // Fill in the form with existing data
+            document.getElementById('newsletter-title').value = post.title;
+            document.getElementById('newsletter-content').value = post.content;
+            document.getElementById('newsletter-publish').checked = post.published;
+            
+            // Change the create button to update
+            const form = document.querySelector('#panel-newsletter .card:first-of-type');
+            let updateBtn = document.getElementById('newsletter-update-btn');
+            let createBtn = form.querySelector('button.btn-success');
+            
+            if (!updateBtn) {
+                updateBtn = document.createElement('button');
+                updateBtn.id = 'newsletter-update-btn';
+                updateBtn.className = 'btn';
+                updateBtn.style.background = '#667eea';
+                updateBtn.style.marginLeft = '10px';
+                createBtn.parentNode.insertBefore(updateBtn, createBtn.nextSibling);
+            }
+            
+            updateBtn.textContent = '💾 Update Newsletter';
+            updateBtn.onclick = async () => {
+                const title = document.getElementById('newsletter-title').value.trim();
+                const content = document.getElementById('newsletter-content').value.trim();
+                const published = document.getElementById('newsletter-publish').checked;
+                
+                if (!title || !content) {
+                    alert('Please fill in title and content');
+                    return;
+                }
+                
+                const result = await api(`/newsletter/${id}`, 'PUT', { title, content, published });
+                if (result && result.success) {
+                    document.getElementById('newsletter-title').value = '';
+                    document.getElementById('newsletter-content').value = '';
+                    document.getElementById('newsletter-publish').checked = false;
+                    updateBtn.remove();
+                    loadNewsletterPosts();
+                    alert('✅ Newsletter updated!');
+                }
+            };
+            
+            // Add cancel button
+            let cancelBtn = document.getElementById('newsletter-cancel-btn');
+            if (!cancelBtn) {
+                cancelBtn = document.createElement('button');
+                cancelBtn.id = 'newsletter-cancel-btn';
+                cancelBtn.className = 'btn btn-danger';
+                cancelBtn.style.marginLeft = '10px';
+                cancelBtn.textContent = '❌ Cancel Edit';
+                cancelBtn.onclick = () => {
+                    document.getElementById('newsletter-title').value = '';
+                    document.getElementById('newsletter-content').value = '';
+                    document.getElementById('newsletter-publish').checked = false;
+                    updateBtn.remove();
+                    cancelBtn.remove();
+                };
+                updateBtn.parentNode.insertBefore(cancelBtn, updateBtn.nextSibling);
+            }
+            
+            // Scroll to form
+            form.scrollIntoView({ behavior: 'smooth' });
+        }
+        
         async function loadNewsletterSubscribers() {
             const container = document.getElementById('newsletter-subscribers');
+            const countDiv = document.getElementById('newsletter-subs-count');
             container.innerHTML = '<p>Loading...</p>';
             
             const subs = await api('/newsletter-subscribers');
             if (!subs || subs.length === 0) {
                 container.innerHTML = '<p style="color:#888">No subscribers yet</p>';
+                countDiv.textContent = '0 subscribers';
                 return;
             }
             
+            countDiv.textContent = `${subs.length} subscriber${subs.length !== 1 ? 's' : ''}`;
             container.innerHTML = `
-                <p style="margin-bottom:10px;color:#4ecdc4">${subs.length} subscriber(s)</p>
                 <div style="max-height:200px;overflow-y:auto">
                     ${subs.map(s => `
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #333">
-                            <span style="font-family:monospace">${s.userCode}</span>
+                            <span style="font-family:monospace">${s.userCode || s.username || 'Unknown'}</span>
                             <span style="color:#888;font-size:12px">${new Date(s.subscribedAt).toLocaleDateString()}</span>
                         </div>
                     `).join('')}

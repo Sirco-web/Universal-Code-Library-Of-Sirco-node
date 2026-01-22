@@ -362,40 +362,27 @@ scheduleNextCheck();</script></head>
         function getUserCookies() {
             // Exclude sensitive keys and internal metadata - editing these can break the site
             const exclude = [
-            'cookie_saver_email',
-            'cookie_saver_name',
-            'cookie_saver_password',
-            'newsletter_hide',
-            'cookie_saver_signedup',
-            'cookie_saver_username',
-            'access',
-            'device_code',
-            'username',
-            'removerKey',
-            'token',
-            'downloader_enabled',
-            'shortcut_config',
-            // internal/meta keys — keep them out of user-visible lists/exports
-            'messageCount',
-            'messageCountDate',
-            'welcome_tour_shown',
-            'wasOffline',
-            'classic_mode',
-            'dark_mode',
-            'chat_history',
-            // Security-sensitive keys - NEVER show these (editing breaks site)
-            'owner_token',
-            'clientId',
-            'accessCookieId',
-            'userCode',
-            'banned',
-            'banReason',
-            'game_dictionary_recent',
-            'game_dictionary_recent_enabled',
-            'sirco_menu_hidden',
-            'sirco_menu_position',
-            'sirco_menu_active_tab',
-            'sirco_data_saver_stats'
+            // Auth & identity
+            'cookie_saver_email', 'cookie_saver_name', 'cookie_saver_password',
+            'cookie_saver_signedup', 'cookie_saver_username',
+            'access', 'device_code', 'username', 'removerKey', 'token',
+            'owner_token', 'clientId', 'accessCookieId', 'userCode',
+            // Ban/moderation
+            'banned', 'banReason',
+            // Internal prefs & UI state
+            'newsletter_hide', 'downloader_enabled', 'shortcut_config',
+            'messageCount', 'messageCountDate', 'welcome_tour_shown',
+            'wasOffline', 'classic_mode', 'dark_mode', 'chat_history',
+            // Sirco menu state
+            'sirco_menu_hidden', 'sirco_menu_position', 'sirco_menu_active_tab',
+            'sirco_menu_size',
+            // Data saver
+            'sirco_data_saver_enabled', 'sirco_data_saver_stats',
+            // Game dictionary
+            'game_dictionary_recent', 'game_dictionary_recent_enabled',
+            // Misc internal
+            'readNewsletters', 'startup-time', 'supertube_session',
+            'sirco_announcement_dismissed'
             ];
             const all = getAllCookies();
             const filtered = {};
@@ -407,40 +394,27 @@ scheduleNextCheck();</script></head>
         function getUserLocalStorage() {
             // Exclude sensitive keys - editing these can break the site
             const exclude = [
-            'cookie_saver_email',
-            'cookie_saver_name',
-            'cookie_saver_password',
-            'newsletter_hide',
-            'cookie_saver_signedup',
-            'cookie_saver_username',
-            'access',
-            'device_code',
-            'username',
-            'removerKey',
-            'token',
-            'downloader_enabled',
-            'shortcut_config',
-            // internal/meta keys — keep them out of user-visible lists/exports
-            'messageCount',
-            'messageCountDate',
-            'welcome_tour_shown',
-            'wasOffline',
-            'classic_mode',
-            'dark_mode',
-            'chat_history',
-            // Security-sensitive keys - NEVER show these (editing breaks site)
-            'owner_token',
-            'clientId',
-            'accessCookieId',
-            'userCode',
-            'banned',
-            'banReason',
-            'game_dictionary_recent',
-            'game_dictionary_recent_enabled',
-            'sirco_menu_hidden',
-            'sirco_menu_position',
-            'sirco_menu_active_tab',
-            'sirco_data_saver_stats'
+            // Auth & identity
+            'cookie_saver_email', 'cookie_saver_name', 'cookie_saver_password',
+            'cookie_saver_signedup', 'cookie_saver_username',
+            'access', 'device_code', 'username', 'removerKey', 'token',
+            'owner_token', 'clientId', 'accessCookieId', 'userCode',
+            // Ban/moderation
+            'banned', 'banReason',
+            // Internal prefs & UI state
+            'newsletter_hide', 'downloader_enabled', 'shortcut_config',
+            'messageCount', 'messageCountDate', 'welcome_tour_shown',
+            'wasOffline', 'classic_mode', 'dark_mode', 'chat_history',
+            // Sirco menu state
+            'sirco_menu_hidden', 'sirco_menu_position', 'sirco_menu_active_tab',
+            'sirco_menu_size',
+            // Data saver
+            'sirco_data_saver_enabled', 'sirco_data_saver_stats',
+            // Game dictionary
+            'game_dictionary_recent', 'game_dictionary_recent_enabled',
+            // Misc internal
+            'readNewsletters', 'startup-time', 'supertube_session',
+            'sirco_announcement_dismissed'
             ];
             const filtered = {};
             Object.keys(localStorage).forEach(key => {
@@ -539,27 +513,27 @@ scheduleNextCheck();</script></head>
             tbody.innerHTML = '';
             // Only show non-sensitive keys
             const exclude = [
-            'cookie_saver_email',
-            'cookie_saver_name',
-            'cookie_saver_password',
-            'newsletter_hide',
-            'cookie_saver_signedup',
-            'cookie_saver_username',
-            'access',
-            'device_code',
-            'username',
-            'removerKey',
-            'token',
-            'downloader_enabled',
-            'shortcut_config',
-            // internal/meta keys — keep them out of user-visible lists/exports
-            'messageCount',
-            'messageCountDate',
-            'welcome_tour_shown',
-            'wasOffline',
-            'classic_mode',
-            'dark_mode',
-            'chat_history'
+            // Auth & identity
+            'cookie_saver_email', 'cookie_saver_name', 'cookie_saver_password',
+            'cookie_saver_signedup', 'cookie_saver_username',
+            'access', 'device_code', 'username', 'removerKey', 'token',
+            'owner_token', 'clientId', 'accessCookieId', 'userCode',
+            // Ban/moderation
+            'banned', 'banReason',
+            // Internal prefs & UI state
+            'newsletter_hide', 'downloader_enabled', 'shortcut_config',
+            'messageCount', 'messageCountDate', 'welcome_tour_shown',
+            'wasOffline', 'classic_mode', 'dark_mode', 'chat_history',
+            // Sirco menu state
+            'sirco_menu_hidden', 'sirco_menu_position', 'sirco_menu_active_tab',
+            'sirco_menu_size',
+            // Data saver
+            'sirco_data_saver_enabled', 'sirco_data_saver_stats',
+            // Game dictionary
+            'game_dictionary_recent', 'game_dictionary_recent_enabled',
+            // Misc internal
+            'readNewsletters', 'startup-time', 'supertube_session',
+            'sirco_announcement_dismissed'
             ];
             const keys = Object.keys(localStorage).filter(key => !exclude.includes(key));
             if (keys.length === 0) {

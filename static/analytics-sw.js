@@ -128,6 +128,21 @@ self.addEventListener('message', event => {
     if (event.data && event.data.type === 'REMOVE_ALL') {
         caches.delete(CACHE_NAME);
     }
+    // Clean up files that should never be cached (banner.html, version.txt)
+    if (event.data && event.data.type === 'CLEANUP_NEVER_CACHE') {
+        (async () => {
+            const cache = await caches.open(CACHE_NAME);
+            const keys = await cache.keys();
+            const neverCache = ['banner.html', 'version.txt'];
+            for (const key of keys) {
+                const url = typeof key === 'string' ? key : key.url;
+                if (neverCache.some(f => url.endsWith(f))) {
+                    await cache.delete(key);
+                    console.log('🧹 Removed from cache:', url);
+                }
+            }
+        })();
+    }
     // Soundboard: cache all sounds for offline use
     if (event.data && event.data.type === 'CACHE_SOUNDBOARD' && event.data.files) {
         (async () => {
@@ -282,6 +297,19 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     // Only handle GET requests
     if (event.request.method !== 'GET') return;
+    
+    // NEVER cache these files - they change frequently and create duplicate copies
+    const neverCacheFiles = ['/banner.html', '/version.txt', 'banner.html', 'version.txt'];
+    const reqUrl = event.request.url;
+    const shouldSkipCache = neverCacheFiles.some(f => reqUrl.endsWith(f));
+    
+    if (shouldSkipCache) {
+        // Just fetch from network, never cache
+        event.respondWith(
+            fetch(event.request).catch(() => new Response('', { status: 503 }))
+        );
+        return;
+    }
 
     // Soundboard audio files: serve from soundboard cache if available
     if (event.request.url.includes('/CODE/sound/') && 
@@ -390,6 +418,25 @@ self.addEventListener('fetch', event => {
                 // Fetch from network
                 try {
                     const response = await fetch(event.request);
+                    
+                    // Handle 404 errors immediately - redirect to 404 page
+                    if (response.status === 404) {
+                        const url404 = new URL('/404.html', self.location.origin);
+                        const resp404 = await fetch(url404);
+                        if (resp404.ok) {
+                            return new Response(await resp404.text(), {
+                                status: 404,
+                                headers: { 'Content-Type': 'text/html' }
+                            });
+                        }
+                        return response;
+                    }
+                    
+                    // Handle other error codes (401, 403, 500, etc.) - pass through
+                    if (!response.ok && response.status >= 400) {
+                        return response;
+                    }
+                    
                     const ct = response.headers.get('content-type') || '';
                     let respToReturn = response;
                     

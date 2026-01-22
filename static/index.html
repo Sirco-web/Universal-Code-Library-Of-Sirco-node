@@ -514,6 +514,147 @@
     renderTabs();
     renderEditors();
     renderMainHtmlSelect();
+    
+    // ============== KONAMI CODE HIDDEN MODE ==============
+    // Konami code: up up down down left right left right b a
+    const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+    let konamiIndex = 0;
+    
+    // Exit sequence: Escape + up up down down
+    const exitCode = ['Escape', 'ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown'];
+    let exitIndex = 0;
+    
+    let hiddenModeActive = false;
+    let hiddenFrame = null;
+    const originalTitle = document.title;
+    const originalFavicon = document.querySelector('link[rel="icon"]')?.href || '';
+    
+    document.addEventListener('keydown', (e) => {
+        // Check for exit code when hidden mode is active
+        if (hiddenModeActive) {
+            if (e.code === exitCode[exitIndex] || e.key === exitCode[exitIndex]) {
+                exitIndex++;
+                if (exitIndex === exitCode.length) {
+                    closeHiddenMode();
+                    exitIndex = 0;
+                }
+            } else {
+                exitIndex = 0;
+            }
+            return;
+        }
+        
+        // Check for Konami code
+        if (e.code === konamiCode[konamiIndex]) {
+            konamiIndex++;
+            if (konamiIndex === konamiCode.length) {
+                openHiddenMode();
+                konamiIndex = 0;
+            }
+        } else {
+            konamiIndex = 0;
+        }
+    });
+    
+    function openHiddenMode() {
+        // Check if user has access
+        const cookies = document.cookie.split("; ");
+        const accessCookie = cookies.find(c => c.startsWith("access="));
+        if (!accessCookie || accessCookie.split("=")[1] !== "1") {
+            console.log('🔒 No access for hidden mode');
+            return;
+        }
+        
+        hiddenModeActive = true;
+        
+        // Create hidden frame overlay
+        hiddenFrame = document.createElement('div');
+        hiddenFrame.id = 'hidden-mode-frame';
+        hiddenFrame.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 999999;
+            background: #fff;
+        `;
+        
+        // Create iframe that doesn't affect history
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = `
+            width: 100%;
+            height: 100%;
+            border: none;
+        `;
+        iframe.name = 'hiddenModeFrame';
+        
+        // Use srcdoc to avoid adding to history, then navigate inside
+        iframe.srcdoc = `<!DOCTYPE html><html><head><base target="_self"></head><body style="margin:0;padding:0;">
+            <script>
+                // Navigate without adding to parent history
+                window.location.replace('/welcome/');
+            <\/script>
+        </body></html>`;
+        
+        hiddenFrame.appendChild(iframe);
+        document.body.appendChild(hiddenFrame);
+        
+        // Prevent body scroll
+        document.body.style.overflow = 'hidden';
+        
+        // Watch for title/favicon changes and revert them
+        const titleObserver = new MutationObserver(() => {
+            if (hiddenModeActive && document.title !== originalTitle) {
+                document.title = originalTitle;
+            }
+        });
+        titleObserver.observe(document.querySelector('title') || document.head, { 
+            childList: true, 
+            characterData: true,
+            subtree: true 
+        });
+        
+        // Store observer for cleanup
+        hiddenFrame._titleObserver = titleObserver;
+        
+        // Intercept any favicon changes
+        const faviconObserver = new MutationObserver(() => {
+            if (hiddenModeActive) {
+                const favicon = document.querySelector('link[rel="icon"]');
+                if (favicon && favicon.href !== originalFavicon) {
+                    favicon.href = originalFavicon;
+                }
+            }
+        });
+        faviconObserver.observe(document.head, { childList: true, subtree: true });
+        hiddenFrame._faviconObserver = faviconObserver;
+        
+        console.log('🕵️ Hidden mode activated! Press ESC + ↑↑↓↓ to exit');
+    }
+    
+    function closeHiddenMode() {
+        if (!hiddenFrame) return;
+        
+        // Cleanup observers
+        if (hiddenFrame._titleObserver) hiddenFrame._titleObserver.disconnect();
+        if (hiddenFrame._faviconObserver) hiddenFrame._faviconObserver.disconnect();
+        
+        // Remove frame
+        hiddenFrame.remove();
+        hiddenFrame = null;
+        hiddenModeActive = false;
+        
+        // Restore body scroll
+        document.body.style.overflow = '';
+        
+        // Restore title and favicon
+        document.title = originalTitle;
+        const favicon = document.querySelector('link[rel="icon"]');
+        if (favicon && originalFavicon) favicon.href = originalFavicon;
+        
+        console.log('🕵️ Hidden mode deactivated');
+    }
     </script>
 </body>
 </html>

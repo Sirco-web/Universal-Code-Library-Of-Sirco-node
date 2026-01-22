@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>(function () {
+        const cookies = document.cookie.split("; ").map(c => c.trim());
+        const accessCookie = cookies.find(c => c.startsWith("access="));
+        const accessValue = accessCookie ? accessCookie.split("=")[1] : null;
+        if (accessValue !== "1") {
+            window.location.replace("/404.html");
+        }
+    })();</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Version History - Sirco</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Sirco-team/files/refs/heads/main/ugb/UBG_favcon.png">
+    <style>
+        :root {
+            --bg-primary: #0f0f23;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #16213e;
+            --text-primary: #e4e4f0;
+            --text-secondary: #9ca3af;
+            --accent-blue: #4da3ff;
+            --accent-purple: #a855f7;
+            --accent-green: #22c55e;
+            --accent-orange: #f97316;
+            --border-color: #374151;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 0;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1em;
+        }
+
+        .current-version {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        .version-timeline {
+            position: relative;
+        }
+
+        .version-timeline::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, var(--accent-blue), var(--accent-purple), var(--accent-green));
+        }
+
+        .version-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 24px;
+            padding-left: 60px;
+            margin-bottom: 20px;
+            position: relative;
+            border: 1px solid var(--border-color);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .version-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 20px rgba(77, 163, 255, 0.15);
+        }
+
+        .version-card::before {
+            content: '';
+            position: absolute;
+            left: 14px;
+            top: 28px;
+            width: 14px;
+            height: 14px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            border: 3px solid var(--bg-primary);
+        }
+
+        .version-card.major::before {
+            background: var(--accent-purple);
+            width: 18px;
+            height: 18px;
+            left: 12px;
+        }
+
+        .version-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .version-number {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: var(--accent-blue);
+        }
+
+        .version-card.major .version-number {
+            color: var(--accent-purple);
+        }
+
+        .version-date {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        .version-tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .tag-new {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--accent-green);
+        }
+
+        .tag-update {
+            background: rgba(77, 163, 255, 0.2);
+            color: var(--accent-blue);
+        }
+
+        .tag-fix {
+            background: rgba(249, 115, 22, 0.2);
+            color: var(--accent-orange);
+        }
+
+        .version-changes {
+            list-style: none;
+        }
+
+        .version-changes li {
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .version-changes li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--accent-blue);
+            font-weight: bold;
+        }
+
+        .version-changes li strong {
+            color: var(--text-primary);
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent-blue);
+            text-decoration: none;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background: var(--bg-card);
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .back-btn:hover {
+            background: var(--bg-secondary);
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.8em;
+            }
+            .version-card {
+                padding-left: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/welcome/" class="back-btn">
+            ← Back to Home
+        </a>
+
+        <header>
+            <h1>📜 Version History</h1>
+            <p class="subtitle">Track all the updates and improvements to Sirco</p>
+            <div class="current-version">Current: v1.26.00</div>
+        </header>
+
+        <div class="version-timeline">
+            <!-- Version 1.26.00 -->
+            <div class="version-card major">
+                <div class="version-header">
+                    <span class="version-number">v1.26.00</span>
+                    <span class="version-tag tag-new">Major Update</span>
+                </div>
+                <ul class="version-changes">
+                    <li><strong>New Hidden Mode:</strong> Added secret Konami code feature for quick access</li>
+                    <li><strong>Improved 404 Page:</strong> Complete redesign with modern look and helpful navigation</li>
+                    <li><strong>Better AI Page:</strong> Fixed styling and improved performance</li>
+                    <li><strong>Updates Page:</strong> Brand new HTML version with full version history</li>
+                </ul>
+            </div>
+
+            <!-- Version 1.25.15 -->
+            <div class="version-card">
+                <div class="version-header">
+                    <span class="version-number">v1.25.15</span>
+                    <span class="version-tag tag-update">Update</span>
+                </div>
+                <ul class="version-changes">
+                    <li><strong>SuperTube Timer:</strong> Fixed timer behavior for accurate playback tracking</li>
+                    <li><strong>Account System:</strong> Major overhaul with improved security and features</li>
+                    <li><strong>Performance:</strong> General speed improvements across the site</li>
+                </ul>
+            </div>
+
+            <!-- Version 1.25.10 -->
+            <div class="version-card">
+                <div class="version-header">
+                    <span class="version-number">v1.25.10</span>
+                    <span class="version-tag tag-new">New Features</span>
+                </div>
+                <ul class="version-changes">
+                    <li><strong>SuperTube Updates:</strong> Improved video player with better time tracking</li>
+                    <li><strong>Data Saver Mode:</strong> Added data saving features to reduce bandwidth</li>
+                    <li><strong>Downloader Fixes:</strong> Fixed caching issues with the offline downloader</li>
+                </ul>
+            </div>
+
+            <!-- Version 1.25.00 -->
+            <div class="version-card major">
+                <div class="version-header">
+                    <span class="version-number">v1.25.00</span>
+                    <span class="version-tag tag-new">Major Update</span>
+                </div>
+                <ul class="version-changes">
+                    <li><strong>Time Codes:</strong> Added new time code features for videos</li>
+                    <li><strong>Sound Board:</strong> Fixed caching issues and improved performance</li>
+                    <li><strong>Tube Improvements:</strong> Better video playback experience</li>
+                </ul>
+            </div>
+
+            <!-- Version 1.24.50 -->
+            <div class="version-card">
+                <div class="version-header">
+                    <span class="version-number">v1.24.50</span>
+                    <span class="version-tag tag-new">New Features</span>
+                </div>
+                <ul class="version-changes">
+                    <li><strong>Site Status:</strong> Added site status management system</li>
+                    <li><strong>Menu Button Fix:</strong> Improved floating menu button behavior</li>
+                </ul>
+            </div>
+
+            <!-- Version 1.24.00 -->
+            <div class="version-card major">
+                <div class="version-header">
+                    <span class="version-number">v1.24.00</span>
+                    <span class="version-tag tag-new">Major Update</span>
+                </div>
+                <ul class="version-changes">
+                    <li><strong>Games Fixed:</strong> Fixed all game loading and image issues</li>
+                    <li><strong>SuperTube Caching:</strong> Improved caching for better performance</li>
+                    <li><strong>Bug Fixes:</strong> Fixed various crashes and stability issues</li>
+                </ul>
+            </div>
+
+            <!-- Version 1.23.50 -->
+            <div class="version-card">
+                <div class="version-header">
+                    <span class="version-number">v1.23.50</span>
+                    <span class="version-tag tag-update">Update</span>
+                </div>
+                <ul class="version-changes">
+                    <li><strong>User Sign In:</strong> Added user sign-in system with import/export</li>
+                    <li><strong>Notifications:</strong> Added notification badge to menu</li>
+                    <li><strong>Interface:</strong> Improved site interaction and menus</li>
+                </ul>
+            </div>
+
+            <!-- Version 1.23.00 -->
+            <div class="version-card major">
+                <div class="version-header">
+                    <span class="version-number">v1.23.00</span>
+                    <span class="version-tag tag-new">Major Update</span>
+                </div>
+                <ul class="version-changes">
+                    <li><strong>Menu Button:</strong> Added floating menu button for quick access</li>
+                    <li><strong>Proxy Fixes:</strong> Fixed proxy issues and improved reliability</li>
+                    <li><strong>User Menu:</strong> Added user ID display in analytics and menu</li>
+                </ul>
+            </div>
+
+            <!-- Version 1.22.50 -->
+            <div class="version-card">
+                <div class="version-header">
+                    <span class="version-number">v1.22.50</span>
+                    <span class="version-tag tag-new">New Features</span>
+                </div>
+                <ul class="version-changes">
+                    <li><strong>Game Proxy:</strong> Added game proxy from GitHub for more games</li>
+                    <li><strong>User Sync:</strong> Added auto-sync for user data</li>
+                </ul>
+            </div>
+
+            <!-- Version 1.22.01 -->
+            <div class="version-card">
+                <div class="version-header">
+                    <span class="version-number">v1.22.01</span>
+                    <span class="version-tag tag-update">Update</span>
+                </div>
+                <ul class="version-changes">
+                    <li><strong>Homepage:</strong> Updated to a new, improved version of One Compiler</li>
+                    <li><strong>Account System:</strong> Fixed sign up verification and user experience</li>
+                </ul>
+            </div>
+
+            <!-- Earlier versions -->
+            <div class="version-card">
+                <div class="version-header">
+                    <span class="version-number">Earlier Versions</span>
+                    <span class="version-tag tag-fix">History</span>
+                </div>
+                <ul class="version-changes">
+                    <li>Initial release of Sirco Universal Code Library</li>
+                    <li>Added games, proxies, tools, and coding features</li>
+                    <li>Built soundboard, SuperTube, and AI integrations</li>
+                    <li>Continuous improvements and bug fixes</li>
+                </ul>
+            </div>
+        </div>
+
+        <footer>
+            <p>Sirco Universal Code Library • Made with ❤️</p>
+        </footer>
+    </div>
+
+    <script>
+        // Send height to parent for iframe embedding
+        function sendHeight() {
+            window.parent.postMessage({
+                type: 'pageHeight',
+                height: document.body.scrollHeight
+            }, '*');
+        }
+        window.onload = sendHeight;
+        window.onresize = sendHeight;
+    </script>
+</body>
+</html>
