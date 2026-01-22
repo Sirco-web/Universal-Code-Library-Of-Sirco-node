@@ -1692,6 +1692,7 @@
                         <p><strong>Client ID:</strong> <code>${u.clientId}</code></p>
                         <p><strong>Created:</strong> ${new Date(u.createdAt).toLocaleString()}</p>
                         <p><strong>Last Seen:</strong> ${u.lastSeen ? new Date(u.lastSeen).toLocaleString() : 'Never'}</p>
+                        <p><strong>Last Synced:</strong> ${u.lastSyncedAt ? new Date(u.lastSyncedAt).toLocaleString() : '<span style="color:#f59e0b">⚠️ Never (no data synced)</span>'}</p>
                         <p><strong>Last IP:</strong> ${u.lastIP || u.creationIP || 'Unknown'}</p>
                         <p><strong>Total Time on Site:</strong> ${timeStr}</p>
                         <p><strong>Password Set:</strong> ${u.passwordHash ? '✅ Yes' : '❌ No'}</p>

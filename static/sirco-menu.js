@@ -2487,46 +2487,57 @@
             'clientId', 'userCode', 'username' // These are stored separately
         ];
         
+        // Combine all data into one object
+        const combinedData = {};
+        
         // Collect localStorage data
-        const localStorageData = {};
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (!NEVER_SYNC_KEYS.includes(key)) {
                 try {
-                    localStorageData[key] = localStorage.getItem(key);
+                    combinedData['ls_' + key] = localStorage.getItem(key);
                 } catch (e) {}
             }
         }
         
         // Collect cookies
-        const cookieData = {};
         document.cookie.split(';').forEach(c => {
             const [key, val] = c.trim().split('=');
             if (key && !NEVER_SYNC_KEYS.includes(key)) {
-                cookieData[key] = val;
+                combinedData['cookie_' + key] = val;
             }
         });
         
+        // Add access expiration for tracking
+        const accessExpires = localStorage.getItem('sirco_access_expires');
+        if (accessExpires) {
+            combinedData['_accessExpires'] = accessExpires;
+        }
+        
         try {
-            await fetch('/api/account/sync', {
+            const resp = await fetch('/api/account/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     clientId: user.clientId,
-                    localStorage: localStorageData,
-                    cookies: cookieData
+                    data: combinedData
                 })
             });
+            if (resp.ok) {
+                const result = await resp.json();
+                console.log('[Sirco] Data synced:', result.syncedKeys?.length || 0, 'keys');
+                localStorage.setItem('sirco_last_sync', new Date().toISOString());
+            }
         } catch (e) {
             // Offline - sync later
         }
     }
     
-    // Sync data periodically (every 5 minutes, or every 15 minutes if data saver is on)
+    // Sync data periodically (every 20 seconds, or every 60 seconds if data saver is on)
     let lastSyncTime = 0;
     function scheduleSyncIfNeeded() {
         const dataSaver = localStorage.getItem('sirco_data_saver') === 'true';
-        const syncInterval = dataSaver ? 15 * 60 * 1000 : 5 * 60 * 1000; // 15 or 5 minutes
+        const syncInterval = dataSaver ? 60 * 1000 : 20 * 1000; // 60 or 20 seconds
         
         const now = Date.now();
         if (now - lastSyncTime >= syncInterval) {
@@ -2537,8 +2548,8 @@
     
     // Initial sync and schedule regular syncs
     if (window === window.top) {
-        setTimeout(syncUserData, 5000); // First sync after 5 seconds
-        setInterval(scheduleSyncIfNeeded, 60000); // Check every minute
+        setTimeout(syncUserData, 3000); // First sync after 3 seconds
+        setInterval(scheduleSyncIfNeeded, 10000); // Check every 10 seconds
     }
     
     function showBannedOverlay(reason) {

@@ -1798,7 +1798,7 @@ const NEVER_SYNC_KEYS = [
 
 // Sync user data to server
 app.post('/api/account/sync', (req, res) => {
-    const { clientId, data } = req.body;
+    const { clientId, data, localStorage: lsData, cookies: cookieData } = req.body;
     
     if (!clientId) {
         return res.status(400).json({ error: 'clientId required' });
@@ -1809,14 +1809,45 @@ app.post('/api/account/sync', (req, res) => {
         return res.status(404).json({ error: 'User not found' });
     }
     
+    // Combine data from all possible formats (backward compatible)
+    let allData = {};
+    if (data && typeof data === 'object') {
+        allData = { ...allData, ...data };
+    }
+    if (lsData && typeof lsData === 'object') {
+        for (const [key, value] of Object.entries(lsData)) {
+            allData['ls_' + key] = value;
+        }
+    }
+    if (cookieData && typeof cookieData === 'object') {
+        for (const [key, value] of Object.entries(cookieData)) {
+            allData['cookie_' + key] = value;
+        }
+    }
+    
+    // Extract and set access expiration if provided
+    if (allData._accessExpires) {
+        const expiresDate = new Date(allData._accessExpires);
+        if (!isNaN(expiresDate.getTime())) {
+            // Always update from client sync (client is source of truth for access)
+            const fiftyYears = Date.now() + (50 * 365 * 24 * 60 * 60 * 1000);
+            if (expiresDate.getTime() > fiftyYears) {
+                users[clientId].accessNeverExpires = true;
+                users[clientId].accessExpires = null;
+            } else {
+                users[clientId].accessExpires = expiresDate.toISOString();
+                users[clientId].accessNeverExpires = false;
+            }
+        }
+        delete allData._accessExpires; // Don't store in syncedData
+    }
+    
     // Filter out sensitive keys
     const filteredData = {};
-    if (data && typeof data === 'object') {
-        for (const [key, value] of Object.entries(data)) {
-            const keyLower = key.toLowerCase();
-            if (!NEVER_SYNC_KEYS.some(nsk => keyLower.includes(nsk.toLowerCase()))) {
-                filteredData[key] = value;
-            }
+    for (const [key, value] of Object.entries(allData)) {
+        const keyLower = key.toLowerCase();
+        if (!NEVER_SYNC_KEYS.some(nsk => keyLower.includes(nsk.toLowerCase()))) {
+            filteredData[key] = value;
         }
     }
     
@@ -1826,6 +1857,8 @@ app.post('/api/account/sync', (req, res) => {
         ...filteredData
     };
     users[clientId].lastSyncedAt = new Date().toISOString();
+    users[clientId].lastSeen = new Date().toISOString();
+    users[clientId].lastIP = getClientIP(req);
     saveUsers(users);
     
     res.json({ success: true, syncedKeys: Object.keys(filteredData) });
