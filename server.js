@@ -731,7 +731,10 @@ app.post('/api/owner/404s/clear', verifyOwnerToken, (req, res) => {
 // Get all users
 app.get('/api/owner/users', verifyOwnerToken, (req, res) => {
     const users = loadUsers();
-    res.json(Object.values(users));
+    // Filter out deleted users unless ?showDeleted=true
+    const showDeleted = req.query.showDeleted === 'true';
+    const filteredUsers = Object.values(users).filter(u => showDeleted || !u.deleted);
+    res.json(filteredUsers);
 });
 
 // Ban user
@@ -1805,8 +1808,22 @@ app.post('/api/account/sync', (req, res) => {
     }
     
     const users = loadUsers();
+    
+    // Auto-create user if they don't exist (for anonymous tracking)
     if (!users[clientId]) {
-        return res.status(404).json({ error: 'User not found' });
+        const ip = getClientIP(req);
+        users[clientId] = {
+            clientId,
+            username: 'Anonymous-' + clientId.substring(0, 6),
+            userCode: null, // Will be assigned on proper registration
+            createdAt: new Date().toISOString(),
+            creationIP: ip,
+            lastIP: ip,
+            lastSeen: new Date().toISOString(),
+            userAgent: req.headers['user-agent'],
+            syncedData: {},
+            isAnonymous: true // Mark as anonymous until they register
+        };
     }
     
     // Combine data from all possible formats (backward compatible)
@@ -3110,12 +3127,13 @@ async function processStatusQueue() {
             serverSettings.siteMessage = change.message || '';
             serverSettings.siteReason = change.reason || '';
             saveSettings();
+            // Log without req object (use null, the function handles it)
             logEvent('site_status_change', { 
                 status: change.status,
                 message: change.message || null,
                 reason: change.reason || null,
                 changedBy: change.ip 
-            }, { ip: change.ip });
+            }, null);
         } catch (e) {
             console.error('Failed to process status change:', e);
         }
