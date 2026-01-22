@@ -75,7 +75,7 @@ window.addEventListener('DOMContentLoaded', function() {
     if (!document.querySelector('.activate-btn-area')) {
         const activateDiv = document.createElement('div');
         activateDiv.className = 'activate-btn-area';
-        activateDiv.innerHTML = `<a href="/activate?key=soifthetestsarecalledthatthenhowdoyouexist" class="activate-btn" tabindex="-1">Activate</a>`;
+        activateDiv.innerHTML = `<a href="/activate/" class="activate-btn" tabindex="-1">Activate</a>`;
         document.body.appendChild(activateDiv);
     }
 });

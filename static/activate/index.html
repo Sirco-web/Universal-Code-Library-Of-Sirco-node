@@ -320,8 +320,8 @@
       try {
         // Check if user is banned before allowing activation
         const clientId = localStorage.getItem('sirco_client_id') || '';
-        const accessCookieId = localStorage.getItem('accessCookieId') || '';
-        const banCheck = await fetch(`/api/check-banned?clientId=${encodeURIComponent(clientId)}&accessCookieId=${encodeURIComponent(accessCookieId)}`);
+        let existingAccessCookieId = localStorage.getItem('accessCookieId') || '';
+        const banCheck = await fetch(`/api/check-banned?clientId=${encodeURIComponent(clientId)}&accessCookieId=${encodeURIComponent(existingAccessCookieId)}`);
         const banResult = await banCheck.json();
         
         if (banResult.banned) {
@@ -339,8 +339,8 @@
         // Store expiration in localStorage for heartbeat syncing
         localStorage.setItem('sirco_access_expires', expirationDate.toISOString());
 
-        // Generate access cookie ID for tracking
-        const accessCookieId = generateId();
+        // Generate access cookie ID for tracking (or keep existing)
+        const accessCookieId = existingAccessCookieId || generateId();
         localStorage.setItem('accessCookieId', accessCookieId);
 
         // Generate external code
