@@ -988,6 +988,45 @@ app.post('/api/owner/revoke-access', verifyOwnerToken, (req, res) => {
     res.json({ success: true, message: 'Access revoked' });
 });
 
+// Bulk set access expiration for users without it
+app.post('/api/owner/bulk-set-access', verifyOwnerToken, (req, res) => {
+    const { days, neverExpires } = req.body;
+    
+    if (!days && !neverExpires) {
+        return res.status(400).json({ error: 'days or neverExpires required' });
+    }
+    
+    const users = loadUsers();
+    let updated = 0;
+    
+    for (const clientId of Object.keys(users)) {
+        const user = users[clientId];
+        // Only update users without access expiration set
+        if (!user.accessExpires && !user.accessNeverExpires) {
+            if (neverExpires) {
+                user.accessNeverExpires = true;
+                user.accessExpires = null;
+            } else {
+                const expirationDate = new Date();
+                expirationDate.setDate(expirationDate.getDate() + parseInt(days));
+                user.accessExpires = expirationDate.toISOString();
+                user.accessNeverExpires = false;
+            }
+            user.accessBulkSetAt = new Date().toISOString();
+            updated++;
+        }
+    }
+    
+    saveUsers(users);
+    logEvent('bulk_access_set', { updated, days: days || 'forever' }, req);
+    
+    res.json({ 
+        success: true, 
+        message: `Updated ${updated} users`,
+        updated 
+    });
+});
+
 // Send real-time command to user (executes on their next check-in, which is every few seconds)
 app.post('/api/owner/send-command', verifyOwnerToken, (req, res) => {
     const { clientId, command, data } = req.body;
@@ -1316,7 +1355,7 @@ app.get('/api/owner/user-data/:clientId', verifyOwnerToken, (req, res) => {
 
 // User sends heartbeat with activity info
 app.post('/api/heartbeat', (req, res) => {
-    const { clientId, page, isActiveTab, visibilityState } = req.body;
+    const { clientId, page, isActiveTab, visibilityState, accessExpires } = req.body;
     
     if (!clientId) {
         return res.status(400).json({ error: 'clientId required' });
@@ -1337,6 +1376,28 @@ app.post('/api/heartbeat', (req, res) => {
     activity.currentPage = page;
     activity.isActiveTab = isActiveTab && visibilityState === 'visible';
     activity.visibilityState = visibilityState;
+    
+    // Sync access expiration from client cookie if provided
+    if (accessExpires) {
+        const users = loadUsers();
+        if (users[clientId] && !users[clientId].accessExpires && !users[clientId].accessNeverExpires) {
+            // Only update if not already set (don't override owner-set values)
+            const expiresDate = new Date(accessExpires);
+            if (!isNaN(expiresDate.getTime())) {
+                // Check if it's a "forever" date (year 9999 or more than 50 years from now)
+                const fiftyYears = Date.now() + (50 * 365 * 24 * 60 * 60 * 1000);
+                if (expiresDate.getTime() > fiftyYears) {
+                    users[clientId].accessNeverExpires = true;
+                    users[clientId].accessExpires = null;
+                } else {
+                    users[clientId].accessExpires = expiresDate.toISOString();
+                    users[clientId].accessNeverExpires = false;
+                }
+                users[clientId].accessSyncedAt = now;
+                saveUsers(users);
+            }
+        }
+    }
     
     // Track page visits (keep last 20)
     if (page && (!activity.recentPages.length || activity.recentPages[0].page !== page)) {

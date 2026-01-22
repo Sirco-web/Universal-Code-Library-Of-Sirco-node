@@ -134,6 +134,9 @@
             const expirationDate = new Date();
             expirationDate.setTime(expirationDate.getTime() + durationInSeconds * 1000);
             document.cookie = `access=1; path=/; expires=${expirationDate.toUTCString()}`;
+            
+            // Store expiration in localStorage for heartbeat syncing
+            localStorage.setItem('sirco_access_expires', expirationDate.toISOString());
 
             document.getElementById("container").innerHTML = `
                 <h1>Activation Successful!</h1>

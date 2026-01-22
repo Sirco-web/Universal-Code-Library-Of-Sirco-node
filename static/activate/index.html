@@ -335,6 +335,9 @@
         const expirationDate = new Date();
         expirationDate.setDate(expirationDate.getDate() + activationDays);
         document.cookie = `access=1; path=/; expires=${expirationDate.toUTCString()}`;
+        
+        // Store expiration in localStorage for heartbeat syncing
+        localStorage.setItem('sirco_access_expires', expirationDate.toISOString());
 
         // Generate access cookie ID for tracking
         const accessCookieId = generateId();
@@ -632,6 +635,9 @@
           const expirationDate = new Date();
           expirationDate.setDate(expirationDate.getDate() + data.days);
           document.cookie = `access=1; path=/; expires=${expirationDate.toUTCString()}`;
+          
+          // Store expiration in localStorage for heartbeat syncing
+          localStorage.setItem('sirco_access_expires', expirationDate.toISOString());
           
           // Generate access cookie ID
           const accessCookieId = generateId();

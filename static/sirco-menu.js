@@ -2623,6 +2623,23 @@
     }
     
     // ============== ACTIVITY HEARTBEAT ==============
+    // Get access cookie expiration date
+    function getAccessCookieExpiration() {
+        try {
+            const cookies = document.cookie.split(';');
+            for (const cookie of cookies) {
+                const [name] = cookie.trim().split('=');
+                if (name === 'access') {
+                    // We can't get expiration from document.cookie directly
+                    // But we can check localStorage for when it was set
+                    const storedExpiry = localStorage.getItem('sirco_access_expires');
+                    if (storedExpiry) return storedExpiry;
+                }
+            }
+        } catch (e) {}
+        return null;
+    }
+    
     async function sendHeartbeat() {
         const user = getUserInfo();
         if (!user.clientId) return;
@@ -2635,7 +2652,8 @@
                     clientId: user.clientId,
                     page: window.location.pathname,
                     isActiveTab: document.hasFocus(),
-                    visibilityState: document.visibilityState
+                    visibilityState: document.visibilityState,
+                    accessExpires: getAccessCookieExpiration()
                 })
             });
         } catch (e) {
