@@ -1611,6 +1611,29 @@
                 const minutes = Math.floor((totalSeconds % 3600) / 60);
                 const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
                 
+                // Format access expiration
+                let accessStatus = '';
+                let accessExpireText = '';
+                if (u.accessNeverExpires) {
+                    accessStatus = '<span style="color:#8b5cf6">♾️ Never Expires</span>';
+                    accessExpireText = 'Permanent';
+                } else if (u.accessExpires) {
+                    const expires = new Date(u.accessExpires);
+                    const now = new Date();
+                    const diff = expires - now;
+                    if (diff <= 0) {
+                        accessStatus = '<span style="color:#ef4444">❌ Expired</span>';
+                        accessExpireText = expires.toLocaleString();
+                    } else {
+                        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                        accessStatus = `<span style="color:#10b981">✅ Active (${days} days left)</span>`;
+                        accessExpireText = expires.toLocaleString();
+                    }
+                } else {
+                    accessStatus = '<span style="color:#6b7280">❓ Not tracked</span>';
+                    accessExpireText = 'Unknown';
+                }
+                
                 content.innerHTML = `
                     <div class="card" style="margin-bottom:15px">
                         <h3>Status</h3>
@@ -1626,12 +1649,33 @@
                         <p><strong>Last Seen:</strong> ${u.lastSeen ? new Date(u.lastSeen).toLocaleString() : 'Never'}</p>
                         <p><strong>Last IP:</strong> ${u.lastIP || u.creationIP || 'Unknown'}</p>
                         <p><strong>Total Time on Site:</strong> ${timeStr}</p>
+                        <p><strong>Password Set:</strong> ${u.passwordHash ? '✅ Yes' : '❌ No'}</p>
+                    </div>
+                    
+                    <div class="card" style="margin-bottom:15px">
+                        <h3>⏰ Access Expiration</h3>
+                        <p><strong>Status:</strong> ${accessStatus}</p>
+                        <p><strong>Expires:</strong> ${accessExpireText}</p>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                            <button class="btn" style="background:#10b981;color:#fff;font-size:12px" onclick="addDaysFromModal('${u.clientId}', 7)">+1 Week</button>
+                            <button class="btn" style="background:#10b981;color:#fff;font-size:12px" onclick="addDaysFromModal('${u.clientId}', 30)">+1 Month</button>
+                            <button class="btn" style="background:#10b981;color:#fff;font-size:12px" onclick="addDaysFromModal('${u.clientId}', 365)">+1 Year</button>
+                            <button class="btn" style="background:#8b5cf6;color:#fff;font-size:12px" onclick="setNeverExpiresFromModal('${u.clientId}')">♾️ Never</button>
+                            <button class="btn" style="background:#ef4444;color:#fff;font-size:12px" onclick="revokeFromModal('${u.clientId}')">🚫 Revoke</button>
+                        </div>
+                        <div style="margin-top:10px">
+                            <label style="font-size:12px;color:#9ca3af">Set specific date:</label>
+                            <div style="display:flex;gap:8px;margin-top:5px">
+                                <input type="datetime-local" id="modal-access-date-${u.clientId}" style="flex:1;padding:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#fff;font-size:12px">
+                                <button class="btn btn-primary" style="font-size:12px" onclick="setDateFromModal('${u.clientId}')">Set</button>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="card" style="margin-bottom:15px">
                         <h3>Recent Pages</h3>
                         ${(a.recentPages || []).length > 0 ? 
-                            a.recentPages.map(p => `
+                            a.recentPages.slice(0,5).map(p => `
                                 <div class="activity-item">
                                     <strong>${p.page}</strong>
                                     <span style="color:#888;float:right">${new Date(p.timestamp).toLocaleTimeString()}</span>
@@ -1641,13 +1685,22 @@
                         }
                     </div>
                     
-                    <div class="card">
+                    <div class="card" style="margin-bottom:15px">
                         <h3>Quick Actions</h3>
-                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
                             <button class="btn btn-danger" onclick="instantBanFromModal('${u.clientId}','${u.username}')">🚫 Ban</button>
                             <button class="btn btn-primary" onclick="redirectFromModal('${u.clientId}')">🔗 Redirect</button>
                             <button class="btn" style="background:#ffc107;color:#000" onclick="api('/send-command','POST',{clientId:'${u.clientId}',command:'refresh'}).then(()=>alert('Refresh queued'))">🔄 Refresh</button>
                             <button class="btn btn-danger" style="background:#8b0000" onclick="api('/send-command','POST',{clientId:'${u.clientId}',command:'revoke'}).then(()=>alert('Access revoked'))">❌ Revoke</button>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+                            <button class="btn" style="background:#667eea;color:#fff" onclick="changeUsernameFromModal('${u.clientId}','${u.username}')">✏️ Change Username</button>
+                            <button class="btn" style="background:#764ba2;color:#fff" onclick="changePasswordFromModal('${u.clientId}','${u.username}')">🔑 Change Password</button>
+                            <button class="btn btn-danger" style="background:#dc143c" onclick="deleteAccountFromModal('${u.clientId}','${u.username}')">🗑️ Delete Account</button>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap">
+                            <button class="btn" style="background:#06b6d4;color:#fff" onclick="viewStorageFromModal('${u.clientId}','${u.username}')">💾 View Storage</button>
+                            <button class="btn" style="background:#6b7280;color:#fff" onclick="closeUserModal();selectUser('${u.clientId}','${u.username}')">📋 Full Panel</button>
                         </div>
                     </div>
                 `;
@@ -1671,6 +1724,122 @@
             api('/redirect-user', 'POST', { clientId, url }).then(() => {
                 alert(`✅ User will be redirected to ${url}`);
             });
+        }
+        
+        // ============== MODAL ACCESS MANAGEMENT ==============
+        async function addDaysFromModal(clientId, days) {
+            const result = await api('/user-access', 'POST', { clientId, addDays: days });
+            if (result.success) {
+                alert(`✅ Added ${days} days!`);
+                // Refresh modal
+                const content = document.getElementById('modal-user-content');
+                const title = document.getElementById('modal-username');
+                updateUserDetail(clientId, content, title);
+            }
+        }
+        
+        async function setNeverExpiresFromModal(clientId) {
+            if (!confirm('Set access to never expire?')) return;
+            const result = await api('/user-access', 'POST', { clientId, neverExpires: true });
+            if (result.success) {
+                alert('✅ Access set to never expire!');
+                const content = document.getElementById('modal-user-content');
+                const title = document.getElementById('modal-username');
+                updateUserDetail(clientId, content, title);
+            }
+        }
+        
+        async function revokeFromModal(clientId) {
+            if (!confirm('⚠️ Revoke access immediately?')) return;
+            const result = await api('/revoke-access', 'POST', { clientId });
+            if (result.success) {
+                alert('✅ Access revoked!');
+                const content = document.getElementById('modal-user-content');
+                const title = document.getElementById('modal-username');
+                updateUserDetail(clientId, content, title);
+            }
+        }
+        
+        async function setDateFromModal(clientId) {
+            const input = document.getElementById(`modal-access-date-${clientId}`);
+            if (!input || !input.value) {
+                alert('Please select a date and time');
+                return;
+            }
+            const result = await api('/user-access', 'POST', { 
+                clientId, 
+                accessExpires: new Date(input.value).toISOString() 
+            });
+            if (result.success) {
+                alert('✅ Expiration date set!');
+                const content = document.getElementById('modal-user-content');
+                const title = document.getElementById('modal-username');
+                updateUserDetail(clientId, content, title);
+            }
+        }
+        
+        // ============== MODAL ACCOUNT MANAGEMENT ==============
+        async function changeUsernameFromModal(clientId, currentUsername) {
+            const newUsername = prompt(`Enter new username for ${currentUsername}:`);
+            if (!newUsername || newUsername.trim() === '') return;
+            
+            const result = await api('/change-username', 'POST', { clientId, newUsername: newUsername.trim() });
+            if (result.success) {
+                alert(`✅ Username changed to "${newUsername}"!`);
+                const content = document.getElementById('modal-user-content');
+                const title = document.getElementById('modal-username');
+                updateUserDetail(clientId, content, title);
+                loadUsers();
+            } else {
+                alert('❌ Failed: ' + (result.error || 'Unknown error'));
+            }
+        }
+        
+        async function changePasswordFromModal(clientId, username) {
+            const newPassword = prompt(`Enter new password for ${username} (min 4 chars):`);
+            if (!newPassword) return;
+            if (newPassword.length < 4) {
+                alert('Password must be at least 4 characters');
+                return;
+            }
+            
+            const result = await api('/change-password', 'POST', { clientId, newPassword });
+            if (result.success) {
+                alert(`✅ Password changed for ${username}!`);
+            } else {
+                alert('❌ Failed: ' + (result.error || 'Unknown error'));
+            }
+        }
+        
+        async function deleteAccountFromModal(clientId, username) {
+            if (!confirm(`⚠️ DANGER: Are you sure you want to permanently delete "${username}"?\n\nThis action CANNOT be undone!`)) return;
+            
+            const confirmText = prompt(`Type "DELETE" to confirm deletion of "${username}":`);
+            if (confirmText !== 'DELETE') {
+                alert('Deletion cancelled');
+                return;
+            }
+            
+            const result = await api('/delete-user', 'POST', { clientId });
+            if (result.success) {
+                alert(`✅ Account "${username}" deleted!`);
+                closeUserModal();
+                loadUsers();
+            } else {
+                alert('❌ Failed: ' + (result.error || 'Unknown error'));
+            }
+        }
+        
+        function viewStorageFromModal(clientId, username) {
+            closeUserModal();
+            selectUser(clientId, username);
+            // Scroll to storage panel after a short delay
+            setTimeout(() => {
+                const storagePanel = document.getElementById('storage-panel');
+                if (storagePanel) {
+                    storagePanel.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, 100);
         }
 
         // ============== NEWSLETTER FUNCTIONS ==============
