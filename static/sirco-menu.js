@@ -2528,6 +2528,19 @@
                         }
                     }
                     break;
+                case 'username_sync':
+                    // Owner changed username - update local storage
+                    if (data.newUsername) {
+                        localStorage.setItem('cookie_saver_username', data.newUsername);
+                        localStorage.setItem('sirco_username', data.newUsername);
+                        console.log('[Sirco] Username updated by owner:', data.newUsername);
+                        // Update display if on user page
+                        const usernameDisplay = document.getElementById('display-username');
+                        if (usernameDisplay) {
+                            usernameDisplay.textContent = data.newUsername;
+                        }
+                    }
+                    break;
                 case 'ok':
                     if (data.clearBanned) {
                         localStorage.removeItem('banned');

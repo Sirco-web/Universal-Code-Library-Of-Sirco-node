@@ -1453,12 +1453,22 @@
                 return;
             }
 
-            container.innerHTML = ips.map(ip => `
-                <div style="display:flex;justify-content:space-between;padding:8px;background:rgba(255,107,107,0.1);margin-bottom:5px;border-radius:5px">
-                    <span>${ip}</span>
-                    <button class="btn btn-success" style="padding:3px 8px" onclick="unbanIP('${ip}')">Unban</button>
+            container.innerHTML = ips.map(entry => {
+                // Handle both old string format and new object format
+                const ipAddr = typeof entry === 'string' ? entry : entry.ip;
+                const reason = typeof entry === 'object' && entry.reason ? entry.reason : 'No reason';
+                const bannedAt = typeof entry === 'object' && entry.bannedAt ? new Date(entry.bannedAt).toLocaleString() : 'Unknown';
+                return `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:rgba(255,107,107,0.1);margin-bottom:5px;border-radius:5px">
+                    <div>
+                        <strong>${ipAddr}</strong><br>
+                        <small style="color:#666">Reason: ${reason}</small><br>
+                        <small style="color:#888">Banned: ${bannedAt}</small>
+                    </div>
+                    <button class="btn btn-success" style="padding:3px 8px" onclick="unbanIP('${ipAddr}')">Unban</button>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         async function loadBannedUsers() {

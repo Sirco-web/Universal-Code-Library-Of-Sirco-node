@@ -1198,6 +1198,9 @@ app.post('/api/owner/change-username', verifyOwnerToken, (req, res) => {
     users[clientId].usernameChangedBy = 'owner';
     saveUsers(users);
     
+    // Queue command to sync username change to user's device
+    queueUserCommand(clientId, 'username_sync', { newUsername });
+    
     logEvent('username_changed_by_owner', { clientId, oldUsername, newUsername }, req);
     res.json({ success: true, oldUsername, newUsername });
 });
@@ -1691,24 +1694,29 @@ app.post('/api/account/set-password', (req, res) => {
 
 // Login to account (verify password) - also supports username login
 app.post('/api/account/login', (req, res) => {
-    const { userCode, username, password } = req.body;
+    const { userCode, username, usernameOrCode, password, accessCookieId } = req.body;
     
-    if ((!userCode && !username) || !password) {
+    // Support both individual fields and combined usernameOrCode field
+    const identifier = usernameOrCode || userCode || username;
+    
+    if (!identifier || !password) {
         return res.status(400).json({ error: 'userCode/username and password required' });
     }
     
     const users = loadUsers();
     let user = null;
     
-    // Find by userCode or username
-    if (userCode) {
-        user = Object.values(users).find(u => u.userCode === userCode.toUpperCase().trim());
-    } else if (username) {
-        user = Object.values(users).find(u => u.username.toLowerCase() === username.toLowerCase().trim());
+    // Find by userCode or username - identifier can be either
+    // First try as userCode (usually all caps, 8 chars)
+    user = Object.values(users).find(u => u.userCode === identifier.toUpperCase().trim());
+    
+    // If not found, try as username (case-insensitive)
+    if (!user) {
+        user = Object.values(users).find(u => u.username && u.username.toLowerCase() === identifier.toLowerCase().trim());
     }
     
     if (!user) {
-        logEvent('login_failed', { userCode, username, reason: 'user_not_found' }, req);
+        logEvent('login_failed', { identifier, reason: 'user_not_found' }, req);
         return res.status(404).json({ error: 'User not found' });
     }
     
@@ -2257,6 +2265,12 @@ app.post('/api/check-status', (req, res) => {
                         key: cmd.data.key,
                         value: cmd.data.value,
                         action: cmd.data.action // 'set' or 'delete'
+                    });
+                case 'username_sync':
+                    // Owner changed username - sync to device
+                    return res.json({
+                        status: 'username_sync',
+                        newUsername: cmd.data.newUsername
                     });
             }
         }
