@@ -2570,12 +2570,22 @@
         const user = getUserInfo();
         if (!user.clientId) return;
         
-        // Keys that should never be synced
+        // Keys that should never be synced (sensitive + internal state)
         const NEVER_SYNC_KEYS = [
             'supertube_access', 'accessToken', 'token', 'password', 'passwordHash',
             'sirco_session', 'session_token', 'access', 'accessCookieId', 
             'sirco_client_id', 'banned', 'supertube_session', 'sirco_owner_token',
-            'clientId', 'userCode', 'username' // These are stored separately
+            'clientId', 'userCode', 'username', // Auth/identity
+            'cookie_saver_password', 'cookie_saver_signedup',
+            // Internal UI state - don't sync
+            'sirco_menu_hidden', 'sirco_menu_position', 'sirco_menu_active_tab', 'sirco_menu_size',
+            'sirco_data_saver_enabled', 'sirco_data_saver_stats', 'sirco_data_saver',
+            'sirco_last_sync', 'sirco_mini_ai_history', 'sirco_announcement_dismissed',
+            'game_dictionary_recent', 'game_dictionary_recent_enabled',
+            'readNewsletters', 'startup-time', 'chat_history',
+            // Keys user specifically asked to exclude
+            'messageCount', 'dark_mode', 'wasOffline', 'downloader_enabled',
+            'welcome_tour_shown', 'sirco_access_expires', 'passwordPromptDismissed'
         ];
         
         // Combine all data into one object

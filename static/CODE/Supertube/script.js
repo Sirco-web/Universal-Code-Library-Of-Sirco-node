@@ -591,13 +591,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   // Auto-pause function (doesn't require user interaction)
+  // NOTE: Only pauses the TIMER, not the video - user can keep watching if they want
   function autoPause(reason) {
     if (isPaused()) return; // Already paused
     
     sessionData.pausedAt = getServerTime();
     sessionData._autoPaused = true; // Mark as auto-paused (will auto-resume)
     saveSession();
-    pauseAllMedia();
+    // Don't pause video - only pause the timer
+    // User might have video in background while doing other things
     console.log('⏸️ Auto-paused timer:', reason);
   }
   
@@ -611,8 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sessionData.pausedAt = null;
     sessionData._autoPaused = false; // Clear auto-pause flag
     saveSession();
-    
-    resumeAllMedia();
+    // Don't auto-resume video - let user control it
     console.log('▶️ Auto-resumed timer:', reason, 'Paused for', Math.floor(pauseDuration / 1000), 'seconds');
   }
   

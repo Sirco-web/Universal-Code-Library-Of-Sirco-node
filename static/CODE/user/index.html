@@ -68,8 +68,12 @@ scheduleNextCheck();</script></head>
     <div id="username-error" style="color:red; font-size:12px; margin-top:5px;"></div>
 </div>
 
-<button id="copy-user-id" style="margin-top: 10px; background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">📋 Copy User ID</button>
-<button id="sign-out-btn" style="margin-top: 10px; margin-left: 10px; background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">🚪 Sign Out</button>
+<div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+<button id="copy-user-id" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">📋 Copy User ID</button>
+<button id="sync-to-cloud-btn" style="background: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">☁️ Sync to Cloud</button>
+<button id="sign-out-btn" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">🚪 Sign Out</button>
+</div>
+<div id="sync-status" style="margin-top:10px; font-size:12px; color:#666;"></div>
 </div>
 
 <!-- Password Management Section -->
@@ -100,6 +104,21 @@ scheduleNextCheck();</script></head>
         <div style="display:flex; gap:10px;">
             <button id="modal-save-pw" style="flex:1; background:#22c55e; color:white; border:none; padding:10px; border-radius:4px; cursor:pointer;">Save Password</button>
             <button id="modal-cancel-pw" style="flex:1; background:#6b7280; color:white; border:none; padding:10px; border-radius:4px; cursor:pointer;">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Sign Out Confirmation Modal -->
+<div id="signout-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:white; padding:30px; border-radius:12px; max-width:400px; width:90%; text-align:center;">
+        <div style="font-size:50px; margin-bottom:15px;">🚪</div>
+        <h3 style="margin-top:0;">Sign Out?</h3>
+        <p style="color:#666; margin-bottom:20px;">
+            This will sign you out of your account on this device. Your saved cookies and data will be preserved on the server.
+        </p>
+        <div style="display:flex; gap:10px;">
+            <button id="confirm-signout" style="flex:1; background:#dc3545; color:white; border:none; padding:12px; border-radius:4px; cursor:pointer; font-size:16px;">Sign Out</button>
+            <button id="cancel-signout" style="flex:1; background:#6b7280; color:white; border:none; padding:12px; border-radius:4px; cursor:pointer; font-size:16px;">Cancel</button>
         </div>
     </div>
 </div>
@@ -136,6 +155,35 @@ scheduleNextCheck();</script></head>
             initApp();
         });
 
+    // Keys that should NEVER be shown or synced (internal state)
+    const INTERNAL_KEYS = [
+        // Auth & identity (never show)
+        'cookie_saver_email', 'cookie_saver_name', 'cookie_saver_password',
+        'cookie_saver_signedup', 'cookie_saver_username',
+        'access', 'device_code', 'username', 'removerKey', 'token',
+        'owner_token', 'clientId', 'accessCookieId', 'userCode',
+        'sirco_client_id', 'sirco_username', 'sirco_owner_token',
+        // Ban/moderation
+        'banned', 'banReason', 'banned_permanent',
+        // Internal prefs & UI state (don't sync/show)
+        'newsletter_hide', 'downloader_enabled', 'shortcut_config',
+        'messageCount', 'messageCountDate', 'welcome_tour_shown',
+        'wasOffline', 'classic_mode', 'dark_mode', 'chat_history',
+        'ls_messageCount', 'ls_dark_mode', 'ls_wasOffline', 'ls_downloader_enabled',
+        'ls_welcome_tour_shown', 'sirco_access_expires',
+        // Sirco menu state
+        'sirco_menu_hidden', 'sirco_menu_position', 'sirco_menu_active_tab',
+        'sirco_menu_size',
+        // Data saver
+        'sirco_data_saver_enabled', 'sirco_data_saver_stats', 'sirco_data_saver',
+        // Game dictionary
+        'game_dictionary_recent', 'game_dictionary_recent_enabled',
+        // Misc internal
+        'readNewsletters', 'startup-time', 'supertube_session',
+        'sirco_announcement_dismissed', 'sirco_last_sync', 'sirco_mini_ai_history',
+        'passwordPromptDismissed'
+    ];
+
     // Display user info immediately
     (function displayUserInfo() {
         const clientId = localStorage.getItem('clientId') || 'Not set';
@@ -158,15 +206,86 @@ scheduleNextCheck();</script></head>
             });
         });
         
-        // Sign out functionality
-        document.getElementById('sign-out-btn').addEventListener('click', function() {
-            if (confirm('Are you sure you want to sign out? Your saved cookies will remain but you will be logged out of your account.')) {
-                localStorage.removeItem('cookie_saver_signedup');
-                localStorage.removeItem('cookie_saver_username');
-                localStorage.removeItem('cookie_saver_password');
-                alert('Signed out successfully!');
-                window.location.href = '/CODE/account/';
+        // Sync to cloud functionality
+        document.getElementById('sync-to-cloud-btn').addEventListener('click', async function() {
+            const btn = this;
+            const statusDiv = document.getElementById('sync-status');
+            btn.disabled = true;
+            btn.textContent = '⏳ Syncing...';
+            statusDiv.textContent = '';
+            
+            try {
+                // Collect localStorage data (excluding internal keys)
+                const syncData = {};
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (!INTERNAL_KEYS.includes(key)) {
+                        syncData['ls_' + key] = localStorage.getItem(key);
+                    }
+                }
+                
+                // Collect cookies (excluding internal keys)
+                document.cookie.split(';').forEach(c => {
+                    const [key, val] = c.trim().split('=');
+                    if (key && !INTERNAL_KEYS.includes(key)) {
+                        syncData['cookie_' + key] = val;
+                    }
+                });
+                
+                const res = await fetch('/api/account/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clientId, data: syncData })
+                });
+                
+                const result = await res.json();
+                if (result.success) {
+                    statusDiv.textContent = '✅ Synced ' + (result.syncedKeys?.length || 0) + ' items to cloud!';
+                    statusDiv.style.color = '#28a745';
+                } else {
+                    statusDiv.textContent = '❌ Sync failed: ' + (result.error || 'Unknown error');
+                    statusDiv.style.color = '#dc3545';
+                }
+            } catch (e) {
+                statusDiv.textContent = '❌ Connection error';
+                statusDiv.style.color = '#dc3545';
             }
+            
+            btn.disabled = false;
+            btn.textContent = '☁️ Sync to Cloud';
+            setTimeout(() => { statusDiv.textContent = ''; }, 5000);
+        });
+        
+        // Sign out functionality - opens confirmation modal
+        document.getElementById('sign-out-btn').addEventListener('click', function() {
+            document.getElementById('signout-modal').style.display = 'flex';
+        });
+        
+        // Cancel sign out
+        document.getElementById('cancel-signout').addEventListener('click', function() {
+            document.getElementById('signout-modal').style.display = 'none';
+        });
+        
+        // Confirm sign out - clears ALL auth data
+        document.getElementById('confirm-signout').addEventListener('click', function() {
+            // Clear all authentication data from localStorage
+            const authKeys = [
+                'clientId', 'sirco_client_id', 'username', 'sirco_username',
+                'cookie_saver_username', 'cookie_saver_password', 'cookie_saver_signedup',
+                'cookie_saver_email', 'cookie_saver_name',
+                'userCode', 'accessCookieId', 'sirco_access_expires',
+                'owner_token', 'sirco_owner_token', 'token', 'removerKey',
+                'sirco_last_sync', 'passwordPromptDismissed'
+            ];
+            authKeys.forEach(key => localStorage.removeItem(key));
+            
+            // Clear access cookie
+            document.cookie = 'access=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            document.cookie = 'accessCookieId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            
+            // Redirect to main page (will require re-activation)
+            alert('Signed out successfully!');
+            window.location.href = '/';
         });
         
         // Username change functionality
@@ -372,65 +491,19 @@ scheduleNextCheck();</script></head>
             }, {});
         }
         function getUserCookies() {
-            // Exclude sensitive keys and internal metadata - editing these can break the site
-            const exclude = [
-            // Auth & identity
-            'cookie_saver_email', 'cookie_saver_name', 'cookie_saver_password',
-            'cookie_saver_signedup', 'cookie_saver_username',
-            'access', 'device_code', 'username', 'removerKey', 'token',
-            'owner_token', 'clientId', 'accessCookieId', 'userCode',
-            // Ban/moderation
-            'banned', 'banReason',
-            // Internal prefs & UI state
-            'newsletter_hide', 'downloader_enabled', 'shortcut_config',
-            'messageCount', 'messageCountDate', 'welcome_tour_shown',
-            'wasOffline', 'classic_mode', 'dark_mode', 'chat_history',
-            // Sirco menu state
-            'sirco_menu_hidden', 'sirco_menu_position', 'sirco_menu_active_tab',
-            'sirco_menu_size',
-            // Data saver
-            'sirco_data_saver_enabled', 'sirco_data_saver_stats',
-            // Game dictionary
-            'game_dictionary_recent', 'game_dictionary_recent_enabled',
-            // Misc internal
-            'readNewsletters', 'startup-time', 'supertube_session',
-            'sirco_announcement_dismissed'
-            ];
+            // Use the centralized INTERNAL_KEYS list
             const all = getAllCookies();
             const filtered = {};
             Object.keys(all).forEach(k => {
-                if (!exclude.includes(k)) filtered[k] = all[k];
+                if (!INTERNAL_KEYS.includes(k)) filtered[k] = all[k];
             });
             return filtered;
         }
         function getUserLocalStorage() {
-            // Exclude sensitive keys - editing these can break the site
-            const exclude = [
-            // Auth & identity
-            'cookie_saver_email', 'cookie_saver_name', 'cookie_saver_password',
-            'cookie_saver_signedup', 'cookie_saver_username',
-            'access', 'device_code', 'username', 'removerKey', 'token',
-            'owner_token', 'clientId', 'accessCookieId', 'userCode',
-            // Ban/moderation
-            'banned', 'banReason',
-            // Internal prefs & UI state
-            'newsletter_hide', 'downloader_enabled', 'shortcut_config',
-            'messageCount', 'messageCountDate', 'welcome_tour_shown',
-            'wasOffline', 'classic_mode', 'dark_mode', 'chat_history',
-            // Sirco menu state
-            'sirco_menu_hidden', 'sirco_menu_position', 'sirco_menu_active_tab',
-            'sirco_menu_size',
-            // Data saver
-            'sirco_data_saver_enabled', 'sirco_data_saver_stats',
-            // Game dictionary
-            'game_dictionary_recent', 'game_dictionary_recent_enabled',
-            // Misc internal
-            'readNewsletters', 'startup-time', 'supertube_session',
-            'sirco_announcement_dismissed'
-            ];
+            // Use the centralized INTERNAL_KEYS list
             const filtered = {};
             Object.keys(localStorage).forEach(key => {
-                if (!exclude.includes(key)) filtered[key] = localStorage.getItem(key);
+                if (!INTERNAL_KEYS.includes(key)) filtered[key] = localStorage.getItem(key);
             });
             return filtered;
         }
@@ -523,31 +596,8 @@ scheduleNextCheck();</script></head>
             }
             const tbody = table.querySelector('tbody');
             tbody.innerHTML = '';
-            // Only show non-sensitive keys
-            const exclude = [
-            // Auth & identity
-            'cookie_saver_email', 'cookie_saver_name', 'cookie_saver_password',
-            'cookie_saver_signedup', 'cookie_saver_username',
-            'access', 'device_code', 'username', 'removerKey', 'token',
-            'owner_token', 'clientId', 'accessCookieId', 'userCode',
-            // Ban/moderation
-            'banned', 'banReason',
-            // Internal prefs & UI state
-            'newsletter_hide', 'downloader_enabled', 'shortcut_config',
-            'messageCount', 'messageCountDate', 'welcome_tour_shown',
-            'wasOffline', 'classic_mode', 'dark_mode', 'chat_history',
-            // Sirco menu state
-            'sirco_menu_hidden', 'sirco_menu_position', 'sirco_menu_active_tab',
-            'sirco_menu_size',
-            // Data saver
-            'sirco_data_saver_enabled', 'sirco_data_saver_stats',
-            // Game dictionary
-            'game_dictionary_recent', 'game_dictionary_recent_enabled',
-            // Misc internal
-            'readNewsletters', 'startup-time', 'supertube_session',
-            'sirco_announcement_dismissed'
-            ];
-            const keys = Object.keys(localStorage).filter(key => !exclude.includes(key));
+            // Use the centralized INTERNAL_KEYS list
+            const keys = Object.keys(localStorage).filter(key => !INTERNAL_KEYS.includes(key));
             if (keys.length === 0) {
                 const tr = document.createElement('tr');
                 const td = document.createElement('td');

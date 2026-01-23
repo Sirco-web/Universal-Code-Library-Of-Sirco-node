@@ -405,16 +405,29 @@ async function signInUser() {
             if (data.user.userCode) localStorage.setItem('userCode', data.user.userCode);
             if (data.user.accessCookieId) localStorage.setItem('accessCookieId', data.user.accessCookieId);
             
-            // Sync data from cloud if available
+            // Sync data from cloud if available - put cookies in cookies, localStorage in localStorage
             if (data.user.syncedData && Object.keys(data.user.syncedData).length > 0) {
+                let cookieCount = 0, lsCount = 0;
                 Object.entries(data.user.syncedData).forEach(([key, value]) => {
-                    if (typeof value === 'string') {
-                        localStorage.setItem(key, value);
+                    const strValue = typeof value === 'string' ? value : JSON.stringify(value);
+                    
+                    if (key.startsWith('cookie_')) {
+                        // This is a cookie - set it as a cookie
+                        const cookieName = key.substring(7); // Remove 'cookie_' prefix
+                        document.cookie = cookieName + '=' + encodeURIComponent(strValue) + '; path=/; max-age=31536000';
+                        cookieCount++;
+                    } else if (key.startsWith('ls_')) {
+                        // This is localStorage - set it in localStorage
+                        const lsKey = key.substring(3); // Remove 'ls_' prefix
+                        localStorage.setItem(lsKey, strValue);
+                        lsCount++;
                     } else {
-                        localStorage.setItem(key, JSON.stringify(value));
+                        // No prefix - default to localStorage
+                        localStorage.setItem(key, strValue);
+                        lsCount++;
                     }
                 });
-                console.log('[Sirco] Synced data from cloud:', Object.keys(data.user.syncedData).length, 'items');
+                console.log('[Sirco] Synced from cloud:', cookieCount, 'cookies,', lsCount, 'localStorage items');
             }
             
             // Remove overlay

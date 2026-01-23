@@ -53,6 +53,59 @@ process.on('unhandledRejection', (reason, promise) => {
     // Don't exit - try to keep server running
 });
 
+// Prevent memory leaks from too many listeners
+process.setMaxListeners(20);
+
+// Safe JSON parse helper
+function safeJsonParse(str, fallback = null) {
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        return fallback;
+    }
+}
+
+// Safe file read helper
+function safeReadFile(filePath, fallback = null) {
+    try {
+        if (fs.existsSync(filePath)) {
+            return fs.readFileSync(filePath, 'utf8');
+        }
+        return fallback;
+    } catch (e) {
+        console.error('❌ Error reading file:', filePath, e.message);
+        return fallback;
+    }
+}
+
+// Safe file write helper
+function safeWriteFile(filePath, data) {
+    try {
+        // Ensure directory exists
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(filePath, typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+        return true;
+    } catch (e) {
+        console.error('❌ Error writing file:', filePath, e.message);
+        return false;
+    }
+}
+
+// Wrap async route handlers to catch errors
+function asyncHandler(fn) {
+    return (req, res, next) => {
+        Promise.resolve(fn(req, res, next)).catch((err) => {
+            console.error('❌ Route Error:', req.method, req.path, err.message);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+    };
+}
+
 // ============== ENCRYPTION FOR EXPORT/IMPORT ==============
 const EXPORT_SECRET = 'sircoonline2026iscooldonothackthispleaseslim';
 
@@ -2028,20 +2081,27 @@ app.get('/my-ip', (req, res) => {
 
 // ============== DATA SYNC ==============
 
-// Keys that should NEVER be synced (sensitive data)
+// Keys that should NEVER be synced (sensitive data + internal state)
 const NEVER_SYNC_KEYS = [
     // Auth & security
     'supertube_access', 'accessToken', 'token', 'password', 'passwordHash',
     'sirco_session', 'session_token', 'access', 'accessCookieId', 'sirco_client_id',
-    'owner_token', 'sirco_owner_token', 'clientId', 'userCode',
+    'owner_token', 'sirco_owner_token', 'clientId', 'userCode', 'username',
+    'cookie_saver_password', 'cookie_saver_signedup',
     // Ban/moderation
     'banned', 'banned_permanent', 'banReason',
-    // Internal UI state (no need to sync)
+    // Internal UI state (should NOT be synced or shown in user page)
     'sirco_menu_hidden', 'sirco_menu_position', 'sirco_menu_active_tab', 'sirco_menu_size',
-    'sirco_data_saver_enabled', 'sirco_data_saver_stats',
+    'sirco_data_saver_enabled', 'sirco_data_saver_stats', 'sirco_data_saver',
     'game_dictionary_recent', 'game_dictionary_recent_enabled',
     'readNewsletters', 'startup-time', 'supertube_session',
-    'sirco_announcement_dismissed', 'chat_history'
+    'sirco_announcement_dismissed', 'chat_history', 'sirco_last_sync', 'sirco_mini_ai_history',
+    // Keys user specifically asked to exclude
+    'messageCount', 'dark_mode', 'wasOffline', 'downloader_enabled',
+    'welcome_tour_shown', 'sirco_access_expires',
+    // With ls_ prefix versions
+    'ls_messageCount', 'ls_dark_mode', 'ls_wasOffline', 'ls_downloader_enabled',
+    'ls_welcome_tour_shown'
 ];
 
 // Sync user data to server
@@ -3161,6 +3221,105 @@ app.get('/api/supertube/shorts', async (req, res) => {
     } catch (e) {
         console.error('Shorts API error:', e.message);
         res.status(500).json({ error: 'Failed to fetch shorts' });
+    }
+});
+
+// Get video download/stream info
+app.get('/api/supertube/dl', async (req, res) => {
+    const { id } = req.query;
+    
+    if (!id) {
+        return res.status(400).json({ error: 'Video ID required' });
+    }
+    
+    try {
+        // Try multiple YouTube API sources for video info
+        const apiSources = [
+            `https://yt.jaybee.digital/api/video/${id}`,
+            `https://pipedapi.kavin.rocks/streams/${id}`,
+            `https://inv.nadeko.net/api/v1/videos/${id}`
+        ];
+        
+        let videoData = null;
+        let lastError = null;
+        
+        for (const apiUrl of apiSources) {
+            try {
+                const response = await axios.get(apiUrl, { timeout: 10000 });
+                if (response.data) {
+                    videoData = response.data;
+                    break;
+                }
+            } catch (e) {
+                lastError = e;
+                continue;
+            }
+        }
+        
+        if (!videoData) {
+            throw lastError || new Error('No video data available');
+        }
+        
+        // Normalize the response format
+        // Different APIs return different formats
+        let formats = [];
+        let adaptiveFormats = [];
+        
+        // Handle Piped API format
+        if (videoData.videoStreams || videoData.audioStreams) {
+            // Combine video+audio streams for Piped format
+            const videoStreams = videoData.videoStreams || [];
+            const audioStreams = videoData.audioStreams || [];
+            
+            // Find best combined formats
+            formats = videoStreams.filter(s => s.videoOnly === false).map(s => ({
+                url: s.url,
+                mimeType: s.mimeType || s.format,
+                quality: s.quality,
+                itag: s.itag
+            }));
+            
+            adaptiveFormats = [...videoStreams, ...audioStreams].map(s => ({
+                url: s.url,
+                mimeType: s.mimeType || s.format,
+                quality: s.quality,
+                itag: s.itag,
+                audioQuality: s.audioQuality
+            }));
+        }
+        // Handle Invidious API format
+        else if (videoData.formatStreams || videoData.adaptiveFormats) {
+            formats = (videoData.formatStreams || []).map(s => ({
+                url: s.url,
+                mimeType: s.type,
+                quality: s.qualityLabel || s.quality,
+                itag: parseInt(s.itag)
+            }));
+            
+            adaptiveFormats = (videoData.adaptiveFormats || []).map(s => ({
+                url: s.url,
+                mimeType: s.type,
+                quality: s.qualityLabel || s.quality,
+                itag: parseInt(s.itag),
+                audioQuality: s.audioQuality
+            }));
+        }
+        // Handle jaybee format
+        else if (videoData.formats) {
+            formats = videoData.formats;
+            adaptiveFormats = videoData.adaptiveFormats || [];
+        }
+        
+        res.json({
+            formats,
+            adaptiveFormats,
+            title: videoData.title,
+            duration: videoData.duration || videoData.lengthSeconds
+        });
+        
+    } catch (e) {
+        console.error('Download API error:', e.message);
+        res.status(500).json({ error: 'Failed to get video info: ' + e.message });
     }
 });
 
