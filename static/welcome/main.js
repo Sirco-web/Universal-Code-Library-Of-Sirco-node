@@ -405,28 +405,47 @@ async function signInUser() {
             if (data.user.userCode) localStorage.setItem('userCode', data.user.userCode);
             if (data.user.accessCookieId) localStorage.setItem('accessCookieId', data.user.accessCookieId);
             
-            // Sync data from cloud if available - put cookies in cookies, localStorage in localStorage
-            if (data.user.syncedData && Object.keys(data.user.syncedData).length > 0) {
+            // Sync data from cloud if available - NEW FORMAT with separate localStorage/cookies objects
+            if (data.user.syncedData && typeof data.user.syncedData === 'object') {
                 let cookieCount = 0, lsCount = 0;
-                Object.entries(data.user.syncedData).forEach(([key, value]) => {
-                    const strValue = typeof value === 'string' ? value : JSON.stringify(value);
-                    
-                    if (key.startsWith('cookie_')) {
-                        // This is a cookie - set it as a cookie
-                        const cookieName = key.substring(7); // Remove 'cookie_' prefix
-                        document.cookie = cookieName + '=' + encodeURIComponent(strValue) + '; path=/; max-age=31536000';
-                        cookieCount++;
-                    } else if (key.startsWith('ls_')) {
-                        // This is localStorage - set it in localStorage
-                        const lsKey = key.substring(3); // Remove 'ls_' prefix
-                        localStorage.setItem(lsKey, strValue);
-                        lsCount++;
-                    } else {
-                        // No prefix - default to localStorage
-                        localStorage.setItem(key, strValue);
-                        lsCount++;
+                
+                // New format: { localStorage: {...}, cookies: {...} }
+                if (data.user.syncedData.localStorage || data.user.syncedData.cookies) {
+                    // Restore localStorage items
+                    if (data.user.syncedData.localStorage) {
+                        Object.entries(data.user.syncedData.localStorage).forEach(([key, value]) => {
+                            const strValue = typeof value === 'string' ? value : JSON.stringify(value);
+                            localStorage.setItem(key, strValue);
+                            lsCount++;
+                        });
                     }
-                });
+                    // Restore cookies
+                    if (data.user.syncedData.cookies) {
+                        Object.entries(data.user.syncedData.cookies).forEach(([key, value]) => {
+                            const strValue = typeof value === 'string' ? value : JSON.stringify(value);
+                            document.cookie = key + '=' + encodeURIComponent(strValue) + '; path=/; max-age=31536000';
+                            cookieCount++;
+                        });
+                    }
+                } else {
+                    // Old format fallback: flat object with ls_/cookie_ prefixes
+                    Object.entries(data.user.syncedData).forEach(([key, value]) => {
+                        const strValue = typeof value === 'string' ? value : JSON.stringify(value);
+                        
+                        if (key.startsWith('cookie_')) {
+                            const cookieName = key.substring(7);
+                            document.cookie = cookieName + '=' + encodeURIComponent(strValue) + '; path=/; max-age=31536000';
+                            cookieCount++;
+                        } else if (key.startsWith('ls_')) {
+                            const lsKey = key.substring(3);
+                            localStorage.setItem(lsKey, strValue);
+                            lsCount++;
+                        } else {
+                            localStorage.setItem(key, strValue);
+                            lsCount++;
+                        }
+                    });
+                }
                 console.log('[Sirco] Synced from cloud:', cookieCount, 'cookies,', lsCount, 'localStorage items');
             }
             

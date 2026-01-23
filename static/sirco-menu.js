@@ -2588,32 +2588,29 @@
             'welcome_tour_shown', 'sirco_access_expires', 'passwordPromptDismissed'
         ];
         
-        // Combine all data into one object
-        const combinedData = {};
+        // New format: separate localStorage and cookies
+        const syncData = {
+            localStorage: {},
+            cookies: {}
+        };
         
-        // Collect localStorage data
+        // Collect localStorage data (no prefix needed now)
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (!NEVER_SYNC_KEYS.includes(key)) {
+            if (key && !NEVER_SYNC_KEYS.includes(key) && !key.startsWith('ls_') && !key.startsWith('cookie_')) {
                 try {
-                    combinedData['ls_' + key] = localStorage.getItem(key);
+                    syncData.localStorage[key] = localStorage.getItem(key);
                 } catch (e) {}
             }
         }
         
-        // Collect cookies
+        // Collect cookies (no prefix needed now)
         document.cookie.split(';').forEach(c => {
             const [key, val] = c.trim().split('=');
             if (key && !NEVER_SYNC_KEYS.includes(key)) {
-                combinedData['cookie_' + key] = val;
+                syncData.cookies[key] = val;
             }
         });
-        
-        // Add access expiration for tracking
-        const accessExpires = localStorage.getItem('sirco_access_expires');
-        if (accessExpires) {
-            combinedData['_accessExpires'] = accessExpires;
-        }
         
         try {
             const resp = await fetch('/api/account/sync', {
@@ -2621,7 +2618,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     clientId: user.clientId,
-                    data: combinedData
+                    data: syncData
                 })
             });
             if (resp.ok) {
@@ -2649,6 +2646,22 @@
     
     // Initial sync and schedule regular syncs
     if (window === window.top) {
+        // Cleanup: Remove any ls_ or cookie_ prefixed keys from localStorage
+        // These got in from old sync code that didn't strip prefixes properly
+        (function cleanupMisplacedKeys() {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.startsWith('ls_') || key.startsWith('cookie_'))) {
+                    keysToRemove.push(key);
+                }
+            }
+            if (keysToRemove.length > 0) {
+                console.log('[Sirco] Removing misplaced prefixed keys:', keysToRemove.length);
+                keysToRemove.forEach(key => localStorage.removeItem(key));
+            }
+        })();
+        
         setTimeout(syncUserData, 3000); // First sync after 3 seconds
         setInterval(scheduleSyncIfNeeded, 10000); // Check every 10 seconds
     }

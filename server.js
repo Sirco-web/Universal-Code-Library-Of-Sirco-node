@@ -2081,13 +2081,15 @@ app.get('/my-ip', (req, res) => {
 
 // ============== DATA SYNC ==============
 
-// Keys that should NEVER be synced (sensitive data + internal state)
-const NEVER_SYNC_KEYS = [
+// Base keys that should NEVER be synced (sensitive data + internal state)
+// We also check for ls_ and cookie_ prefixed versions
+const NEVER_SYNC_KEYS_BASE = [
     // Auth & security
     'supertube_access', 'accessToken', 'token', 'password', 'passwordHash',
     'sirco_session', 'session_token', 'access', 'accessCookieId', 'sirco_client_id',
     'owner_token', 'sirco_owner_token', 'clientId', 'userCode', 'username',
-    'cookie_saver_password', 'cookie_saver_signedup',
+    'cookie_saver_password', 'cookie_saver_signedup', 'cookie_saver_username',
+    'cookie_saver_email', 'cookie_saver_name',
     // Ban/moderation
     'banned', 'banned_permanent', 'banReason',
     // Internal UI state (should NOT be synced or shown in user page)
@@ -2097,16 +2099,32 @@ const NEVER_SYNC_KEYS = [
     'readNewsletters', 'startup-time', 'supertube_session',
     'sirco_announcement_dismissed', 'chat_history', 'sirco_last_sync', 'sirco_mini_ai_history',
     // Keys user specifically asked to exclude
-    'messageCount', 'dark_mode', 'wasOffline', 'downloader_enabled',
-    'welcome_tour_shown', 'sirco_access_expires',
-    // With ls_ prefix versions
-    'ls_messageCount', 'ls_dark_mode', 'ls_wasOffline', 'ls_downloader_enabled',
-    'ls_welcome_tour_shown'
+    'messageCount', 'messageCountDate', 'dark_mode', 'wasOffline', 'downloader_enabled',
+    'welcome_tour_shown', 'sirco_access_expires', 'passwordPromptDismissed',
+    'shortcut_config', 'newsletter_hide', 'classic_mode'
 ];
 
-// Sync user data to server
+// Function to check if a key should be blocked (checks base key AND with prefixes)
+function isBlockedSyncKey(key) {
+    // Check if key itself is in blocked list
+    if (NEVER_SYNC_KEYS_BASE.includes(key)) return true;
+    
+    // Check if key starts with ls_ or cookie_ and the rest is blocked
+    if (key.startsWith('ls_')) {
+        const baseKey = key.substring(3);
+        if (NEVER_SYNC_KEYS_BASE.includes(baseKey)) return true;
+    }
+    if (key.startsWith('cookie_')) {
+        const baseKey = key.substring(7);
+        if (NEVER_SYNC_KEYS_BASE.includes(baseKey)) return true;
+    }
+    
+    return false;
+}
+
+// Sync user data to server - ONLY for registered users (no auto-create)
 app.post('/api/account/sync', (req, res) => {
-    const { clientId, data, localStorage: lsData, cookies: cookieData } = req.body;
+    const { clientId, data } = req.body;
     
     if (!clientId) {
         return res.status(400).json({ error: 'clientId required' });
@@ -2126,81 +2144,118 @@ app.post('/api/account/sync', (req, res) => {
         }
     }
     
-    // Auto-create user if they don't exist (for anonymous tracking)
+    // DON'T auto-create anonymous users anymore - only sync for registered users
     if (!existingUser) {
-        const ip = getClientIP(req);
-        users[clientId] = {
-            clientId,
-            accessCookieId: clientId, // Store for future lookups
-            username: 'Anonymous-' + clientId.substring(0, 6),
-            userCode: null, // Will be assigned on proper registration
-            createdAt: new Date().toISOString(),
-            creationIP: ip,
-            lastIP: ip,
-            lastSeen: new Date().toISOString(),
-            userAgent: req.headers['user-agent'],
-            syncedData: {},
-            isAnonymous: true // Mark as anonymous until they register
-        };
-        actualClientId = clientId;
+        // Just return success without saving - user hasn't registered yet
+        return res.json({ success: true, syncedKeys: [], message: 'User not registered, sync skipped' });
     }
     
-    // Combine data from all possible formats (backward compatible)
-    let allData = {};
-    if (data && typeof data === 'object') {
-        allData = { ...allData, ...data };
-    }
-    if (lsData && typeof lsData === 'object') {
-        for (const [key, value] of Object.entries(lsData)) {
-            allData['ls_' + key] = value;
-        }
-    }
-    if (cookieData && typeof cookieData === 'object') {
-        for (const [key, value] of Object.entries(cookieData)) {
-            allData['cookie_' + key] = value;
-        }
-    }
-    
-    // Extract and set access expiration if provided
-    if (allData._accessExpires) {
-        const expiresDate = new Date(allData._accessExpires);
-        if (!isNaN(expiresDate.getTime())) {
-            // Always update from client sync (client is source of truth for access)
-            const fiftyYears = Date.now() + (50 * 365 * 24 * 60 * 60 * 1000);
-            if (expiresDate.getTime() > fiftyYears) {
-                users[actualClientId].accessNeverExpires = true;
-                users[actualClientId].accessExpires = null;
+    // Migrate old format to new format if needed
+    if (existingUser.syncedData && !existingUser.syncedData.localStorage && !existingUser.syncedData.cookies) {
+        // Old format - migrate to new format
+        const oldData = existingUser.syncedData;
+        const newFormat = { localStorage: {}, cookies: {} };
+        
+        for (const [key, value] of Object.entries(oldData)) {
+            if (key.startsWith('ls_')) {
+                newFormat.localStorage[key.substring(3)] = value;
+            } else if (key.startsWith('cookie_')) {
+                newFormat.cookies[key.substring(7)] = value;
             } else {
-                users[actualClientId].accessExpires = expiresDate.toISOString();
-                users[actualClientId].accessNeverExpires = false;
+                // No prefix - put in localStorage by default
+                newFormat.localStorage[key] = value;
             }
         }
-        delete allData._accessExpires; // Don't store in syncedData
+        
+        users[actualClientId].syncedData = newFormat;
+        console.log(`[Migration] Migrated ${Object.keys(oldData).length} keys to new format for user ${actualClientId.substring(0, 8)}`);
     }
     
-    // Filter out sensitive keys
-    const filteredData = {};
-    for (const [key, value] of Object.entries(allData)) {
-        const keyLower = key.toLowerCase();
-        if (!NEVER_SYNC_KEYS.some(nsk => keyLower.includes(nsk.toLowerCase()))) {
-            filteredData[key] = value;
+    // Ensure new format structure exists
+    if (!users[actualClientId].syncedData || typeof users[actualClientId].syncedData !== 'object') {
+        users[actualClientId].syncedData = { localStorage: {}, cookies: {} };
+    }
+    if (!users[actualClientId].syncedData.localStorage) {
+        users[actualClientId].syncedData.localStorage = {};
+    }
+    if (!users[actualClientId].syncedData.cookies) {
+        users[actualClientId].syncedData.cookies = {};
+    }
+    
+    // Collect incoming data - support both old and new formats
+    const incomingLS = {};
+    const incomingCookies = {};
+    
+    if (data && typeof data === 'object') {
+        // Check if data is in new format { localStorage: {}, cookies: {} }
+        if (data.localStorage || data.cookies) {
+            // New format - take directly
+            if (data.localStorage && typeof data.localStorage === 'object') {
+                Object.assign(incomingLS, data.localStorage);
+            }
+            if (data.cookies && typeof data.cookies === 'object') {
+                Object.assign(incomingCookies, data.cookies);
+            }
+        } else {
+            // Old format with prefixes (ls_, cookie_)
+            for (const [key, value] of Object.entries(data)) {
+                if (key.startsWith('ls_')) {
+                    incomingLS[key.substring(3)] = value;
+                } else if (key.startsWith('cookie_')) {
+                    incomingCookies[key.substring(7)] = value;
+                }
+                // Ignore unprefixed keys in old format
+            }
         }
     }
     
-    // Merge with existing synced data
-    users[actualClientId].syncedData = {
-        ...(users[actualClientId].syncedData || {}),
-        ...filteredData
-    };
+    // Filter out blocked keys from localStorage
+    let lsCount = 0;
+    for (const [key, value] of Object.entries(incomingLS)) {
+        if (!isBlockedSyncKey(key) && !isBlockedSyncKey('ls_' + key)) {
+            users[actualClientId].syncedData.localStorage[key] = value;
+            lsCount++;
+        }
+    }
+    
+    // Filter out blocked keys from cookies
+    let cookieCount = 0;
+    for (const [key, value] of Object.entries(incomingCookies)) {
+        if (!isBlockedSyncKey(key) && !isBlockedSyncKey('cookie_' + key)) {
+            users[actualClientId].syncedData.cookies[key] = value;
+            cookieCount++;
+        }
+    }
+    
+    // Clean up any blocked keys that somehow got into existing data
+    let removedCount = 0;
+    for (const key of Object.keys(users[actualClientId].syncedData.localStorage)) {
+        if (isBlockedSyncKey(key) || isBlockedSyncKey('ls_' + key)) {
+            delete users[actualClientId].syncedData.localStorage[key];
+            removedCount++;
+        }
+    }
+    for (const key of Object.keys(users[actualClientId].syncedData.cookies)) {
+        if (isBlockedSyncKey(key) || isBlockedSyncKey('cookie_' + key)) {
+            delete users[actualClientId].syncedData.cookies[key];
+            removedCount++;
+        }
+    }
+    
     users[actualClientId].lastSyncedAt = new Date().toISOString();
     users[actualClientId].lastSeen = new Date().toISOString();
     users[actualClientId].lastIP = getClientIP(req);
     saveUsers(users);
     
-    res.json({ success: true, syncedKeys: Object.keys(filteredData), clientId: actualClientId });
+    res.json({ 
+        success: true, 
+        syncedKeys: lsCount + cookieCount, 
+        removedKeys: removedCount, 
+        clientId: actualClientId 
+    });
 });
 
-// Get synced data from server
+// Get synced data from server - returns new format with separate localStorage/cookies
 app.get('/api/account/sync', (req, res) => {
     const { clientId } = req.query;
     
@@ -2213,9 +2268,62 @@ app.get('/api/account/sync', (req, res) => {
         return res.status(404).json({ error: 'User not found' });
     }
     
+    let syncedData = users[clientId].syncedData || {};
+    let needsSave = false;
+    
+    // Migrate old format to new format if needed
+    if (syncedData && !syncedData.localStorage && !syncedData.cookies && Object.keys(syncedData).length > 0) {
+        const oldData = syncedData;
+        const newFormat = { localStorage: {}, cookies: {} };
+        
+        for (const [key, value] of Object.entries(oldData)) {
+            if (key.startsWith('ls_')) {
+                const baseKey = key.substring(3);
+                if (!isBlockedSyncKey(baseKey)) {
+                    newFormat.localStorage[baseKey] = value;
+                }
+            } else if (key.startsWith('cookie_')) {
+                const baseKey = key.substring(7);
+                if (!isBlockedSyncKey(baseKey)) {
+                    newFormat.cookies[baseKey] = value;
+                }
+            } else if (!isBlockedSyncKey(key)) {
+                newFormat.localStorage[key] = value;
+            }
+        }
+        
+        users[clientId].syncedData = newFormat;
+        syncedData = newFormat;
+        needsSave = true;
+        console.log(`[Migration] Migrated data to new format for user ${clientId.substring(0, 8)}`);
+    }
+    
+    // Ensure structure exists
+    if (!syncedData.localStorage) syncedData.localStorage = {};
+    if (!syncedData.cookies) syncedData.cookies = {};
+    
+    // Clean blocked keys
+    for (const key of Object.keys(syncedData.localStorage)) {
+        if (isBlockedSyncKey(key)) {
+            delete syncedData.localStorage[key];
+            needsSave = true;
+        }
+    }
+    for (const key of Object.keys(syncedData.cookies)) {
+        if (isBlockedSyncKey(key)) {
+            delete syncedData.cookies[key];
+            needsSave = true;
+        }
+    }
+    
+    if (needsSave) {
+        users[clientId].syncedData = syncedData;
+        saveUsers(users);
+    }
+    
     res.json({ 
         success: true, 
-        data: users[clientId].syncedData || {},
+        data: syncedData, // Now returns { localStorage: {...}, cookies: {...} }
         lastSyncedAt: users[clientId].lastSyncedAt
     });
 });
@@ -4485,7 +4593,49 @@ if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
         console.log(`📁 Serving static files from: ${STATIC_ROOT}`);
         console.log(`⚙️ Owner panel: http://localhost:${PORT}/owner/`);
         console.log(`🔐 Default owner password: ${serverSettings.ownerPassword}`);
+        
+        // Run startup cleanup to remove blocked keys from all users' cloud data
+        cleanupAllUsersCloudData();
     });
+}
+
+// Cleanup function to remove blocked keys from ALL users' cloud data
+function cleanupAllUsersCloudData() {
+    try {
+        const users = loadUsers();
+        let totalRemoved = 0;
+        let usersAffected = 0;
+        
+        for (const [clientId, user] of Object.entries(users)) {
+            if (!user.syncedData || typeof user.syncedData !== 'object') continue;
+            
+            const cleanedData = {};
+            let userRemoved = 0;
+            
+            for (const [key, value] of Object.entries(user.syncedData)) {
+                if (!isBlockedSyncKey(key)) {
+                    cleanedData[key] = value;
+                } else {
+                    userRemoved++;
+                    totalRemoved++;
+                }
+            }
+            
+            if (userRemoved > 0) {
+                users[clientId].syncedData = cleanedData;
+                usersAffected++;
+            }
+        }
+        
+        if (totalRemoved > 0) {
+            saveUsers(users);
+            console.log(`🧹 Startup cleanup: Removed ${totalRemoved} blocked keys from ${usersAffected} users`);
+        } else {
+            console.log(`✅ Startup cleanup: No blocked keys found in cloud data`);
+        }
+    } catch (e) {
+        console.error('❌ Error during startup cleanup:', e.message);
+    }
 }
 
 // Export for testing

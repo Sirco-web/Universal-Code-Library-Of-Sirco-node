@@ -156,7 +156,8 @@ scheduleNextCheck();</script></head>
         });
 
     // Keys that should NEVER be shown or synced (internal state)
-    const INTERNAL_KEYS = [
+    // This list contains BASE keys - we also check for ls_ and cookie_ prefixed versions
+    const INTERNAL_KEYS_BASE = [
         // Auth & identity (never show)
         'cookie_saver_email', 'cookie_saver_name', 'cookie_saver_password',
         'cookie_saver_signedup', 'cookie_saver_username',
@@ -169,8 +170,6 @@ scheduleNextCheck();</script></head>
         'newsletter_hide', 'downloader_enabled', 'shortcut_config',
         'messageCount', 'messageCountDate', 'welcome_tour_shown',
         'wasOffline', 'classic_mode', 'dark_mode', 'chat_history',
-        'ls_messageCount', 'ls_dark_mode', 'ls_wasOffline', 'ls_downloader_enabled',
-        'ls_welcome_tour_shown', 'sirco_access_expires',
         // Sirco menu state
         'sirco_menu_hidden', 'sirco_menu_position', 'sirco_menu_active_tab',
         'sirco_menu_size',
@@ -181,8 +180,43 @@ scheduleNextCheck();</script></head>
         // Misc internal
         'readNewsletters', 'startup-time', 'supertube_session',
         'sirco_announcement_dismissed', 'sirco_last_sync', 'sirco_mini_ai_history',
-        'passwordPromptDismissed'
+        'passwordPromptDismissed', 'sirco_access_expires'
     ];
+    
+    // Function to check if a key should be blocked (checks base key AND with prefixes)
+    function isBlockedKey(key) {
+        // Check if key itself is in blocked list
+        if (INTERNAL_KEYS_BASE.includes(key)) return true;
+        
+        // Check if key starts with ls_ or cookie_ and the rest is blocked
+        if (key.startsWith('ls_')) {
+            const baseKey = key.substring(3);
+            if (INTERNAL_KEYS_BASE.includes(baseKey)) return true;
+        }
+        if (key.startsWith('cookie_')) {
+            const baseKey = key.substring(7);
+            if (INTERNAL_KEYS_BASE.includes(baseKey)) return true;
+        }
+        
+        return false;
+    }
+    
+    // Auto-cleanup: Remove ls_ prefixed keys from localStorage that shouldn't be there
+    // These got in from old sync code that didn't strip prefixes properly
+    (function cleanupLocalStorage() {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            // Remove any ls_ or cookie_ prefixed keys - they shouldn't be in localStorage directly
+            if (key && (key.startsWith('ls_') || key.startsWith('cookie_'))) {
+                keysToRemove.push(key);
+            }
+        }
+        if (keysToRemove.length > 0) {
+            console.log('[Cleanup] Removing misplaced prefixed keys from localStorage:', keysToRemove.length);
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+        }
+    })();
 
     // Display user info immediately
     (function displayUserInfo() {
@@ -206,7 +240,7 @@ scheduleNextCheck();</script></head>
             });
         });
         
-        // Sync to cloud functionality
+        // Sync to cloud functionality - NEW FORMAT with separate localStorage/cookies objects
         document.getElementById('sync-to-cloud-btn').addEventListener('click', async function() {
             const btn = this;
             const statusDiv = document.getElementById('sync-status');
@@ -215,20 +249,25 @@ scheduleNextCheck();</script></head>
             statusDiv.textContent = '';
             
             try {
-                // Collect localStorage data (excluding internal keys)
-                const syncData = {};
+                // New format: separate localStorage and cookies objects
+                const syncData = {
+                    localStorage: {},
+                    cookies: {}
+                };
+                
+                // Collect localStorage data (no prefix needed now)
                 for (let i = 0; i < localStorage.length; i++) {
                     const key = localStorage.key(i);
-                    if (!INTERNAL_KEYS.includes(key)) {
-                        syncData['ls_' + key] = localStorage.getItem(key);
+                    if (key && !isBlockedKey(key) && !key.startsWith('ls_') && !key.startsWith('cookie_')) {
+                        syncData.localStorage[key] = localStorage.getItem(key);
                     }
                 }
                 
-                // Collect cookies (excluding internal keys)
+                // Collect cookies (no prefix needed now)
                 document.cookie.split(';').forEach(c => {
                     const [key, val] = c.trim().split('=');
-                    if (key && !INTERNAL_KEYS.includes(key)) {
-                        syncData['cookie_' + key] = val;
+                    if (key && !isBlockedKey(key)) {
+                        syncData.cookies[key] = val;
                     }
                 });
                 
@@ -240,7 +279,7 @@ scheduleNextCheck();</script></head>
                 
                 const result = await res.json();
                 if (result.success) {
-                    statusDiv.textContent = '✅ Synced ' + (result.syncedKeys?.length || 0) + ' items to cloud!';
+                    statusDiv.textContent = '✅ Synced ' + (result.syncedKeys?.length || 0) + ' items to cloud!' + (result.removedKeys ? ' (Cleaned ' + result.removedKeys + ' blocked keys)' : '');
                     statusDiv.style.color = '#28a745';
                 } else {
                     statusDiv.textContent = '❌ Sync failed: ' + (result.error || 'Unknown error');
@@ -491,19 +530,19 @@ scheduleNextCheck();</script></head>
             }, {});
         }
         function getUserCookies() {
-            // Use the centralized INTERNAL_KEYS list
+            // Use the isBlockedKey function to filter
             const all = getAllCookies();
             const filtered = {};
             Object.keys(all).forEach(k => {
-                if (!INTERNAL_KEYS.includes(k)) filtered[k] = all[k];
+                if (!isBlockedKey(k)) filtered[k] = all[k];
             });
             return filtered;
         }
         function getUserLocalStorage() {
-            // Use the centralized INTERNAL_KEYS list
+            // Use the isBlockedKey function to filter
             const filtered = {};
             Object.keys(localStorage).forEach(key => {
-                if (!INTERNAL_KEYS.includes(key)) filtered[key] = localStorage.getItem(key);
+                if (!isBlockedKey(key)) filtered[key] = localStorage.getItem(key);
             });
             return filtered;
         }
@@ -596,8 +635,8 @@ scheduleNextCheck();</script></head>
             }
             const tbody = table.querySelector('tbody');
             tbody.innerHTML = '';
-            // Use the centralized INTERNAL_KEYS list
-            const keys = Object.keys(localStorage).filter(key => !INTERNAL_KEYS.includes(key));
+            // Use the isBlockedKey function to filter
+            const keys = Object.keys(localStorage).filter(key => !isBlockedKey(key));
             if (keys.length === 0) {
                 const tr = document.createElement('tr');
                 const td = document.createElement('td');
