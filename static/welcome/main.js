@@ -395,18 +395,34 @@ async function signInUser() {
 
         const data = await res.json();
 
-        if (data.success) {
-            // Save user data
-            localStorage.setItem('clientId', data.clientId);
-            localStorage.setItem('username', data.username);
-            if (data.userCode) localStorage.setItem('userCode', data.userCode);
+        if (data.success && data.user) {
+            // Save user data from user object
+            localStorage.setItem('clientId', data.user.clientId);
+            localStorage.setItem('sirco_client_id', data.user.clientId);
+            localStorage.setItem('username', data.user.username);
+            localStorage.setItem('sirco_username', data.user.username);
+            localStorage.setItem('cookie_saver_username', data.user.username);
+            if (data.user.userCode) localStorage.setItem('userCode', data.user.userCode);
+            if (data.user.accessCookieId) localStorage.setItem('accessCookieId', data.user.accessCookieId);
+            
+            // Sync data from cloud if available
+            if (data.user.syncedData && Object.keys(data.user.syncedData).length > 0) {
+                Object.entries(data.user.syncedData).forEach(([key, value]) => {
+                    if (typeof value === 'string') {
+                        localStorage.setItem(key, value);
+                    } else {
+                        localStorage.setItem(key, JSON.stringify(value));
+                    }
+                });
+                console.log('[Sirco] Synced data from cloud:', Object.keys(data.user.syncedData).length, 'items');
+            }
             
             // Remove overlay
             const overlay = document.getElementById('signin-overlay');
             if (overlay) overlay.remove();
 
             // Show welcome toast
-            showWelcomeToast(data.username);
+            showWelcomeToast(data.user.username);
             
             // Reload page to apply new session
             setTimeout(() => location.reload(), 1500);

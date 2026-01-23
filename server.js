@@ -419,7 +419,11 @@ app.use((req, res, next) => {
         '/', '/index.html', '/404.html', '/error.html',
         '/style.css', '/main.js', '/analytics.js', '/sw.js', '/analytics-sw.js',
         '/banner.html', '/version.txt', '/CNAME', '/README.md', '/LICENSE',
-        '/404-status', '/sirco-menu.js'
+        '/404-status', '/sirco-menu.js',
+        // Legacy cookie API endpoints
+        '/cookie-verify', '/cookie-signup', '/cookie-recover', '/cookie-cloud',
+        '/cookie-role', '/cookie-check-username-email', '/cookie-profile',
+        '/banned-ips', '/my-ip', '/newsletter-unsub', '/resend-verification'
     ];
     
     const PUBLIC_PREFIXES = [
@@ -1803,6 +1807,223 @@ app.get('/api/account/has-password', (req, res) => {
     }
     
     res.json({ hasPassword: !!user.passwordHash, exists: true });
+});
+
+// ============== LEGACY COOKIE-* API COMPATIBILITY ==============
+// These endpoints provide backward compatibility with the old external backend
+
+// Legacy: cookie-verify (login/verify credentials)
+app.post('/cookie-verify', (req, res) => {
+    const { username, password, last_ip_used } = req.body;
+    
+    if (!username || !password) {
+        return res.json({ valid: false, error: 'Username and password required' });
+    }
+    
+    const users = loadUsers();
+    
+    // Find user by username
+    const user = Object.values(users).find(u => 
+        u.username && u.username.toLowerCase() === username.toLowerCase().trim()
+    );
+    
+    if (!user) {
+        return res.json({ valid: false, error: 'User not found' });
+    }
+    
+    // Check if banned
+    const bannedUsers = loadBannedUsers();
+    const isBanned = bannedUsers.find(b => b.clientId === user.clientId || b.username === user.username);
+    if (isBanned) {
+        return res.json({ valid: false, error: 'Account is banned.' });
+    }
+    
+    if (!user.passwordHash) {
+        return res.json({ valid: false, error: 'No password set' });
+    }
+    
+    if (user.passwordHash !== hashPassword(password)) {
+        return res.json({ valid: false, error: 'Invalid password' });
+    }
+    
+    // Update last login
+    user.lastLoginAt = new Date().toISOString();
+    user.lastIP = getClientIP(req);
+    saveUsers(users);
+    
+    logEvent('legacy_login_success', { username: user.username }, req);
+    res.json({ valid: true, username: user.username, userCode: user.userCode });
+});
+
+// Legacy: cookie-signup (create account)
+app.post('/cookie-signup', (req, res) => {
+    const { username, password, name, email } = req.body;
+    
+    if (!username || !password) {
+        return res.json({ success: false, error: 'Username and password required' });
+    }
+    
+    if (username.length < 3 || username.length > 20) {
+        return res.json({ success: false, error: 'Username must be 3-20 characters' });
+    }
+    
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+        return res.json({ success: false, error: 'Invalid username format' });
+    }
+    
+    const users = loadUsers();
+    
+    // Check if username taken
+    const existing = Object.values(users).find(u => 
+        u.username && u.username.toLowerCase() === username.toLowerCase()
+    );
+    if (existing) {
+        return res.json({ success: false, error: 'Username already taken' });
+    }
+    
+    // Create new user
+    const clientId = uuidv4();
+    const userCode = generateUserCode();
+    
+    users[clientId] = {
+        clientId,
+        username,
+        userCode,
+        passwordHash: hashPassword(password),
+        name: name || '',
+        email: email || '',
+        createdAt: new Date().toISOString(),
+        createdIP: getClientIP(req)
+    };
+    
+    saveUsers(users);
+    logEvent('legacy_signup', { username, userCode }, req);
+    
+    res.json({ success: true, username, userCode });
+});
+
+// Legacy: cookie-recover (account recovery)
+app.post('/cookie-recover', (req, res) => {
+    const { username, email, newPassword } = req.body;
+    
+    if (!username || !email || !newPassword) {
+        return res.json({ success: false, error: 'Username, email, and new password required' });
+    }
+    
+    const users = loadUsers();
+    const user = Object.values(users).find(u => 
+        u.username && u.username.toLowerCase() === username.toLowerCase() &&
+        u.email && u.email.toLowerCase() === email.toLowerCase()
+    );
+    
+    if (!user) {
+        return res.json({ success: false, error: 'Account not found with that username and email' });
+    }
+    
+    user.passwordHash = hashPassword(newPassword);
+    user.passwordRecoveredAt = new Date().toISOString();
+    saveUsers(users);
+    
+    logEvent('legacy_password_recovery', { username: user.username }, req);
+    res.json({ success: true });
+});
+
+// Legacy: cookie-cloud (save/load cloud data)
+app.post('/cookie-cloud', (req, res) => {
+    const { username, password, data } = req.body;
+    
+    if (!username || !password) {
+        return res.json({ success: false, error: 'Username and password required' });
+    }
+    
+    const users = loadUsers();
+    const user = Object.values(users).find(u => 
+        u.username && u.username.toLowerCase() === username.toLowerCase()
+    );
+    
+    if (!user || user.passwordHash !== hashPassword(password)) {
+        return res.json({ success: false, error: 'Invalid credentials' });
+    }
+    
+    // Save data
+    if (data) {
+        user.syncedData = { ...user.syncedData, ...data };
+        saveUsers(users);
+        return res.json({ success: true });
+    }
+    
+    res.json({ success: false, error: 'No data provided' });
+});
+
+app.get('/cookie-cloud', (req, res) => {
+    const { username, password } = req.query;
+    
+    if (!username || !password) {
+        return res.json({ success: false, error: 'Username and password required' });
+    }
+    
+    const users = loadUsers();
+    const user = Object.values(users).find(u => 
+        u.username && u.username.toLowerCase() === username.toLowerCase()
+    );
+    
+    if (!user || user.passwordHash !== hashPassword(password)) {
+        return res.json({ success: false, error: 'Invalid credentials' });
+    }
+    
+    res.json({ success: true, data: user.syncedData || {} });
+});
+
+// Legacy: cookie-role (get user role)
+app.get('/cookie-role', (req, res) => {
+    const { username } = req.query;
+    
+    if (!username) {
+        return res.json({ role: 'user' });
+    }
+    
+    // Check if user is admin
+    const adminsPath = path.join(__dirname, 'static', 'admins.json');
+    let admins = [];
+    if (fs.existsSync(adminsPath)) {
+        try { admins = JSON.parse(fs.readFileSync(adminsPath, 'utf8')); } catch {}
+    }
+    
+    const isAdmin = admins.some(a => 
+        (typeof a === 'string' ? a : a.username).toLowerCase() === username.toLowerCase()
+    );
+    
+    res.json({ role: isAdmin ? 'admin' : 'user' });
+});
+
+// Legacy: cookie-check-username-email (check if username/email exists)
+app.get('/cookie-check-username-email', (req, res) => {
+    const { username, email } = req.query;
+    
+    const users = loadUsers();
+    
+    const usernameExists = username && Object.values(users).some(u => 
+        u.username && u.username.toLowerCase() === username.toLowerCase()
+    );
+    
+    const emailExists = email && Object.values(users).some(u => 
+        u.email && u.email.toLowerCase() === email.toLowerCase()
+    );
+    
+    res.json({ usernameExists, emailExists });
+});
+
+// Legacy: banned-ips (public check)
+app.get('/banned-ips', (req, res) => {
+    const ip = getClientIP(req);
+    const bannedIPs = loadBannedIPs();
+    const isBanned = bannedIPs.some(e => (typeof e === 'string' ? e : e.ip) === ip);
+    res.json({ banned: isBanned });
+});
+
+// Legacy: my-ip
+app.get('/my-ip', (req, res) => {
+    res.json({ ip: getClientIP(req) });
 });
 
 // ============== DATA SYNC ==============
