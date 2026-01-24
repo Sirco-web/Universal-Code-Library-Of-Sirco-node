@@ -2540,9 +2540,9 @@ app.get('/api/owner/user-storage', verifyOwnerToken, (req, res) => {
     });
 });
 
-// Set/update user storage key (owner only)
+// Set/update user storage key (owner only) - supports new format with storageType
 app.post('/api/owner/user-storage', verifyOwnerToken, (req, res) => {
-    const { clientId, key, value } = req.body;
+    const { clientId, storageType, key, value } = req.body;
     if (!clientId || !key) {
         return res.status(400).json({ error: 'clientId and key required' });
     }
@@ -2552,24 +2552,38 @@ app.post('/api/owner/user-storage', verifyOwnerToken, (req, res) => {
         return res.status(404).json({ error: 'User not found' });
     }
     
+    // Ensure syncedData exists with new format structure
     if (!users[clientId].syncedData) {
-        users[clientId].syncedData = {};
+        users[clientId].syncedData = { localStorage: {}, cookies: {} };
+    }
+    if (!users[clientId].syncedData.localStorage) {
+        users[clientId].syncedData.localStorage = {};
+    }
+    if (!users[clientId].syncedData.cookies) {
+        users[clientId].syncedData.cookies = {};
     }
     
-    users[clientId].syncedData[key] = value;
+    // Set value in the appropriate storage type
+    if (storageType === 'cookies') {
+        users[clientId].syncedData.cookies[key] = value;
+    } else {
+        // Default to localStorage
+        users[clientId].syncedData.localStorage[key] = value;
+    }
+    
     users[clientId].lastSyncedAt = new Date().toISOString();
     saveUsers(users);
     
     // Queue command to sync change to user's device
-    queueUserCommand(clientId, 'storage_update', { key, value, action: 'set' });
+    queueUserCommand(clientId, 'storage_update', { storageType, key, value, action: 'set' });
     
-    logEvent('owner_storage_update', { clientId, key }, req);
+    logEvent('owner_storage_update', { clientId, storageType, key }, req);
     res.json({ success: true });
 });
 
-// Delete user storage key (owner only)
+// Delete user storage key (owner only) - supports new format with storageType
 app.post('/api/owner/user-storage/delete', verifyOwnerToken, (req, res) => {
-    const { clientId, key } = req.body;
+    const { clientId, storageType, key } = req.body;
     if (!clientId || !key) {
         return res.status(400).json({ error: 'clientId and key required' });
     }
@@ -2579,14 +2593,32 @@ app.post('/api/owner/user-storage/delete', verifyOwnerToken, (req, res) => {
         return res.status(404).json({ error: 'User not found' });
     }
     
-    if (users[clientId].syncedData && users[clientId].syncedData[key] !== undefined) {
+    let deleted = false;
+    
+    // Check if data is in new format
+    if (users[clientId].syncedData?.localStorage || users[clientId].syncedData?.cookies) {
+        if (storageType === 'cookies' && users[clientId].syncedData.cookies) {
+            if (users[clientId].syncedData.cookies[key] !== undefined) {
+                delete users[clientId].syncedData.cookies[key];
+                deleted = true;
+            }
+        } else if (users[clientId].syncedData.localStorage) {
+            if (users[clientId].syncedData.localStorage[key] !== undefined) {
+                delete users[clientId].syncedData.localStorage[key];
+                deleted = true;
+            }
+        }
+    } else if (users[clientId].syncedData && users[clientId].syncedData[key] !== undefined) {
+        // Old format fallback
         delete users[clientId].syncedData[key];
+        deleted = true;
+    }
+    
+    if (deleted) {
         saveUsers(users);
-        
         // Queue command to sync deletion to user's device
-        queueUserCommand(clientId, 'storage_update', { key, action: 'delete' });
-        
-        logEvent('owner_storage_delete', { clientId, key }, req);
+        queueUserCommand(clientId, 'storage_update', { storageType, key, action: 'delete' });
+        logEvent('owner_storage_delete', { clientId, storageType, key }, req);
     }
     
     res.json({ success: true });

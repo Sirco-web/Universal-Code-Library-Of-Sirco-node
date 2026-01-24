@@ -520,9 +520,11 @@
                     <input type="hidden" id="storage-clientId">
                     <div style="display:flex;gap:10px;margin-bottom:15px">
                         <button class="btn btn-primary" onclick="loadUserStorage()">🔄 Refresh</button>
-                        <button class="btn" style="background:#28a745;color:#fff" onclick="showAddStorageModal()">➕ Add New Key</button>
+                        <button class="btn" style="background:#28a745;color:#fff" onclick="showAddStorageModal('localStorage')">➕ Add LocalStorage Key</button>
+                        <button class="btn" style="background:#f59e0b;color:#000" onclick="showAddStorageModal('cookies')">➕ Add Cookie</button>
                     </div>
-                    <h4 style="margin-top:15px">🍪 Synced Data (Cookies/LocalStorage)</h4>
+                    
+                    <h4 style="margin-top:15px">📦 LocalStorage</h4>
                     <table class="log-table">
                         <thead>
                             <tr>
@@ -531,7 +533,21 @@
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="user-storage-table">
+                        <tbody id="user-localstorage-table">
+                            <tr><td colspan="3">Search for a user first</td></tr>
+                        </tbody>
+                    </table>
+                    
+                    <h4 style="margin-top:20px">🍪 Cookies</h4>
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th>Cookie Name</th>
+                                <th>Value</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-cookies-table">
                             <tr><td colspan="3">Search for a user first</td></tr>
                         </tbody>
                     </table>
@@ -1403,39 +1419,76 @@
                 return;
             }
             
-            const tbody = document.getElementById('user-storage-table');
-            tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+            const lsTable = document.getElementById('user-localstorage-table');
+            const cookiesTable = document.getElementById('user-cookies-table');
+            lsTable.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+            cookiesTable.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
             
             try {
                 const result = await api(`/user-storage?clientId=${clientId}`);
                 if (result.success && result.data) {
-                    const keys = Object.keys(result.data);
-                    if (keys.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="3">No synced data</td></tr>';
-                        return;
-                    }
+                    const data = result.data;
                     
-                    tbody.innerHTML = keys.map(key => {
-                        const value = result.data[key];
-                        const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
-                        const truncated = displayValue.length > 100 ? displayValue.substring(0, 100) + '...' : displayValue;
-                        return `
-                            <tr>
-                                <td><strong>${escapeHtml(key)}</strong></td>
-                                <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis" title="${escapeHtml(displayValue)}">${escapeHtml(truncated)}</td>
-                                <td>
-                                    <button class="btn btn-primary" style="padding:5px 10px;font-size:12px" onclick="editStorageKey('${escapeHtml(key)}')">✏️ Edit</button>
-                                    <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="deleteStorageKey('${escapeHtml(key)}')">🗑️ Delete</button>
-                                </td>
-                            </tr>
-                        `;
-                    }).join('');
+                    // Check if data is in new format { localStorage: {}, cookies: {} }
+                    if (data.localStorage || data.cookies) {
+                        // New format - render separately
+                        renderStorageTable(lsTable, data.localStorage || {}, 'localStorage');
+                        renderStorageTable(cookiesTable, data.cookies || {}, 'cookies');
+                    } else {
+                        // Old format - parse keys by prefix
+                        const localStorage = {};
+                        const cookies = {};
+                        
+                        for (const [key, value] of Object.entries(data)) {
+                            if (key === 'localStorage' && typeof value === 'object') {
+                                Object.assign(localStorage, value);
+                            } else if (key === 'cookies' && typeof value === 'object') {
+                                Object.assign(cookies, value);
+                            } else if (key.startsWith('ls_')) {
+                                localStorage[key.substring(3)] = value;
+                            } else if (key.startsWith('cookie_')) {
+                                cookies[key.substring(7)] = value;
+                            } else {
+                                // Default to localStorage
+                                localStorage[key] = value;
+                            }
+                        }
+                        
+                        renderStorageTable(lsTable, localStorage, 'localStorage');
+                        renderStorageTable(cookiesTable, cookies, 'cookies');
+                    }
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="3">No synced data</td></tr>';
+                    lsTable.innerHTML = '<tr><td colspan="3">No synced data</td></tr>';
+                    cookiesTable.innerHTML = '<tr><td colspan="3">No synced data</td></tr>';
                 }
             } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="3">Error loading data</td></tr>';
+                lsTable.innerHTML = '<tr><td colspan="3">Error loading data</td></tr>';
+                cookiesTable.innerHTML = '<tr><td colspan="3">Error loading data</td></tr>';
             }
+        }
+        
+        function renderStorageTable(tbody, dataObj, storageType) {
+            const keys = Object.keys(dataObj);
+            if (keys.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="color:#6b7280">No data</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = keys.sort().map(key => {
+                const value = dataObj[key];
+                const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                const truncated = displayValue.length > 100 ? displayValue.substring(0, 100) + '...' : displayValue;
+                return `
+                    <tr>
+                        <td><strong>${escapeHtml(key)}</strong></td>
+                        <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;font-family:monospace;font-size:12px" title="${escapeHtml(displayValue)}">${escapeHtml(truncated)}</td>
+                        <td>
+                            <button class="btn btn-primary" style="padding:5px 10px;font-size:12px" onclick="editStorageKey('${storageType}', '${escapeHtml(key)}')">✏️ Edit</button>
+                            <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="deleteStorageKey('${storageType}', '${escapeHtml(key)}')">🗑️ Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
         
         function escapeHtml(text) {
@@ -1444,37 +1497,48 @@
             return div.innerHTML;
         }
         
-        function showAddStorageModal() {
+        function showAddStorageModal(storageType) {
             const clientId = document.getElementById('storage-clientId').value;
             if (!clientId) {
                 alert('No user selected');
                 return;
             }
             
-            const key = prompt('Enter key name:');
+            const typeName = storageType === 'cookies' ? 'cookie' : 'localStorage';
+            const key = prompt(`Enter ${typeName} key name:`);
             if (!key) return;
             
             const value = prompt('Enter value (JSON for objects):');
             if (value === null) return;
             
-            saveStorageKey(key, value);
+            saveStorageKey(storageType, key, value);
         }
         
-        async function editStorageKey(key) {
+        async function editStorageKey(storageType, key) {
             const clientId = document.getElementById('storage-clientId').value;
             
             // Get current value
             const result = await api(`/user-storage?clientId=${clientId}`);
-            const currentValue = result.data?.[key];
+            let currentValue;
+            
+            // Handle both old and new format
+            if (result.data?.localStorage || result.data?.cookies) {
+                currentValue = result.data[storageType]?.[key];
+            } else {
+                // Old format
+                const prefix = storageType === 'cookies' ? 'cookie_' : 'ls_';
+                currentValue = result.data?.[prefix + key] || result.data?.[key];
+            }
+            
             const displayValue = typeof currentValue === 'object' ? JSON.stringify(currentValue, null, 2) : String(currentValue || '');
             
             const newValue = prompt(`Edit value for "${key}":`, displayValue);
             if (newValue === null) return;
             
-            saveStorageKey(key, newValue);
+            saveStorageKey(storageType, key, newValue);
         }
         
-        async function saveStorageKey(key, value) {
+        async function saveStorageKey(storageType, key, value) {
             const clientId = document.getElementById('storage-clientId').value;
             
             // Try to parse as JSON
@@ -1488,12 +1552,13 @@
             try {
                 const result = await api('/user-storage', 'POST', { 
                     clientId, 
+                    storageType,
                     key, 
                     value: parsedValue 
                 });
                 
                 if (result.success) {
-                    alert(`✅ Key "${key}" saved`);
+                    alert(`✅ Key "${key}" saved to ${storageType}`);
                     loadUserStorage();
                 } else {
                     alert(`❌ Error: ${result.error}`);
@@ -1503,15 +1568,15 @@
             }
         }
         
-        async function deleteStorageKey(key) {
+        async function deleteStorageKey(storageType, key) {
             const clientId = document.getElementById('storage-clientId').value;
             
-            if (!confirm(`Delete key "${key}"?`)) return;
+            if (!confirm(`Delete "${key}" from ${storageType}?`)) return;
             
             try {
-                const result = await api('/user-storage/delete', 'POST', { clientId, key });
+                const result = await api('/user-storage/delete', 'POST', { clientId, storageType, key });
                 if (result.success) {
-                    alert(`✅ Key "${key}" deleted`);
+                    alert(`✅ Key "${key}" deleted from ${storageType}`);
                     loadUserStorage();
                 } else {
                     alert(`❌ Error: ${result.error}`);
