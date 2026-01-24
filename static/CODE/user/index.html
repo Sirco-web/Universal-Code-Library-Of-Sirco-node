@@ -180,8 +180,14 @@ scheduleNextCheck();</script></head>
         // Misc internal
         'readNewsletters', 'startup-time', 'supertube_session',
         'sirco_announcement_dismissed', 'sirco_last_sync', 'sirco_mini_ai_history',
-        'passwordPromptDismissed', 'sirco_access_expires'
+        'passwordPromptDismissed', 'sirco_access_expires',
+        // Reserved keys - artifacts from old broken sync (NEVER should exist)
+        'localStorage', 'cookies'
     ];
+    
+    // Immediately clean up artifact keys from old sync
+    localStorage.removeItem('localStorage');
+    localStorage.removeItem('cookies');
     
     // Function to check if a key should be blocked (checks base key AND with prefixes)
     function isBlockedKey(key) {
@@ -279,14 +285,20 @@ scheduleNextCheck();</script></head>
                 
                 const result = await res.json();
                 if (result.success) {
-                    statusDiv.textContent = '✅ Synced ' + (result.syncedKeys?.length || 0) + ' items to cloud!' + (result.removedKeys ? ' (Cleaned ' + result.removedKeys + ' blocked keys)' : '');
-                    statusDiv.style.color = '#28a745';
+                    if (result.message && result.message.includes('not registered')) {
+                        statusDiv.textContent = '⚠️ Account not registered on server. Please sign out and sign in again.';
+                        statusDiv.style.color = '#ffc107';
+                    } else {
+                        const count = typeof result.syncedKeys === 'number' ? result.syncedKeys : (result.syncedKeys?.length || 0);
+                        statusDiv.textContent = '✅ Synced ' + count + ' items to cloud!' + (result.removedKeys ? ' (Cleaned ' + result.removedKeys + ' blocked keys)' : '');
+                        statusDiv.style.color = '#28a745';
+                    }
                 } else {
                     statusDiv.textContent = '❌ Sync failed: ' + (result.error || 'Unknown error');
                     statusDiv.style.color = '#dc3545';
                 }
             } catch (e) {
-                statusDiv.textContent = '❌ Connection error';
+                statusDiv.textContent = '❌ Connection error: ' + e.message;
                 statusDiv.style.color = '#dc3545';
             }
             

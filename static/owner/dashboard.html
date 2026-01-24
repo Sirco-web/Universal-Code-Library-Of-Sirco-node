@@ -286,6 +286,7 @@
         <div class="sidebar">
             <div class="sidebar-item active" onclick="showPanel('overview')">📊 Overview</div>
             <div class="sidebar-item" onclick="showPanel('settings')">⚙️ Settings</div>
+            <div class="sidebar-item" onclick="showPanel('sessions')">🔑 Owner Sessions</div>
             <div class="sidebar-item" onclick="showPanel('users')">👥 Users</div>
             <div class="sidebar-item" onclick="showPanel('newsletter')">📰 Newsletter</div>
             <div class="sidebar-item" onclick="showPanel('timecodes')">⏱️ SuperTube Codes</div>
@@ -363,6 +364,41 @@
                     </div>
                 </div>
                 <button class="btn btn-success" onclick="saveSettings()">💾 Save Settings</button>
+            </div>
+
+            <!-- Owner Sessions Panel -->
+            <div id="panel-sessions" class="panel">
+                <h2>Owner Sessions <button class="refresh-btn" onclick="loadOwnerSessions()">🔄</button></h2>
+                <div class="card">
+                    <p style="color:#9ca3af;margin-bottom:15px">View and manage all active owner dashboard sessions. Changing the owner password will automatically revoke all sessions.</p>
+                    <div style="display:flex;gap:10px;margin-bottom:20px">
+                        <button class="btn btn-danger" onclick="revokeAllOtherSessions()">🚫 Revoke All Other Sessions</button>
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Token</th>
+                                <th>IP Address</th>
+                                <th>User Agent</th>
+                                <th>Created</th>
+                                <th>Expires</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sessions-list"></tbody>
+                    </table>
+                </div>
+                
+                <div class="card" style="background:linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.15));border:1px solid rgba(239,68,68,0.3)">
+                    <h3>🔧 Fix Access Issues</h3>
+                    <p style="color:#9ca3af;margin-bottom:15px">If users are stuck and can't reactivate their access, use these tools to fix them.</p>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        <button class="btn" style="background:#f59e0b;color:#000" onclick="fixRevokedUsers()">🔓 Fix Permanently Revoked Users</button>
+                        <button class="btn" style="background:#f59e0b;color:#000" onclick="fixRevokedCookies()">🍪 Clear Revoked Access Cookies</button>
+                        <button class="btn btn-danger" onclick="cleanupAnonymous()">🧹 Cleanup Unused Anonymous Accounts</button>
+                    </div>
+                    <div id="fix-result" style="margin-top:10px"></div>
+                </div>
             </div>
 
             <!-- Users Panel -->
@@ -718,11 +754,39 @@
     </div>
 
     <script>
-        const token = localStorage.getItem('owner_token');
+        // Get token from URL parameter or localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        let token = urlParams.get('token') || localStorage.getItem('owner_token');
+        
+        // If token came from URL, store it in localStorage
+        if (urlParams.get('token')) {
+            localStorage.setItem('owner_token', urlParams.get('token'));
+            // Remove token from URL for cleaner URLs
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
         
         if (!token) {
             window.location.href = '/owner/';
         }
+        
+        // Verify token immediately on page load to prevent redirect loops
+        let tokenVerified = false;
+        (async function verifyTokenOnLoad() {
+            try {
+                const res = await fetch('/api/owner/settings', {
+                    headers: { 'X-Owner-Token': token }
+                });
+                if (!res.ok) {
+                    localStorage.removeItem('owner_token');
+                    window.location.href = '/owner/';
+                    return;
+                }
+                tokenVerified = true;
+            } catch (e) {
+                localStorage.removeItem('owner_token');
+                window.location.href = '/owner/';
+            }
+        })();
 
         async function api(endpoint, method = 'GET', body = null) {
             const options = {
@@ -759,6 +823,86 @@
                 case 'analytics': loadAnalytics(); break;
                 case 'settings': loadSettings(); break;
                 case 'newsletter': loadNewsletterPosts(); loadNewsletterSubscribers(); break;
+                case 'sessions': loadOwnerSessions(); break;
+            }
+        }
+
+        // ============== OWNER SESSIONS ==============
+        async function loadOwnerSessions() {
+            const data = await api('/sessions');
+            if (!data) return;
+            
+            const list = document.getElementById('sessions-list');
+            list.innerHTML = data.sessions.map(s => `
+                <tr style="${s.isCurrent ? 'background:rgba(74,144,217,0.2)' : ''}">
+                    <td>${s.tokenPreview} ${s.isCurrent ? '<span style="color:#10b981;font-weight:bold">(Current)</span>' : ''}</td>
+                    <td>${s.ip}</td>
+                    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.userAgent}">${s.userAgent}</td>
+                    <td>${new Date(s.created).toLocaleString()}</td>
+                    <td>${new Date(s.expires).toLocaleString()}</td>
+                    <td>
+                        ${s.isCurrent ? '<span style="color:#9ca3af">-</span>' : `<button class="btn btn-danger btn-sm" onclick="revokeSession('${s.tokenFull}')">Revoke</button>`}
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        async function revokeSession(sessionToken) {
+            if (!confirm('Revoke this session? The user will be logged out.')) return;
+            const result = await api('/revoke-session', 'POST', { sessionToken });
+            if (result?.success) {
+                alert('Session revoked');
+                loadOwnerSessions();
+            } else {
+                alert(result?.error || 'Failed to revoke session');
+            }
+        }
+        
+        async function revokeAllOtherSessions() {
+            if (!confirm('Revoke ALL other sessions? Everyone else will be logged out.')) return;
+            const result = await api('/revoke-all-sessions', 'POST', {});
+            if (result?.success) {
+                alert(result.message);
+                loadOwnerSessions();
+            } else {
+                alert(result?.error || 'Failed to revoke sessions');
+            }
+        }
+        
+        async function fixRevokedUsers() {
+            const result = await api('/fix-revoked-users', 'POST', {});
+            const div = document.getElementById('fix-result');
+            if (result?.success) {
+                div.innerHTML = `<span style="color:#10b981">✅ ${result.message}</span>`;
+            } else {
+                div.innerHTML = `<span style="color:#ef4444">❌ ${result?.error || 'Failed'}</span>`;
+            }
+        }
+        
+        async function fixRevokedCookies() {
+            const result = await api('/fix-revoked-cookies', 'POST', {});
+            const div = document.getElementById('fix-result');
+            if (result?.success) {
+                div.innerHTML = `<span style="color:#10b981">✅ ${result.message}</span>`;
+            } else {
+                div.innerHTML = `<span style="color:#ef4444">❌ ${result?.error || 'Failed'}</span>`;
+            }
+        }
+        
+        async function cleanupAnonymous() {
+            if (!confirm('Delete all unused anonymous accounts? This will permanently remove accounts that:\\n- Have auto-generated usernames\\n- Have no password set\\n- Have no synced data\\n- Were never activated')) return;
+            
+            const div = document.getElementById('fix-result');
+            div.innerHTML = '<span style="color:#f59e0b">⏳ Cleaning up...</span>';
+            const result = await api('/cleanup-anonymous', 'POST', {});
+            if (result?.success) {
+                div.innerHTML = `<span style="color:#10b981">✅ ${result.message}</span>`;
+                if (result.deletedUsers?.length > 0) {
+                    div.innerHTML += `<br><small style="color:#9ca3af">Deleted: ${result.deletedUsers.map(u => u.username).join(', ')}</small>`;
+                }
+                loadUsers();
+            } else {
+                div.innerHTML = `<span style="color:#ef4444">❌ ${result?.error || 'Failed'}</span>`;
             }
         }
 
@@ -823,7 +967,12 @@
 
             const result = await api('/settings', 'POST', body);
             if (result?.success) {
-                alert('Settings saved successfully!');
+                if (result.passwordChanged) {
+                    alert('Settings saved! Password was changed - all sessions have been revoked. You will be logged out.');
+                    logout();
+                } else {
+                    alert('Settings saved successfully!');
+                }
             } else {
                 alert('Failed to save settings');
             }

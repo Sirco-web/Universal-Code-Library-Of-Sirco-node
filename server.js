@@ -692,7 +692,8 @@ app.post('/api/owner/authenticate', (req, res) => {
     sessions[token] = {
         created: now,
         expires: now + 24 * 60 * 60 * 1000, // 24 hours
-        ip: getClientIP(req)
+        ip: getClientIP(req),
+        userAgent: req.headers['user-agent'] || 'Unknown'
     };
     
     try {
@@ -754,6 +755,7 @@ app.post('/api/owner/settings', verifyOwnerToken, (req, res) => {
     const { tempActivationPin, permActivationPin, dynamicFolderName, adminApiPassword, ownerPassword, ownerActivationCode } = req.body;
     
     const oldFolderName = serverSettings.dynamicFolderName;
+    let passwordChanged = false;
     
     if (tempActivationPin !== undefined) serverSettings.tempActivationPin = tempActivationPin;
     if (permActivationPin !== undefined) serverSettings.permActivationPin = permActivationPin;
@@ -763,11 +765,103 @@ app.post('/api/owner/settings', verifyOwnerToken, (req, res) => {
         logEvent('folder_rename', { from: oldFolderName, to: dynamicFolderName }, req);
     }
     if (adminApiPassword) serverSettings.adminApiPassword = adminApiPassword;
-    if (ownerPassword && ownerPassword !== '********') serverSettings.ownerPassword = ownerPassword;
+    if (ownerPassword && ownerPassword !== '********') {
+        serverSettings.ownerPassword = ownerPassword;
+        passwordChanged = true;
+        
+        // Invalidate ALL owner sessions when password changes
+        const sessionsPath = path.join(DATA_DIR, 'owner-sessions.json');
+        try {
+            fs.writeFileSync(sessionsPath, '{}');
+            logEvent('owner_password_changed_sessions_cleared', {}, req);
+        } catch (e) {
+            console.error('Failed to clear owner sessions:', e.message);
+        }
+    }
     
     saveSettings();
     
-    res.json({ success: true, message: 'Settings updated' });
+    res.json({ success: true, message: 'Settings updated', passwordChanged });
+});
+
+// Get all active owner sessions
+app.get('/api/owner/sessions', verifyOwnerToken, (req, res) => {
+    const sessionsPath = path.join(DATA_DIR, 'owner-sessions.json');
+    let sessions = {};
+    if (fs.existsSync(sessionsPath)) {
+        try { sessions = JSON.parse(fs.readFileSync(sessionsPath, 'utf8')); } catch {}
+    }
+    
+    const now = Date.now();
+    const currentToken = req.headers['x-owner-token'] || req.query.token;
+    
+    // Format sessions for display
+    const sessionList = Object.entries(sessions)
+        .filter(([token, session]) => session.expires > now) // Only active sessions
+        .map(([token, session]) => ({
+            tokenPreview: token.substring(0, 8) + '...',
+            tokenFull: token,
+            created: new Date(session.created).toISOString(),
+            expires: new Date(session.expires).toISOString(),
+            ip: session.ip,
+            userAgent: session.userAgent || 'Unknown',
+            isCurrent: token === currentToken
+        }));
+    
+    res.json({ sessions: sessionList, total: sessionList.length });
+});
+
+// Revoke a specific owner session
+app.post('/api/owner/revoke-session', verifyOwnerToken, (req, res) => {
+    const { sessionToken } = req.body;
+    const currentToken = req.headers['x-owner-token'] || req.query.token;
+    
+    if (!sessionToken) {
+        return res.status(400).json({ error: 'sessionToken required' });
+    }
+    
+    if (sessionToken === currentToken) {
+        return res.status(400).json({ error: 'Cannot revoke your own session' });
+    }
+    
+    const sessionsPath = path.join(DATA_DIR, 'owner-sessions.json');
+    let sessions = {};
+    if (fs.existsSync(sessionsPath)) {
+        try { sessions = JSON.parse(fs.readFileSync(sessionsPath, 'utf8')); } catch {}
+    }
+    
+    if (sessions[sessionToken]) {
+        delete sessions[sessionToken];
+        fs.writeFileSync(sessionsPath, JSON.stringify(sessions, null, 2));
+        logEvent('owner_session_revoked', { revokedSession: sessionToken.substring(0, 8) }, req);
+        return res.json({ success: true, message: 'Session revoked' });
+    }
+    
+    res.status(404).json({ error: 'Session not found' });
+});
+
+// Revoke all OTHER owner sessions (keep current)
+app.post('/api/owner/revoke-all-sessions', verifyOwnerToken, (req, res) => {
+    const currentToken = req.headers['x-owner-token'] || req.query.token;
+    const sessionsPath = path.join(DATA_DIR, 'owner-sessions.json');
+    
+    // Keep only the current session
+    const newSessions = {};
+    let sessions = {};
+    if (fs.existsSync(sessionsPath)) {
+        try { sessions = JSON.parse(fs.readFileSync(sessionsPath, 'utf8')); } catch {}
+    }
+    
+    if (sessions[currentToken]) {
+        newSessions[currentToken] = sessions[currentToken];
+    }
+    
+    const revokedCount = Object.keys(sessions).length - Object.keys(newSessions).length;
+    
+    fs.writeFileSync(sessionsPath, JSON.stringify(newSessions, null, 2));
+    logEvent('owner_all_sessions_revoked', { count: revokedCount }, req);
+    
+    res.json({ success: true, message: `Revoked ${revokedCount} other sessions` });
 });
 
 // Get event log
@@ -899,19 +993,23 @@ app.get('/api/owner/banned-users', verifyOwnerToken, (req, res) => {
     res.json(loadBannedUsers());
 });
 
-// Revoke access cookie
-app.post('/api/owner/revoke-access', verifyOwnerToken, (req, res) => {
-    const { clientId } = req.body;
+// Revoke access cookie - ONLY removes access, user can reactivate
+app.post('/api/owner/revoke-access-cookie', verifyOwnerToken, (req, res) => {
+    const { accessCookieId } = req.body;
+    
+    if (!accessCookieId) {
+        return res.status(400).json({ error: 'accessCookieId required' });
+    }
     
     let accessCookies = loadAccessCookies();
-    if (accessCookies[clientId]) {
-        accessCookies[clientId].revoked = true;
-        accessCookies[clientId].revokedAt = new Date().toISOString();
+    if (accessCookies[accessCookieId]) {
+        // Just delete the access cookie - don't set revoked flag
+        delete accessCookies[accessCookieId];
         saveAccessCookies(accessCookies);
     }
     
-    logEvent('access_revoked', { clientId }, req);
-    res.json({ success: true });
+    logEvent('access_cookie_revoked', { accessCookieId }, req);
+    res.json({ success: true, message: 'Access cookie removed. User can reactivate.' });
 });
 
 // Force refresh for a client
@@ -1037,7 +1135,7 @@ app.post('/api/owner/user-access', verifyOwnerToken, (req, res) => {
     });
 });
 
-// Revoke user access immediately (set expiration to now)
+// Revoke user access immediately - ONLY expires their access, they can reactivate
 app.post('/api/owner/revoke-access', verifyOwnerToken, (req, res) => {
     const { clientId } = req.body;
     
@@ -1050,18 +1148,110 @@ app.post('/api/owner/revoke-access', verifyOwnerToken, (req, res) => {
         return res.status(404).json({ error: 'User not found' });
     }
     
+    // Only expire their access - DO NOT set accessRevoked flag
+    // This allows them to reactivate with a PIN
     users[clientId].accessExpires = new Date().toISOString();
     users[clientId].accessNeverExpires = false;
-    users[clientId].accessRevoked = true;
-    users[clientId].accessRevokedAt = new Date().toISOString();
+    // Remove any previous permanent revoke flags so they can reactivate
+    delete users[clientId].accessRevoked;
+    delete users[clientId].accessRevokedAt;
     saveUsers(users);
     
-    // Also queue revoke command
+    // Also delete their access cookie so they get kicked immediately
+    const accessCookies = loadAccessCookies();
+    if (users[clientId].accessCookieId && accessCookies[users[clientId].accessCookieId]) {
+        delete accessCookies[users[clientId].accessCookieId];
+        saveAccessCookies(accessCookies);
+    }
+    
+    // Queue revoke command to kick them immediately
     queueUserCommand(clientId, 'revoke', {});
     
-    logEvent('access_revoked', { clientId }, req);
+    logEvent('access_revoked', { clientId, canReactivate: true }, req);
     
-    res.json({ success: true, message: 'Access revoked' });
+    res.json({ success: true, message: 'Access revoked. User can reactivate with a PIN.' });
+});
+
+// Fix users who are stuck with accessRevoked flag (cleanup old revokes)
+app.post('/api/owner/fix-revoked-users', verifyOwnerToken, (req, res) => {
+    const users = loadUsers();
+    let fixed = 0;
+    
+    for (const clientId of Object.keys(users)) {
+        const user = users[clientId];
+        // Remove accessRevoked flag so they can reactivate
+        if (user.accessRevoked) {
+            delete user.accessRevoked;
+            delete user.accessRevokedAt;
+            fixed++;
+        }
+    }
+    
+    if (fixed > 0) {
+        saveUsers(users);
+        logEvent('fixed_revoked_users', { count: fixed }, req);
+    }
+    
+    res.json({ success: true, fixed, message: `Fixed ${fixed} users who were permanently blocked` });
+});
+
+// Clear revoked access cookies (cleanup old revokes so users can reactivate)
+app.post('/api/owner/fix-revoked-cookies', verifyOwnerToken, (req, res) => {
+    const accessCookies = loadAccessCookies();
+    let fixed = 0;
+    
+    for (const cookieId of Object.keys(accessCookies)) {
+        if (accessCookies[cookieId].revoked) {
+            // Just delete the cookie entirely instead of keeping revoked flag
+            delete accessCookies[cookieId];
+            fixed++;
+        }
+    }
+    
+    if (fixed > 0) {
+        saveAccessCookies(accessCookies);
+        logEvent('fixed_revoked_cookies', { count: fixed }, req);
+    }
+    
+    res.json({ success: true, fixed, message: `Removed ${fixed} revoked access cookies` });
+});
+
+// Delete anonymous/unused accounts (accounts that were never properly registered)
+app.post('/api/owner/cleanup-anonymous', verifyOwnerToken, (req, res) => {
+    const users = loadUsers();
+    let deleted = 0;
+    const deletedUsers = [];
+    
+    for (const clientId of Object.keys(users)) {
+        const user = users[clientId];
+        // Delete if:
+        // 1. Username starts with "Anonymous-" or "User_" (auto-generated)
+        // 2. Has no password set
+        // 3. Has no syncedData or empty syncedData
+        // 4. Was never properly activated (no accessCookieId)
+        const isAutoGenerated = user.username?.startsWith('Anonymous-') || user.username?.startsWith('User_');
+        const hasNoPassword = !user.passwordHash;
+        const hasSyncedData = user.syncedData && (
+            (user.syncedData.localStorage && Object.keys(user.syncedData.localStorage).length > 0) ||
+            (user.syncedData.cookies && Object.keys(user.syncedData.cookies).length > 0) ||
+            Object.keys(user.syncedData).length > 0
+        );
+        const hasNoAccess = !user.accessCookieId;
+        
+        // Only delete truly unused accounts
+        if (isAutoGenerated && hasNoPassword && !hasSyncedData && hasNoAccess) {
+            deletedUsers.push({ clientId, username: user.username });
+            delete users[clientId];
+            deleted++;
+        }
+    }
+    
+    if (deleted > 0) {
+        saveUsers(users);
+        logEvent('cleanup_anonymous_users', { count: deleted, users: deletedUsers.slice(0, 10) }, req);
+    }
+    
+    res.json({ success: true, deleted, message: `Deleted ${deleted} unused anonymous accounts`, deletedUsers: deletedUsers.slice(0, 20) });
 });
 
 // Bulk set access expiration for users without it
@@ -2101,7 +2291,9 @@ const NEVER_SYNC_KEYS_BASE = [
     // Keys user specifically asked to exclude
     'messageCount', 'messageCountDate', 'dark_mode', 'wasOffline', 'downloader_enabled',
     'welcome_tour_shown', 'sirco_access_expires', 'passwordPromptDismissed',
-    'shortcut_config', 'newsletter_hide', 'classic_mode'
+    'shortcut_config', 'newsletter_hide', 'classic_mode',
+    // Reserved keys - artifacts from old broken sync (NEVER should exist)
+    'localStorage', 'cookies'
 ];
 
 // Function to check if a key should be blocked (checks base key AND with prefixes)
@@ -2631,11 +2823,10 @@ app.post('/api/check-status', (req, res) => {
                         bannedAt: new Date().toISOString()
                     });
                 case 'revoke':
-                    // Revoke access cookie
+                    // Revoke access cookie - DELETE it so user can reactivate
                     const cookies = loadAccessCookies();
                     if (cookies[accessCookieId]) {
-                        cookies[accessCookieId].revoked = true;
-                        cookies[accessCookieId].revokedAt = new Date().toISOString();
+                        delete cookies[accessCookieId];
                         saveAccessCookies(cookies);
                     }
                     return res.json({ status: 'access_revoked' });
@@ -2701,41 +2892,10 @@ app.post('/api/check-status', (req, res) => {
         return res.json({ status: 'refresh_required' });
     }
     
-    // Sync user - if user doesn't exist on this server but client has valid ID, create them
-    // (reuse users variable from above)
-    if (clientId && !users[clientId]) {
-        // Generate user code for synced user
-        let userCode = generateUserCode();
-        while (Object.values(users).some(u => u.userCode === userCode)) {
-            userCode = generateUserCode();
-        }
-        
-        // User doesn't exist - create them (syncing from another server or restored backup)
-        users[clientId] = {
-            clientId,
-            username: username || 'User_' + clientId.substring(0, 8),
-            userCode,
-            accessCookieId: accessCookieId,
-            createdAt: new Date().toISOString(),
-            lastSeen: new Date().toISOString(),
-            lastIP: getClientIP(req),
-            synced: true // Mark as synced from client
-        };
-        saveUsers(users);
-        console.log(`Synced user from client: ${clientId} (${username}) [${userCode}]`);
-        logEvent('user_synced', { clientId, username, userCode }, req);
-        
-        // Also create/update access cookie record
-        if (accessCookieId && !accessCookies[accessCookieId]) {
-            accessCookies[accessCookieId] = {
-                clientId,
-                createdAt: new Date().toISOString(),
-                synced: true
-            };
-            saveAccessCookies(accessCookies);
-        }
-    } else if (users[clientId]) {
-        // Update last seen and sync username if provided
+    // DON'T auto-create users in check-status - they should register via welcome page
+    // Only update existing users' last seen
+    if (clientId && users[clientId]) {
+        // Update last seen
         users[clientId].lastSeen = new Date().toISOString();
         users[clientId].lastIP = getClientIP(req);
         // Update username if provided and different (sync from client)
@@ -4609,20 +4769,47 @@ function cleanupAllUsersCloudData() {
         for (const [clientId, user] of Object.entries(users)) {
             if (!user.syncedData || typeof user.syncedData !== 'object') continue;
             
-            const cleanedData = {};
             let userRemoved = 0;
             
-            for (const [key, value] of Object.entries(user.syncedData)) {
-                if (!isBlockedSyncKey(key)) {
-                    cleanedData[key] = value;
-                } else {
-                    userRemoved++;
-                    totalRemoved++;
+            // Check if data is in new format { localStorage: {}, cookies: {} }
+            if (user.syncedData.localStorage || user.syncedData.cookies) {
+                // Clean localStorage sub-object
+                if (user.syncedData.localStorage && typeof user.syncedData.localStorage === 'object') {
+                    for (const key of Object.keys(user.syncedData.localStorage)) {
+                        if (isBlockedSyncKey(key)) {
+                            delete user.syncedData.localStorage[key];
+                            userRemoved++;
+                            totalRemoved++;
+                        }
+                    }
+                }
+                // Clean cookies sub-object
+                if (user.syncedData.cookies && typeof user.syncedData.cookies === 'object') {
+                    for (const key of Object.keys(user.syncedData.cookies)) {
+                        if (isBlockedSyncKey(key)) {
+                            delete user.syncedData.cookies[key];
+                            userRemoved++;
+                            totalRemoved++;
+                        }
+                    }
+                }
+            } else {
+                // Old format - flat object with prefixed keys
+                const cleanedData = {};
+                for (const [key, value] of Object.entries(user.syncedData)) {
+                    if (!isBlockedSyncKey(key)) {
+                        cleanedData[key] = value;
+                    } else {
+                        userRemoved++;
+                        totalRemoved++;
+                    }
+                }
+                if (userRemoved > 0) {
+                    users[clientId].syncedData = cleanedData;
                 }
             }
             
             if (userRemoved > 0) {
-                users[clientId].syncedData = cleanedData;
                 usersAffected++;
             }
         }

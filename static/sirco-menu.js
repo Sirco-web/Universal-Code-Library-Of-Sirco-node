@@ -2585,7 +2585,9 @@
             'readNewsletters', 'startup-time', 'chat_history',
             // Keys user specifically asked to exclude
             'messageCount', 'dark_mode', 'wasOffline', 'downloader_enabled',
-            'welcome_tour_shown', 'sirco_access_expires', 'passwordPromptDismissed'
+            'welcome_tour_shown', 'sirco_access_expires', 'passwordPromptDismissed',
+            // Reserved keys - artifacts from old sync that must never exist
+            'localStorage', 'cookies'
         ];
         
         // New format: separate localStorage and cookies
@@ -2647,17 +2649,17 @@
     // Initial sync and schedule regular syncs
     if (window === window.top) {
         // Cleanup: Remove any ls_ or cookie_ prefixed keys from localStorage
-        // These got in from old sync code that didn't strip prefixes properly
+        // Also remove 'localStorage' and 'cookies' artifact keys from old broken sync
         (function cleanupMisplacedKeys() {
             const keysToRemove = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key && (key.startsWith('ls_') || key.startsWith('cookie_'))) {
+                if (key && (key.startsWith('ls_') || key.startsWith('cookie_') || key === 'localStorage' || key === 'cookies')) {
                     keysToRemove.push(key);
                 }
             }
             if (keysToRemove.length > 0) {
-                console.log('[Sirco] Removing misplaced prefixed keys:', keysToRemove.length);
+                console.log('[Sirco] Removing misplaced/artifact keys:', keysToRemove.length);
                 keysToRemove.forEach(key => localStorage.removeItem(key));
             }
         })();
